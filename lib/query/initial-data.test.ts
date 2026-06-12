@@ -50,9 +50,9 @@ describe("staffCallsParamsMatch", () => {
 });
 
 describe("analyticsParamsMatch", () => {
-  it("defaults period to week", () => {
+  it("defaults period to today", () => {
     expect(analyticsParamsMatch({}, {})).toBe(true);
-    expect(analyticsParamsMatch({ period: "month" }, { period: "week" })).toBe(false);
+    expect(analyticsParamsMatch({ period: "month" }, { period: "today" })).toBe(false);
   });
 
   it("matches portfolio periods", () => {

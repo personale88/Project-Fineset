@@ -11,7 +11,7 @@ import {
   type VisitFormValues,
 } from "./VisitForm.types";
 
-const DRAFT_DATE_FIELDS = ["dateOfBirth", "anniversary"] as const;
+const DRAFT_DATE_FIELDS = ["visitDate", "dateOfBirth", "anniversary"] as const;
 
 function normalizeLoadedDraft(
   draft: Partial<VisitDraftFields>,

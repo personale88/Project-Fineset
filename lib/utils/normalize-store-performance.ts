@@ -26,11 +26,15 @@ export function normalizeStorePerformanceRow(
     storeManagerPhone: row.storeManagerPhone ?? null,
     fieldSales: row.fieldSales ?? 0,
     userCalls: row.userCalls ?? 0,
+    avgTicketSize: row.avgTicketSize ?? 0,
+    schemesEnrolled: row.schemesEnrolled ?? 0,
     deltas: row.deltas
       ? {
           visits: row.deltas.visits ?? 0,
           revenue: row.deltas.revenue ?? 0,
           conversionRate: row.deltas.conversionRate ?? 0,
+          avgTicketSize: row.deltas.avgTicketSize ?? 0,
+          schemesEnrolled: row.deltas.schemesEnrolled ?? 0,
           fieldSales: row.deltas.fieldSales ?? 0,
           userCalls: row.deltas.userCalls ?? 0,
         }

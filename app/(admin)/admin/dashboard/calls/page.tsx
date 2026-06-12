@@ -1,28 +1,37 @@
 import { content } from "@/content/en";
-import { PortalCallsLog } from "@/components/portal/PortalCallsLog";
-import { fetchInitialPortalCalls } from "@/lib/data/portal-calls";
+import { StaffCallList } from "@/components/staff/StaffCallList";
+import { fetchInitialAdminCalls } from "@/lib/data/staff-calls";
+import { adminStoreDetailPath } from "@/lib/utils/admin-dashboard-url";
+import { parseStaffCallsSearchParams } from "@/lib/utils/staff-calls-url";
 
 interface AdminCallsPageProps {
-  searchParams: Promise<{ storeId?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export default async function AdminCallsPage({ searchParams }: AdminCallsPageProps) {
-  const { storeId } = await searchParams;
-  const initial = await fetchInitialPortalCalls(storeId);
+  const resolved = await searchParams;
+  const storeId = typeof resolved.storeId === "string" ? resolved.storeId : undefined;
+
+  if (!storeId) {
+    return (
+      <p className="text-sm text-text-secondary">
+        {content.store.portfolio.selectStorePrompt}
+      </p>
+    );
+  }
+
+  const urlFilters = parseStaffCallsSearchParams(resolved);
+  const initial = await fetchInitialAdminCalls(storeId, urlFilters);
 
   return (
-    <PortalCallsLog
-      copy={content.portal.calls}
-      common={content.common}
-      emptyMessage={content.empty.portalCalls}
-      allStoresLabel={content.portal.allStores}
-      allStaffLabel={content.portal.allStaff}
-      showStoreFilter
-      initialStoreId={storeId}
-      initialPortalCalls={initial?.data}
-      initialPortalCallsParams={initial?.params}
-      backHref={storeId ? `/admin/dashboard/stores/${storeId}` : undefined}
-      backLabel={content.common.back}
+    <StaffCallList
+      copy={content.staff}
+      emptyMessage={content.empty.staffCalls}
+      storeId={storeId}
+      initialCallsParams={urlFilters}
+      initialData={initial?.data}
+      initialParams={initial?.params}
+      backHref={adminStoreDetailPath(storeId)}
     />
   );
 }

@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/chart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStoreFieldSaleAnalytics } from "@/hooks/useStoreFieldSaleAnalytics";
+import { BUSINESS_OWNER_DASHBOARD_PATH } from "@/lib/auth/routes";
 import {
   activityTypeFromLabel,
   buildStoreFieldSalesLogHref,
@@ -94,6 +95,7 @@ type SegmentKind = "activity" | "outcome" | "area" | "customer" | "intent" | "de
 function useFieldLogNavigation(
   periodRange: StoreFieldSaleAnalytics["periodRange"],
   storeId: string,
+  dashboardBase = BUSINESS_OWNER_DASHBOARD_PATH,
 ) {
   const router = useRouter();
   const base = useMemo(
@@ -103,14 +105,15 @@ function useFieldLogNavigation(
 
   const navigate = useCallback(
     (extra: FieldLogLinkFilters) => {
-      router.push(buildStoreFieldSalesLogHref({ ...base, ...extra }));
+      router.push(buildStoreFieldSalesLogHref({ ...base, ...extra }, dashboardBase));
     },
-    [router, base],
+    [router, base, dashboardBase],
   );
 
   const href = useCallback(
-    (extra: FieldLogLinkFilters) => buildStoreFieldSalesLogHref({ ...base, ...extra }),
-    [base],
+    (extra: FieldLogLinkFilters) =>
+      buildStoreFieldSalesLogHref({ ...base, ...extra }, dashboardBase),
+    [base, dashboardBase],
   );
 
   return { navigate, href };
@@ -138,6 +141,7 @@ interface StoreFieldSalesOverviewSectionProps {
   periodLabel: string;
   deltaPeriod: string;
   storeId: string;
+  logDashboardBase?: string;
   initialData?: import("@/types").StoreFieldSaleAnalytics;
   initialParams?: import("@/types").GetAnalyticsParams;
 }
@@ -148,6 +152,7 @@ export function StoreFieldSalesOverviewSection({
   periodLabel,
   deltaPeriod,
   storeId,
+  logDashboardBase,
   initialData,
   initialParams,
 }: StoreFieldSalesOverviewSectionProps) {
@@ -179,6 +184,7 @@ export function StoreFieldSalesOverviewSection({
             storeId={storeId}
             deltaPeriod={deltaPeriod}
             periodLabel={periodLabel}
+            logDashboardBase={logDashboardBase}
           />
         )}
       </QueryLoadState>
@@ -192,15 +198,21 @@ function StoreFieldSalesOverviewContent({
   storeId,
   deltaPeriod,
   periodLabel,
+  logDashboardBase,
 }: {
   copy: FieldSalesOverviewCopy;
   data: StoreFieldSaleAnalytics;
   storeId: string;
   deltaPeriod: string;
   periodLabel: string;
+  logDashboardBase?: string;
 }) {
   const { summary, deltas } = data;
-  const { navigate, href } = useFieldLogNavigation(data.periodRange, storeId);
+  const { navigate, href } = useFieldLogNavigation(
+    data.periodRange,
+    storeId,
+    logDashboardBase,
+  );
 
   return (
     <Tabs defaultValue="overview" className="min-w-0 space-y-5">

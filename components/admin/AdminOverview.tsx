@@ -5,6 +5,7 @@ import { Building2, Users } from "lucide-react";
 import { useAdminDashboardOverview } from "@/hooks/useAnalytics";
 import { KPICard } from "@/components/analytics/KPICard";
 import { PeriodSwitcher, type PeriodValue } from "@/components/shared/PeriodSwitcher";
+import { buildPeriodSwitcherOptions } from "@/lib/utils/analytics-period-url";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
@@ -31,20 +32,14 @@ export function AdminOverview({
   initialOverview,
   initialParams,
 }: AdminOverviewProps) {
-  const [period, setPeriod] = useState<PeriodValue>("week");
+  const [period, setPeriod] = useState<PeriodValue>("today");
   const [categoryFilter, setCategoryFilter] = useState<StoreCategory | "ALL">("ALL");
   const { data, isLoading } = useAdminDashboardOverview(
     { period },
     { initialData: initialOverview, initialParams },
   );
 
-  const periodOptions = [
-    { value: "today" as const, label: admin.period.today },
-    { value: "week" as const, label: admin.period.week },
-    { value: "month" as const, label: admin.period.month },
-    { value: "last3months" as const, label: admin.period.last3months },
-    { value: "last6months" as const, label: admin.period.last6months },
-  ];
+  const periodOptions = buildPeriodSwitcherOptions(admin.period);
 
   const filteredStores = useMemo(() => {
     const stores = data?.stores ?? [];

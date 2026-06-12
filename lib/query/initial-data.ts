@@ -101,7 +101,7 @@ export const DEFAULT_VISITS_PARAMS: GetVisitsParams = {
 };
 
 export const DEFAULT_ANALYTICS_PARAMS: GetAnalyticsParams = {
-  period: "week",
+  period: "today",
 };
 
 export const DEFAULT_STORES_PARAMS = {
@@ -119,7 +119,7 @@ export function analyticsParamsMatch(
   initial: GetAnalyticsParams,
 ): boolean {
   return (
-    (current.period ?? "week") === (initial.period ?? "week") &&
+    (current.period ?? "today") === (initial.period ?? "today") &&
     (current.storeId ?? "") === (initial.storeId ?? "")
   );
 }
@@ -147,6 +147,7 @@ export function staffCallsParamsMatch(
   initial: GetStaffCallsParams,
 ): boolean {
   return (
+    (current.storeId ?? "") === (initial.storeId ?? "") &&
     (current.page ?? 1) === (initial.page ?? 1) &&
     (current.pageSize ?? 15) === (initial.pageSize ?? 15) &&
     (current.year ?? new Date().getFullYear()) ===

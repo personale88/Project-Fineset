@@ -28,6 +28,7 @@ export interface VisitFormSection {
 
 export type VisitDraftFields = Pick<
   VisitFormValues,
+  | "visitDate"
   | "customerType"
   | "visitType"
   | "sourceChannel"
@@ -62,6 +63,10 @@ function resolveDraftPurchaseStatus(
   return undefined;
 }
 
+export function getDefaultVisitDate(): Date {
+  return parseDateInput(formatDateForInput(new Date()));
+}
+
 export function getDefaultVisitValues(
   draft?: Partial<VisitDraftFields>,
 ): VisitFormValues {
@@ -70,6 +75,7 @@ export function getDefaultVisitValues(
     customerPhone: "",
     customerType: draft?.customerType ?? "NEW",
     visitType: draft?.visitType ?? "WALK_IN",
+    visitDate: draft?.visitDate ?? getDefaultVisitDate(),
     inTime: undefined,
     outTime: undefined,
     sourceChannel: draft?.sourceChannel ?? "ORGANIC_WALK_IN",
@@ -125,6 +131,7 @@ export function parseDateInput(value: string): Date {
 
 export function extractDraftFields(values: VisitFormValues): VisitDraftFields {
   return {
+    visitDate: values.visitDate,
     customerType: values.customerType,
     visitType: values.visitType,
     sourceChannel: values.sourceChannel,
@@ -160,6 +167,7 @@ export function getSectionFieldNames(
   switch (sectionId) {
     case "customer":
       return [
+        "visitDate",
         "customerPhone",
         "customerName",
         "customerType",

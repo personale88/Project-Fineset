@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 export type PeriodValue =
+  | "yesterday"
   | "today"
   | "week"
   | "month"

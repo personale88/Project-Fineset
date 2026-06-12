@@ -21,6 +21,8 @@ function makeRow(overrides: Partial<StorePerformanceRow> = {}): StorePerformance
     visits: 10,
     revenue: 1000,
     conversionRate: 50,
+    avgTicketSize: 0,
+    schemesEnrolled: 0,
     fieldSales: 0,
     userCalls: 0,
     ...overrides,

@@ -7,8 +7,8 @@ import {
   unauthorized,
 } from "@/lib/auth/session";
 import {
-  PORTAL_ACTOR_ROLES,
-  requirePortalActorContext,
+  STAFF_CALLS_ROLES,
+  requireStaffCallsContext,
 } from "@/lib/auth/resolve-staff";
 import {
   recordStaffCallOutcome,
@@ -35,9 +35,10 @@ function parseMasterSource(value: string | null): StaffCallMasterSource | null {
 export async function POST(req: Request, { params }: RouteParams) {
   const { visitId: recordId } = await params;
   const session = await getServerSession();
-  if (!requireRole(session, PORTAL_ACTOR_ROLES)) return unauthorized();
+  if (!requireRole(session, STAFF_CALLS_ROLES)) return unauthorized();
 
-  const staff = await requirePortalActorContext(session);
+  const storeId = new URL(req.url).searchParams.get("storeId") ?? undefined;
+  const staff = await requireStaffCallsContext(session, storeId);
   if (!staff) return unauthorized();
 
   const masterSource = parseMasterSource(new URL(req.url).searchParams.get("masterSource"));
@@ -65,9 +66,10 @@ export async function POST(req: Request, { params }: RouteParams) {
 export async function GET(req: Request, { params }: RouteParams) {
   const { visitId: recordId } = await params;
   const session = await getServerSession();
-  if (!requireRole(session, PORTAL_ACTOR_ROLES)) return unauthorized();
+  if (!requireRole(session, STAFF_CALLS_ROLES)) return unauthorized();
 
-  const staff = await requirePortalActorContext(session);
+  const storeId = new URL(req.url).searchParams.get("storeId") ?? undefined;
+  const staff = await requireStaffCallsContext(session, storeId);
   if (!staff) return unauthorized();
 
   const masterSource = parseMasterSource(new URL(req.url).searchParams.get("masterSource"));

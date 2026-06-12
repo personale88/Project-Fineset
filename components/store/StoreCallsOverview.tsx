@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/chart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useStoreCallAnalytics } from "@/hooks/useStoreCallAnalytics";
+import { BUSINESS_OWNER_DASHBOARD_PATH } from "@/lib/auth/routes";
 import {
   buildStoreCallsLogHref,
   intentTierFromLabel,
@@ -81,6 +82,7 @@ type SegmentChartKind = "customerType" | "purchaseStatus" | "valueTier" | "inten
 function useCallLogNavigation(
   periodRange: StoreCallAnalytics["periodRange"],
   storeId: string,
+  dashboardBase = BUSINESS_OWNER_DASHBOARD_PATH,
 ) {
   const router = useRouter();
   const base = useMemo(
@@ -90,14 +92,15 @@ function useCallLogNavigation(
 
   const navigate = useCallback(
     (extra: CallLogLinkFilters) => {
-      router.push(buildStoreCallsLogHref({ ...base, ...extra }));
+      router.push(buildStoreCallsLogHref({ ...base, ...extra }, dashboardBase));
     },
-    [router, base],
+    [router, base, dashboardBase],
   );
 
   const href = useCallback(
-    (extra: CallLogLinkFilters) => buildStoreCallsLogHref({ ...base, ...extra }),
-    [base],
+    (extra: CallLogLinkFilters) =>
+      buildStoreCallsLogHref({ ...base, ...extra }, dashboardBase),
+    [base, dashboardBase],
   );
 
   return { navigate, href, base };
@@ -125,6 +128,7 @@ interface StoreCallsOverviewSectionProps {
   periodLabel: string;
   deltaPeriod: string;
   storeId: string;
+  logDashboardBase?: string;
   initialData?: import("@/types").StoreCallAnalytics;
   initialParams?: import("@/types").GetAnalyticsParams;
 }
@@ -135,6 +139,7 @@ export function StoreCallsOverviewSection({
   periodLabel,
   deltaPeriod,
   storeId,
+  logDashboardBase,
   initialData,
   initialParams,
 }: StoreCallsOverviewSectionProps) {
@@ -166,6 +171,7 @@ export function StoreCallsOverviewSection({
             storeId={storeId}
             deltaPeriod={deltaPeriod}
             periodLabel={periodLabel}
+            logDashboardBase={logDashboardBase}
           />
         )}
       </QueryLoadState>
@@ -179,15 +185,21 @@ function StoreCallsOverviewContent({
   storeId,
   deltaPeriod,
   periodLabel,
+  logDashboardBase,
 }: {
   copy: CallsOverviewCopy;
   data: StoreCallAnalytics;
   storeId: string;
   deltaPeriod: string;
   periodLabel: string;
+  logDashboardBase?: string;
 }) {
   const { summary, deltas } = data;
-  const { navigate, href } = useCallLogNavigation(data.periodRange, storeId);
+  const { navigate, href } = useCallLogNavigation(
+    data.periodRange,
+    storeId,
+    logDashboardBase,
+  );
   const allCallsHref = href({});
 
   return (

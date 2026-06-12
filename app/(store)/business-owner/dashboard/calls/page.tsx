@@ -1,6 +1,6 @@
 import { StoreCallsPageClient } from "@/components/store/StoreCallsPageClient";
-import { fetchInitialPortalCalls } from "@/lib/data/portal-calls";
-import { parsePortalCallsSearchParams } from "@/lib/utils/portal-calls-url";
+import { fetchInitialBusinessOwnerCalls } from "@/lib/data/staff-calls";
+import { parseStaffCallsSearchParams } from "@/lib/utils/staff-calls-url";
 
 interface StoreCallsPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -8,22 +8,24 @@ interface StoreCallsPageProps {
 
 export default async function StoreCallsPage({ searchParams }: StoreCallsPageProps) {
   const resolved = await searchParams;
-  const urlFilters = parsePortalCallsSearchParams(resolved);
+  const urlFilters = parseStaffCallsSearchParams(resolved);
   const storeId =
     typeof resolved.storeId === "string" ? resolved.storeId : undefined;
 
-  let initial: Awaited<ReturnType<typeof fetchInitialPortalCalls>> = null;
-  try {
-    initial = await fetchInitialPortalCalls(storeId, urlFilters);
-  } catch (error) {
-    console.error("[store-calls] initial portal calls failed", { storeId, error });
+  let initial: Awaited<ReturnType<typeof fetchInitialBusinessOwnerCalls>> = null;
+  if (storeId) {
+    try {
+      initial = await fetchInitialBusinessOwnerCalls(storeId, urlFilters);
+    } catch (error) {
+      console.error("[store-calls] initial staff calls failed", { storeId, error });
+    }
   }
 
   return (
     <StoreCallsPageClient
       urlStoreId={storeId}
-      initialPortalCalls={initial?.data}
-      initialPortalCallsParams={initial?.params}
+      initialCalls={initial?.data}
+      initialCallsParams={initial?.params}
     />
   );
 }

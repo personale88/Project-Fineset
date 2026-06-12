@@ -6,7 +6,7 @@ import {
   unauthorized,
 } from "@/lib/auth/session";
 import { handleRouteError } from "@/lib/api/route-handler";
-import { resolveStorePortalStoreId } from "@/lib/auth/resolve-manager-store-id";
+import { resolveAnalyticsStoreId } from "@/lib/auth/resolve-manager-store-id";
 import { getStoreFieldSaleAnalytics } from "@/lib/services/store-field-sale-analytics";
 import { getAnalyticsQuerySchema } from "@/lib/validations/analytics.schema";
 
@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const startedAt = Date.now();
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["STORE_MANAGER", "BUSINESS_OWNER"])) {
+    if (!requireRole(session, ["STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN"])) {
       return unauthorized();
     }
 
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     );
     if (!query.success) return badRequest(query.error.flatten());
 
-    const storeId = await resolveStorePortalStoreId(
+    const storeId = await resolveAnalyticsStoreId(
       session,
       query.data.storeId,
     );

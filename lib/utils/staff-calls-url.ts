@@ -45,6 +45,9 @@ export function buildStaffCallsSearchParams(params: GetStaffCallsParams): string
   if (params.page != null && params.page !== defaults.page) {
     qs.set("page", String(params.page));
   }
+  if (params.storeId) {
+    qs.set("storeId", params.storeId);
+  }
 
   return qs.toString();
 }

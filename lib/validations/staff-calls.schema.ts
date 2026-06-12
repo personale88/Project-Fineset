@@ -22,6 +22,7 @@ export const staffCallMasterFilterSchema = z.enum([
 ]);
 
 export const staffCallListQuerySchema = z.object({
+  storeId: z.string().uuid().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(15),
   segment: staffCallSegmentSchema.default("ALL"),

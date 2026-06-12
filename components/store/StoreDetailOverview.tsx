@@ -12,7 +12,7 @@ import { StoreRsoPerformanceSection } from "@/components/store/StoreRsoPerforman
 import { PeriodSwitcher, type PeriodValue } from "@/components/shared/PeriodSwitcher";
 import { Button } from "@/components/ui/button";
 import { isStoreKPIs } from "@/lib/utils/type-guards";
-import { isPeriodValue } from "@/lib/utils/analytics-period-url";
+import { buildPeriodSwitcherOptions, isPeriodValue } from "@/lib/utils/analytics-period-url";
 import { formatStoreLocation } from "@/lib/utils/format-store-location";
 import {
   portalDashboardPath,
@@ -53,7 +53,7 @@ export function StoreDetailOverview({
     if (isPeriodValue(fromUrl)) return fromUrl;
     const fromInitial = initialOverviewParams?.period ?? null;
     if (isPeriodValue(fromInitial)) return fromInitial;
-    return "week";
+    return "today";
   });
 
   const setPeriod = useCallback(
@@ -103,13 +103,7 @@ export function StoreDetailOverview({
   const kpis = kpiPayload && isStoreKPIs(kpiPayload.kpis) ? kpiPayload.kpis : null;
   const deltas = kpiPayload?.kpiDeltas as StoreKPIDeltas | undefined;
 
-  const periodOptions = [
-    { value: "today" as const, label: store.period.today },
-    { value: "week" as const, label: store.period.week },
-    { value: "month" as const, label: store.period.month },
-    { value: "last3months" as const, label: store.period.last3months },
-    { value: "last6months" as const, label: store.period.last6months },
-  ];
+  const periodOptions = buildPeriodSwitcherOptions(store.period);
   const periodLabel = periodOptions.find((o) => o.value === period)?.label ?? "";
   const detail = store.storeDetail;
   const storeLocation = storeMeta

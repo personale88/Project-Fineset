@@ -4,10 +4,12 @@ import { resolveAccessibleStoreId } from "@/lib/services/manager-stores";
 import {
   getAdminDashboardOverview,
   getAdminStoreDetailAnalytics,
+  assertStoreExists,
   getStoreAnalytics,
   getStoreManagerPortfolio,
 } from "@/lib/services/analytics";
 import {
+  getAdminStoreOverviewBundle,
   getStoreOverviewBundle,
   type StoreOverviewBundle,
 } from "@/lib/services/store-overview-bundle";
@@ -58,7 +60,7 @@ export const fetchInitialStoreManagerPortfolio = cache(
       ...DEFAULT_ANALYTICS_PARAMS,
       ...overrides,
     };
-    const period = params.period ?? "week";
+    const period = params.period ?? "today";
     try {
       const data = normalizeStoreManagerPortfolio(
         await getStoreManagerPortfolio(
@@ -90,7 +92,7 @@ export const fetchInitialStoreAnalytics = cache(
       ...DEFAULT_ANALYTICS_PARAMS,
       ...overrides,
     };
-    const period = params.period ?? "week";
+    const period = params.period ?? "today";
     let storeId: string;
     try {
       storeId = await resolveAccessibleStoreId(session, params.storeId);
@@ -131,7 +133,7 @@ export const fetchInitialAdminOverview = cache(
       ...DEFAULT_ANALYTICS_PARAMS,
       ...overrides,
     };
-    const period = params.period ?? "week";
+    const period = params.period ?? "today";
     try {
       const data = await getAdminDashboardOverview(period);
       return { params: { period }, data };
@@ -151,21 +153,30 @@ export const fetchInitialStoreOverviewBundle = cache(
   ): Promise<InitialStoreOverviewBundlePayload | null> => {
     const startedAt = Date.now();
     const session = await getServerSession();
-    if (!requireRole(session, ["STORE_MANAGER", "BUSINESS_OWNER"])) return null;
+    if (!requireRole(session, ["STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN"])) {
+      return null;
+    }
 
     const params: GetAnalyticsParams = {
       ...DEFAULT_ANALYTICS_PARAMS,
       ...overrides,
     };
-    const period = params.period ?? "week";
+    const period = params.period ?? "today";
     let storeId: string;
     try {
-      storeId = await resolveAccessibleStoreId(session, params.storeId);
+      if (session.role === "MASTER_ADMIN") {
+        if (!params.storeId) return null;
+        const exists = await assertStoreExists(params.storeId);
+        if (!exists) return null;
+        storeId = params.storeId;
+      } else {
+        storeId = await resolveAccessibleStoreId(session, params.storeId);
+      }
     } catch (error) {
       console.error("[data.analytics] fetchInitialStoreOverviewBundle access denied", {
         period,
         requestedStoreId: params.storeId,
-        sessionStoreId: session.storeId,
+        sessionStoreId: "storeId" in session ? session.storeId : undefined,
         role: session.role,
         error,
       });
@@ -173,7 +184,10 @@ export const fetchInitialStoreOverviewBundle = cache(
     }
 
     try {
-      const bundle = await getStoreOverviewBundle(session, storeId, period);
+      const bundle =
+        session.role === "MASTER_ADMIN"
+          ? await getAdminStoreOverviewBundle(storeId, period)
+          : await getStoreOverviewBundle(session, storeId, period);
       return { params: { period, storeId }, bundle };
     } catch (error) {
       console.error("[data.analytics] fetchInitialStoreOverviewBundle failed", {
@@ -199,7 +213,7 @@ export const fetchInitialAdminStoreDetail = cache(
       ...DEFAULT_ANALYTICS_PARAMS,
       ...overrides,
     };
-    const period = params.period ?? "week";
+    const period = params.period ?? "today";
     const data = await getAdminStoreDetailAnalytics(storeId, period);
 
     return { storeId, params: { period }, data };

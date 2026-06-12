@@ -12,6 +12,8 @@ export interface StorePerformanceCardLabels {
   totalVisits: string;
   totalRevenue: string;
   conversionRate: string;
+  avgTicketSize: string;
+  schemesEnrolled: string;
   totalStaff: string;
   fieldSales: string;
   userCalls: string;
@@ -90,6 +92,8 @@ export function StorePerformanceCard({
     totalVisits: admin!.kpis.totalVisits,
     totalRevenue: admin!.kpis.totalRevenue,
     conversionRate: admin!.kpis.conversionRate,
+    avgTicketSize: admin!.kpis.avgTicketSize,
+    schemesEnrolled: admin!.kpis.schemesEnrolled,
     totalStaff: admin!.kpis.totalStaff,
     fieldSales: admin!.kpis.fieldSales,
     userCalls: admin!.kpis.userCalls,
@@ -159,6 +163,16 @@ export function StorePerformanceCard({
           label={cardLabels.conversionRate}
           value={formatPercent(store.conversionRate)}
           delta={store.deltas?.conversionRate}
+        />
+        <MetricItem
+          label={cardLabels.avgTicketSize}
+          value={formatCurrency(store.avgTicketSize)}
+          delta={store.deltas?.avgTicketSize}
+        />
+        <MetricItem
+          label={cardLabels.schemesEnrolled}
+          value={String(store.schemesEnrolled)}
+          delta={store.deltas?.schemesEnrolled}
         />
         <MetricItem
           label={cardLabels.fieldSales}

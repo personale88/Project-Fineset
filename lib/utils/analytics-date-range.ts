@@ -122,13 +122,15 @@ export function resolveAnalyticsDates(
   const label =
     period === "today"
       ? "Today"
-      : period === "week"
-        ? "Last 7 days"
-        : period === "month"
-          ? "Last 30 days"
-          : period === "last3months"
-            ? "Last 90 days"
-            : "Last 6 months";
+      : period === "yesterday"
+        ? "Yesterday"
+        : period === "week"
+          ? "Last 7 days"
+          : period === "month"
+            ? "Last 30 days"
+            : period === "last3months"
+              ? "Last 90 days"
+              : "Last 6 months";
   return { kind: "single", range: { start, end, label } };
 }
 

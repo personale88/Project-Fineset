@@ -239,6 +239,17 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
     };
   }
 
+  if (/\byesterday\b/.test(text)) {
+    return {
+      dateMode: "preset",
+      period: "yesterday",
+      chartTypes,
+      breakdownDimension: breakdownDimension ?? "customerType",
+      activeFilters: filterPart.activeFilters ?? [],
+      ...filterPart,
+    };
+  }
+
   if (/\btoday\b/.test(text)) {
     return {
       dateMode: "preset",
@@ -291,6 +302,7 @@ export function describeParsedIntent(intent: ParsedAnalyticsAskIntent): string {
   } else if (intent.period) {
     const labels: Record<string, string> = {
       today: "Today",
+      yesterday: "Yesterday",
       week: "Last 7 days",
       month: "Last 30 days",
       last3months: "Last 90 days",

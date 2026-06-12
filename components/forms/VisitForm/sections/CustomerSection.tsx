@@ -32,6 +32,7 @@ import {
 interface CustomerSectionProps {
   copy: VisitFormCopy;
   control: Control<VisitFormValues>;
+  visitDate: Date | undefined;
   inTime: Date | undefined;
   outTime: Date | undefined;
 }
@@ -39,12 +40,14 @@ interface CustomerSectionProps {
 export function CustomerSection({
   copy,
   control,
+  visitDate,
   inTime,
   outTime,
 }: CustomerSectionProps) {
   const fields = copy.fields;
   const { setValue, watch } = useFormContext<VisitFormValues>();
   const { lookupStatus } = useCustomerLookupPrefill({ watch, setValue });
+  const timeBase = visitDate ?? new Date();
 
   const totalDurationLabel =
     inTime && outTime && outTime > inTime
@@ -53,6 +56,29 @@ export function CustomerSection({
 
   return (
     <FormSection title={copy.sections.customer} id="section-customer">
+      <FormField
+        control={control}
+        name="visitDate"
+        render={({ field }) => (
+          <FormItem className="max-w-xs">
+            <FormLabel>{fields.saleDate.label}</FormLabel>
+            <FormControl>
+              <DatePicker
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                placeholder={fields.saleDate.placeholder}
+                toDate={new Date()}
+                captionLayout="dropdown"
+                fromYear={2020}
+                toYear={new Date().getFullYear()}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField
           control={control}
@@ -169,7 +195,7 @@ export function CustomerSection({
                   type="time"
                   value={field.value ? formatTimeForInput(field.value) : ""}
                   onChange={(event) => {
-                    field.onChange(parseTimeInput(event.target.value));
+                    field.onChange(parseTimeInput(event.target.value, timeBase));
                   }}
                 />
               </FormControl>
@@ -193,7 +219,7 @@ export function CustomerSection({
                       return;
                     }
                     field.onChange(
-                      parseTimeInput(event.target.value, inTime ?? new Date()),
+                      parseTimeInput(event.target.value, inTime ?? timeBase),
                     );
                   }}
                 />

@@ -6,8 +6,8 @@ export const paginationQuerySchema = z.object({
 });
 
 export const periodQuerySchema = z
-  .enum(["today", "week", "month", "last3months", "last6months"])
-  .default("week");
+  .enum(["yesterday", "today", "week", "month", "last3months", "last6months"])
+  .default("today");
 
 export const sortOrderSchema = z.enum(["asc", "desc"]).default("desc");
 

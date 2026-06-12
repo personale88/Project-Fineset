@@ -20,6 +20,26 @@ interface CreateVisitParams extends CreateVisitInput {
   staffId: string;
 }
 
+function startOfLocalDay(date: Date): Date {
+  const day = new Date(date);
+  day.setHours(0, 0, 0, 0);
+  return day;
+}
+
+function applyTimeToDay(day: Date, time: Date): Date {
+  const result = new Date(day);
+  result.setHours(time.getHours(), time.getMinutes(), 0, 0);
+  return result;
+}
+
+function isSameLocalDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
 export async function createVisit(params: CreateVisitParams): Promise<Visit> {
   await ensureProductionCustomerSchema();
 
@@ -41,6 +61,7 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
     followUpDate,
     purchaseStatus,
     enrollmentOutcome,
+    visitDate: visitDateInput,
     ...visitData
   } = normalizedParams;
 
@@ -93,10 +114,20 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
       },
     });
 
-    const inTime = visitData.inTime ?? new Date();
-    const outTime = visitData.outTime ?? null;
+    const visitDay = startOfLocalDay(visitDateInput ?? new Date());
+    const now = new Date();
+    const inTime = visitData.inTime
+      ? applyTimeToDay(visitDay, visitData.inTime)
+      : isSameLocalDay(visitDay, now)
+        ? now
+        : undefined;
+    const outTime =
+      visitData.outTime && inTime
+        ? applyTimeToDay(visitDay, visitData.outTime)
+        : null;
     const durationMins =
-      outTime !== null ? calculateDurationMins(inTime, outTime) : null;
+      inTime && outTime !== null ? calculateDurationMins(inTime, outTime) : null;
+    const visitDate = inTime ?? visitDay;
 
     const denorm = visitDenormFields({
       transactionAmount: visitData.transactionAmount ?? null,
@@ -125,6 +156,7 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
         storeId,
         staffId,
         customerId: customer.id,
+        visitDate,
         inTime,
         outTime,
         durationMins,

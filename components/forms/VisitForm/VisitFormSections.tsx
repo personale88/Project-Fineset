@@ -36,6 +36,7 @@ export function VisitFormSections({
 }: VisitFormSectionsProps) {
   const purchaseStatus = watch("purchaseStatus");
   const followUpNeeded = watch("followUpNeeded");
+  const visitDate = watch("visitDate");
   const inTime = watch("inTime");
   const outTime = watch("outTime");
 
@@ -45,6 +46,7 @@ export function VisitFormSections({
         <CustomerSection
           copy={copy}
           control={control}
+          visitDate={visitDate}
           inTime={inTime}
           outTime={outTime}
         />

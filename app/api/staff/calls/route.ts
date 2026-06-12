@@ -7,8 +7,8 @@ import {
 } from "@/lib/auth/session";
 import { handleRouteError } from "@/lib/api/route-handler";
 import {
-  PORTAL_ACTOR_ROLES,
-  requirePortalActorContext,
+  STAFF_CALLS_ROLES,
+  requireStaffCallsContext,
 } from "@/lib/auth/resolve-staff";
 import { listStaffCalls } from "@/lib/services/staff-calls";
 import { staffCallListQuerySchema, staffCallMasterFilterSchema } from "@/lib/validations/staff-calls.schema";
@@ -17,16 +17,16 @@ export async function GET(req: Request) {
   const startedAt = Date.now();
   try {
     const session = await getServerSession();
-    if (!requireRole(session, PORTAL_ACTOR_ROLES)) return unauthorized();
-
-    const staff = await requirePortalActorContext(session);
-    if (!staff) return unauthorized();
+    if (!requireRole(session, STAFF_CALLS_ROLES)) return unauthorized();
 
     const { searchParams } = new URL(req.url);
     const query = staffCallListQuerySchema.safeParse(
       Object.fromEntries(searchParams.entries()),
     );
     if (!query.success) return badRequest(query.error.flatten());
+
+    const staff = await requireStaffCallsContext(session, query.data.storeId);
+    if (!staff) return unauthorized();
 
     const result = await listStaffCalls({
       staffId: staff.staffId,

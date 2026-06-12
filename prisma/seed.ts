@@ -9,6 +9,9 @@ async function seedStore(data: {
   category: "JEWELRY" | "HANDBAGS" | "WATCHES" | "OTHER";
   city: string;
   state: string;
+  pincode?: string;
+  businessOwnerName?: string;
+  businessOwnerEmail?: string;
 }) {
   return prisma.store.create({ data });
 }
@@ -79,6 +82,9 @@ async function main(): Promise<void> {
     category: "JEWELRY",
     city: "Hyderabad",
     state: "Telangana",
+    pincode: "500032",
+    businessOwnerName: "Store Alpha Owner",
+    businessOwnerEmail: "manager@store-alpha.local",
   });
 
   const storeBeta = await seedStore({
@@ -86,6 +92,7 @@ async function main(): Promise<void> {
     category: "HANDBAGS",
     city: "Bengaluru",
     state: "Karnataka",
+    pincode: "560001",
   });
 
   const staffA = await seedStaff({
@@ -683,7 +690,7 @@ async function main(): Promise<void> {
     fieldSalesForStaffA: 2,
     followUps: 3,
     callLogs: 2,
-    loginHint: "Run npm run auth:bootstrap-dev && npm run db:seed:staff-calls for staff calls mock data",
+    loginHint: "Run npm run auth:bootstrap-dev && npm run db:seed:mock for 300+ edge-case mock records",
     sampleVisitId: visitAnita.id,
   });
 }

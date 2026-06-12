@@ -90,6 +90,7 @@ export class ApiError extends Error {
 }
 
 export type AnalyticsPeriodLabel =
+  | "yesterday"
   | "today"
   | "week"
   | "month"
@@ -127,6 +128,8 @@ export interface StorePerformanceDeltas {
   conversionRate: number;
   fieldSales: number;
   userCalls: number;
+  avgTicketSize: number;
+  schemesEnrolled: number;
 }
 
 export interface StorePerformanceRow {
@@ -141,6 +144,8 @@ export interface StorePerformanceRow {
   visits: number;
   revenue: number;
   conversionRate: number;
+  avgTicketSize: number;
+  schemesEnrolled: number;
   staffCount: number;
   fieldSales: number;
   userCalls: number;
@@ -495,6 +500,7 @@ export interface StaffCallOutcomeResult {
 }
 
 export interface GetStaffCallsParams {
+  storeId?: string;
   segment?: StaffCallSegment;
   valueTier?: StaffCallValueTier;
   queue?: StaffCallQueue;

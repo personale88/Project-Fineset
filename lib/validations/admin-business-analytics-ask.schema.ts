@@ -19,7 +19,7 @@ export type AnalyticsAskBody = z.infer<typeof analyticsAskBodySchema>;
 
 export const analyticsAskIntentSchema = z.object({
   dateMode: z.enum(["preset", "range", "day", "month", "compare"]),
-  period: z.enum(["today", "week", "month", "last3months", "last6months"]).optional(),
+  period: z.enum(["yesterday", "today", "week", "month", "last3months", "last6months"]).optional(),
   month: z.number().int().min(1).max(12).optional(),
   year: z.number().int().min(2000).max(2100).optional(),
   compareAMonth: z.number().int().min(1).max(12).optional(),

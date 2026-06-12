@@ -57,12 +57,24 @@ const metalKtPrefSchema = z.enum([
   "SILVER",
 ]);
 
+function endOfToday(): Date {
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
 export const createVisitSchema = z
   .object({
     customerName: z.string().min(1).max(100),
     customerPhone: phoneSchema,
     customerType: customerTypeSchema,
     visitType: visitTypeSchema,
+    visitDate: z.coerce
+      .date()
+      .optional()
+      .refine((value) => !value || value <= endOfToday(), {
+        message: "Sale date cannot be in the future",
+      }),
     inTime: z.coerce.date().optional(),
     outTime: z.coerce.date().optional(),
     sourceChannel: sourceChannelSchema,

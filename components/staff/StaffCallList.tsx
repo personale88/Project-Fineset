@@ -24,6 +24,7 @@ type StaffContent = Content["staff"];
 interface StaffCallListProps {
   copy: StaffContent;
   emptyMessage: string;
+  storeId?: string;
   initialCallsParams?: GetStaffCallsParams;
   initialData?: StaffCallListResponse;
   initialParams?: GetStaffCallsParams;
@@ -33,6 +34,7 @@ interface StaffCallListProps {
 export function StaffCallList({
   copy,
   emptyMessage,
+  storeId,
   initialCallsParams,
   initialData,
   initialParams,
@@ -45,7 +47,10 @@ export function StaffCallList({
     pagination,
     handlers,
     bindFilterCounts,
-  } = useStaffCallFilters({ initialParams: initialCallsParams });
+  } = useStaffCallFilters({
+    initialParams: initialCallsParams,
+    fixedStoreId: storeId,
+  });
 
   const { data, isLoading, isError, error, refetch } = useStaffCalls(queryParams, {
     initialData,
@@ -88,6 +93,7 @@ export function StaffCallList({
     await revealPhone.mutateAsync({
       recordId: item.recordId,
       masterSource: item.masterSource,
+      storeId,
     });
   }
 
@@ -107,6 +113,7 @@ export function StaffCallList({
         ref: {
           recordId: activeItem.recordId,
           masterSource: activeItem.masterSource,
+          storeId,
         },
         payload,
       },

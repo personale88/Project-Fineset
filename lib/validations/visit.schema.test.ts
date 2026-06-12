@@ -95,6 +95,16 @@ describe("createVisitSchema", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects sale dates in the future", () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const result = createVisitSchema.safeParse({
+      ...validPurchasedVisit,
+      visitDate: tomorrow,
+    });
+    expect(result.success).toBe(false);
+  });
+
   it("rejects out time before in time", () => {
     const result = createVisitSchema.safeParse({
       ...validPurchasedVisit,

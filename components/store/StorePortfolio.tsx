@@ -8,7 +8,7 @@ import { PeriodSwitcher, type PeriodValue } from "@/components/shared/PeriodSwit
 import { Skeleton } from "@/components/ui/skeleton";
 import { storeDetailPath } from "@/lib/utils/store-dashboard-url";
 import type { Content } from "@/content/en";
-import { isPeriodValue } from "@/lib/utils/analytics-period-url";
+import { buildPeriodSwitcherOptions, isPeriodValue } from "@/lib/utils/analytics-period-url";
 import type { GetAnalyticsParams, StoreManagerPortfolio } from "@/types";
 
 type StoreContent = Content["store"];
@@ -41,7 +41,7 @@ export function StorePortfolio({
     if (isPeriodValue(fromUrl)) return fromUrl;
     const fromInitial = initialParams?.period ?? null;
     if (isPeriodValue(fromInitial)) return fromInitial;
-    return "week";
+    return "today";
   });
 
   const setPeriod = useCallback(
@@ -61,13 +61,7 @@ export function StorePortfolio({
     initialParams,
   });
 
-  const periodOptions = [
-    { value: "today" as const, label: store.period.today },
-    { value: "week" as const, label: store.period.week },
-    { value: "month" as const, label: store.period.month },
-    { value: "last3months" as const, label: store.period.last3months },
-    { value: "last6months" as const, label: store.period.last6months },
-  ];
+  const periodOptions = buildPeriodSwitcherOptions(store.period);
 
   const stores = data?.stores ?? [];
   const loading = isLoading || isFetching;
@@ -76,6 +70,8 @@ export function StorePortfolio({
       totalVisits: store.kpis.totalVisits,
       totalRevenue: store.kpis.totalRevenue,
       conversionRate: store.kpis.conversionRate,
+      avgTicketSize: store.kpis.avgTransaction,
+      schemesEnrolled: store.rsoPerformance.table.schemesEnrolled,
       totalStaff: store.portfolio.staffCount,
       fieldSales: store.portfolio.fieldSales,
       userCalls: store.portfolio.userCalls,

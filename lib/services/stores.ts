@@ -26,6 +26,7 @@ import type { Store } from "@prisma/client";
 import type { AnalyticsPeriodLabel, StorePerformanceRow } from "@/types";
 import type { Prisma, PurchaseStatus } from "@prisma/client";
 import {
+  calculateAvgTransaction,
   calculateConversionRate,
   calculateDelta,
   calculateTotalRevenue,
@@ -491,14 +492,24 @@ export async function getStorePerformanceRows(
     }),
     prisma.visit.findMany({
       where: { visitDate: { gte: start, lte: end }, ...scopedVisitStore },
-      select: { storeId: true, purchaseStatus: true, transactionAmount: true },
+      select: {
+        storeId: true,
+        purchaseStatus: true,
+        transactionAmount: true,
+        schemeEnrolled: true,
+      },
     }),
     prisma.visit.findMany({
       where: {
         visitDate: { gte: previousRange.start, lte: previousRange.end },
         ...scopedVisitStore,
       },
-      select: { storeId: true, purchaseStatus: true, transactionAmount: true },
+      select: {
+        storeId: true,
+        purchaseStatus: true,
+        transactionAmount: true,
+        schemeEnrolled: true,
+      },
     }),
     prisma.fieldSale.findMany({
       where: {
@@ -535,11 +546,16 @@ export async function getStorePerformanceRows(
       storeId: string;
       purchaseStatus: PurchaseStatus;
       transactionAmount: number | null;
+      schemeEnrolled: boolean;
     }>,
   ) => {
     const map = new Map<
       string,
-      Array<{ purchaseStatus: PurchaseStatus; transactionAmount: number | null }>
+      Array<{
+        purchaseStatus: PurchaseStatus;
+        transactionAmount: number | null;
+        schemeEnrolled: boolean;
+      }>
     >();
     for (const row of rows) {
       const list = map.get(row.storeId) ?? [];
@@ -582,9 +598,13 @@ export async function getStorePerformanceRows(
     const visits = current.length;
     const revenue = calculateTotalRevenue(current);
     const conversionRate = calculateConversionRate(current);
+    const avgTicketSize = calculateAvgTransaction(current);
+    const schemesEnrolled = current.filter((visit) => visit.schemeEnrolled).length;
     const previousVisits = previous.length;
     const previousRevenue = calculateTotalRevenue(previous);
     const previousConversion = calculateConversionRate(previous);
+    const previousAvgTicketSize = calculateAvgTransaction(previous);
+    const previousSchemesEnrolled = previous.filter((visit) => visit.schemeEnrolled).length;
     const fieldSales = currentFieldSalesByStore.get(store.id) ?? 0;
     const previousFieldSales = previousFieldSalesByStore.get(store.id) ?? 0;
     const userCalls = currentCallsByStore.get(store.id) ?? 0;
@@ -602,6 +622,8 @@ export async function getStorePerformanceRows(
       visits,
       revenue,
       conversionRate,
+      avgTicketSize,
+      schemesEnrolled,
       staffCount: store._count.staff,
       fieldSales,
       userCalls,
@@ -609,6 +631,8 @@ export async function getStorePerformanceRows(
         visits: calculateDelta(visits, previousVisits),
         revenue: calculateDelta(revenue, previousRevenue),
         conversionRate: calculateDelta(conversionRate, previousConversion),
+        avgTicketSize: calculateDelta(avgTicketSize, previousAvgTicketSize),
+        schemesEnrolled: calculateDelta(schemesEnrolled, previousSchemesEnrolled),
         fieldSales: calculateDelta(fieldSales, previousFieldSales),
         userCalls: calculateDelta(userCalls, previousUserCalls),
       },

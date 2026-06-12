@@ -12,6 +12,7 @@ import type { StaffCallOutcomeInput } from "@/lib/validations/staff-calls.schema
 export interface StaffCallRecordRef {
   recordId: string;
   masterSource: StaffCallMasterSource;
+  storeId?: string;
 }
 
 export async function getStaffCalls(
@@ -32,7 +33,10 @@ export async function getStaffCallFilters(
 export async function revealStaffCallPhone(
   ref: StaffCallRecordRef,
 ): Promise<StaffCallDialResult> {
-  const qs = buildQueryString({ masterSource: ref.masterSource });
+  const qs = buildQueryString({
+    masterSource: ref.masterSource,
+    storeId: ref.storeId,
+  });
   return apiFetch<StaffCallDialResult>(`/api/staff/calls/${ref.recordId}${qs}`);
 }
 
@@ -40,7 +44,10 @@ export async function submitStaffCallOutcome(
   ref: StaffCallRecordRef,
   payload: StaffCallOutcomeInput,
 ): Promise<StaffCallOutcomeResult> {
-  const qs = buildQueryString({ masterSource: ref.masterSource });
+  const qs = buildQueryString({
+    masterSource: ref.masterSource,
+    storeId: ref.storeId,
+  });
   return apiFetch<StaffCallOutcomeResult>(`/api/staff/calls/${ref.recordId}${qs}`, {
     method: "POST",
     body: JSON.stringify(payload),

@@ -1,5 +1,10 @@
 import { cache } from "react";
 import { prisma } from "@/lib/db/prisma";
+import { assertStoreExists } from "@/lib/services/analytics";
+import {
+  isStorePortalSession,
+  resolveAccessibleStoreId,
+} from "@/lib/services/manager-stores";
 import type { AppSession, StaffSession } from "@/types";
 
 export interface ResolvedStaffContext {
@@ -8,6 +13,60 @@ export interface ResolvedStaffContext {
 }
 
 export const PORTAL_ACTOR_ROLES = ["STAFF", "STORE_MANAGER"] as const;
+
+export const STAFF_CALLS_ROLES = [
+  "STAFF",
+  "STORE_MANAGER",
+  "BUSINESS_OWNER",
+  "MASTER_ADMIN",
+] as const;
+
+export async function resolveStoreManagerStaffForStore(
+  storeId: string,
+): Promise<ResolvedStaffContext | null> {
+  const staff = await prisma.staff.findFirst({
+    where: {
+      storeId,
+      role: "STORE_MANAGER",
+      isActive: true,
+    },
+    select: { id: true, storeId: true },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return staff ? { staffId: staff.id, storeId: staff.storeId } : null;
+}
+
+/** Resolves staff/store context for the shared staff call-users list. */
+export async function requireStaffCallsContext(
+  session: AppSession | null,
+  requestedStoreId?: string,
+): Promise<ResolvedStaffContext | null> {
+  if (!session) return null;
+
+  if (session.role === "STAFF" || session.role === "STORE_MANAGER") {
+    return requirePortalActorContext(session);
+  }
+
+  if (session.role === "MASTER_ADMIN") {
+    if (!requestedStoreId) return null;
+    const exists = await assertStoreExists(requestedStoreId);
+    if (!exists) return null;
+    return resolveStoreManagerStaffForStore(requestedStoreId);
+  }
+
+  if (session.role === "BUSINESS_OWNER") {
+    if (!isStorePortalSession(session)) return null;
+    try {
+      const storeId = await resolveAccessibleStoreId(session, requestedStoreId);
+      return resolveStoreManagerStaffForStore(storeId);
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
 
 export async function requireStaffContext(
   session: AppSession | null,

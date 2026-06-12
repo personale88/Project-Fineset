@@ -15,6 +15,12 @@ export function getPeriodRange(
     return { start, end };
   }
 
+  if (period === "yesterday") {
+    start.setDate(start.getDate() - 1);
+    end.setDate(end.getDate() - 1);
+    return { start, end };
+  }
+
   if (period === "week") {
     start.setDate(start.getDate() - 6);
     return { start, end };
@@ -58,6 +64,15 @@ export function getPreviousPeriodRange(
   const current = getPeriodRange(period, referenceDate);
 
   if (period === "today") {
+    const start = new Date(current.start);
+    start.setDate(start.getDate() - 1);
+    const end = new Date(start);
+    end.setHours(23, 59, 59, 999);
+    start.setHours(0, 0, 0, 0);
+    return { start, end };
+  }
+
+  if (period === "yesterday") {
     const start = new Date(current.start);
     start.setDate(start.getDate() - 1);
     const end = new Date(start);

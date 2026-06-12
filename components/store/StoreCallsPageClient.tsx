@@ -1,42 +1,37 @@
 "use client";
 
 import { content } from "@/content/en";
-import { PortalCallsLog } from "@/components/portal/PortalCallsLog";
+import { StaffCallList } from "@/components/staff/StaffCallList";
 import { StoreScopedSection } from "@/components/store/StoreScopedSection";
 import { storeDetailPath } from "@/lib/utils/store-dashboard-url";
-import type { GetPortalCallsParams, PortalCallListResponse } from "@/types";
+import type { GetStaffCallsParams, StaffCallListResponse } from "@/types";
 
 interface StoreCallsPageClientProps {
   urlStoreId?: string;
-  initialPortalCalls?: PortalCallListResponse;
-  initialPortalCallsParams?: GetPortalCallsParams;
+  initialCalls?: StaffCallListResponse;
+  initialCallsParams?: GetStaffCallsParams;
 }
 
 export function StoreCallsPageClient({
   urlStoreId,
-  initialPortalCalls,
-  initialPortalCallsParams,
+  initialCalls,
+  initialCallsParams,
 }: StoreCallsPageClientProps) {
   const store = content.store;
 
   return (
     <StoreScopedSection store={store}>
       {(activeStoreId) => (
-        <PortalCallsLog
-          copy={content.portal.calls}
-          common={content.common}
-          emptyMessage={content.empty.portalCalls}
-          allStoresLabel={content.portal.allStores}
-          allStaffLabel={content.portal.allStaff}
-          initialStoreId={activeStoreId}
-          initialPortalCalls={
-            urlStoreId === activeStoreId ? initialPortalCalls : undefined
+        <StaffCallList
+          copy={content.staff}
+          emptyMessage={content.empty.staffCalls}
+          storeId={activeStoreId}
+          initialCallsParams={
+            urlStoreId === activeStoreId ? initialCallsParams : undefined
           }
-          initialPortalCallsParams={
-            urlStoreId === activeStoreId ? initialPortalCallsParams : undefined
-          }
+          initialData={urlStoreId === activeStoreId ? initialCalls : undefined}
+          initialParams={urlStoreId === activeStoreId ? initialCallsParams : undefined}
           backHref={storeDetailPath(activeStoreId)}
-          backLabel={store.storeDetail.backToPortfolio}
         />
       )}
     </StoreScopedSection>

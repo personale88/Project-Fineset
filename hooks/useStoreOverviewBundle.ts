@@ -25,7 +25,7 @@ export function useStoreOverviewBundle(
     enabled: Boolean(params.storeId),
     initialData: useInitialData
       ? {
-          period: options.initialParams!.period ?? "week",
+          period: options.initialParams!.period ?? "today",
           storeId: options.initialParams!.storeId ?? "",
           ...options.initialBundle!,
         }

@@ -1,3 +1,4 @@
+import { PORTAL_ACTOR_ROLES } from "@/lib/auth/resolve-staff";
 import { prisma } from "@/lib/db/prisma";
 import type { AnalyticsPeriod, RsoPerformanceRow, StoreRsoPerformance } from "@/types";
 import {
@@ -38,6 +39,7 @@ function buildRevenueProgressLabel(previous: number, current: number): string {
 function buildPeriodSalesLabel(sales: number, period: AnalyticsPeriod["label"]): string {
   const periodPhrases: Record<AnalyticsPeriod["label"], string> = {
     today: "today",
+    yesterday: "yesterday",
     week: "this week",
     month: "this month",
     last3months: "in the last 3 months",
@@ -71,6 +73,23 @@ function accumulateCurrentPeriodVisitStats(
 
   stats.dataEntryScoreSum += calculateVisitDataEntryScore(visit);
   stats.dataEntryVisitCount += 1;
+}
+
+function createEmptyStaffPeriodStats(staffId: string, staffName: string): StaffPeriodStats {
+  return {
+    staffId,
+    staffName,
+    previousPeriodSales: 0,
+    previousPeriodRevenue: 0,
+    currentPeriodSales: 0,
+    currentPeriodRevenue: 0,
+    customersAttended: 0,
+    purchased: 0,
+    notPurchased: 0,
+    schemesEnrolled: 0,
+    dataEntryScoreSum: 0,
+    dataEntryVisitCount: 0,
+  };
 }
 
 function toPerformanceRow(stats: StaffPeriodStats): RsoPerformanceRow {
@@ -111,7 +130,11 @@ export async function getStoreRsoPerformance(
 
   const [staff, visits] = await Promise.all([
     prisma.staff.findMany({
-      where: { storeId, isActive: true, role: "STAFF" },
+      where: {
+        storeId,
+        isActive: true,
+        role: { in: [...PORTAL_ACTOR_ROLES] },
+      },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
@@ -151,24 +174,23 @@ export async function getStoreRsoPerformance(
   ]);
 
   const statsMap = new Map<string, StaffPeriodStats>(
-    staff.map((member) => [
-      member.id,
-      {
-        staffId: member.id,
-        staffName: member.name,
-        previousPeriodSales: 0,
-        previousPeriodRevenue: 0,
-        currentPeriodSales: 0,
-        currentPeriodRevenue: 0,
-        customersAttended: 0,
-        purchased: 0,
-        notPurchased: 0,
-        schemesEnrolled: 0,
-        dataEntryScoreSum: 0,
-        dataEntryVisitCount: 0,
-      },
-    ]),
+    staff.map((member) => [member.id, createEmptyStaffPeriodStats(member.id, member.name)]),
   );
+
+  const unmappedStaffIds = [
+    ...new Set(visits.map((visit) => visit.staffId).filter((staffId) => !statsMap.has(staffId))),
+  ];
+
+  if (unmappedStaffIds.length > 0) {
+    const extraStaff = await prisma.staff.findMany({
+      where: { id: { in: unmappedStaffIds }, storeId },
+      select: { id: true, name: true },
+    });
+
+    for (const member of extraStaff) {
+      statsMap.set(member.id, createEmptyStaffPeriodStats(member.id, member.name));
+    }
+  }
 
   for (const visit of visits) {
     const stats = statsMap.get(visit.staffId);

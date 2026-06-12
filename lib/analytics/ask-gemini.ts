@@ -17,7 +17,7 @@ export async function parseIntentWithGemini(
 Return a single JSON object matching this shape:
 {
   "dateMode": "preset"|"range"|"day"|"month"|"compare",
-  "period": "today"|"week"|"month"|"last3months"|"last6months" (optional),
+  "period": "today"|"yesterday"|"week"|"month"|"last3months"|"last6months" (optional),
   "month": 1-12 (optional),
   "year": number (optional),
   "compareAMonth", "compareAYear", "compareBMonth", "compareBYear" (optional, for compare mode),

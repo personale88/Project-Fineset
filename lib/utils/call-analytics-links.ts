@@ -66,7 +66,10 @@ export function intentTierFromLabel(label: string): IntentTier | undefined {
   return INTENT_TIER_FILTER[label];
 }
 
-export function buildStoreCallsLogHref(filters: CallLogLinkFilters): string {
+export function buildStoreCallsLogHref(
+  filters: CallLogLinkFilters,
+  dashboardBase = BUSINESS_OWNER_DASHBOARD_PATH,
+): string {
   const params = new URLSearchParams();
 
   if (filters.year != null) params.set("year", String(filters.year));
@@ -80,7 +83,7 @@ export function buildStoreCallsLogHref(filters: CallLogLinkFilters): string {
   if (filters.storeId) params.set("storeId", filters.storeId);
 
   const qs = params.toString();
-  return `${BUSINESS_OWNER_DASHBOARD_PATH}/calls${qs ? `?${qs}` : ""}`;
+  return `${dashboardBase}/calls${qs ? `?${qs}` : ""}`;
 }
 
 export function mergeCallLogFilters(

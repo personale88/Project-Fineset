@@ -1,4 +1,5 @@
-import { forbidden } from "@/lib/auth/session";
+import { badRequest, forbidden, notFound } from "@/lib/auth/session";
+import { assertStoreExists } from "@/lib/services/analytics";
 import {
   isStorePortalSession,
   resolveAccessibleStoreId,
@@ -19,6 +20,26 @@ export async function resolveStorePortalStoreId(
   } catch {
     return forbidden();
   }
+}
+
+export async function resolveAnalyticsStoreId(
+  session: AppSession,
+  requestedStoreId?: string,
+): Promise<string | NextResponse> {
+  if (session.role === "MASTER_ADMIN") {
+    if (!requestedStoreId) {
+      return badRequest({ storeId: ["storeId is required"] });
+    }
+
+    const exists = await assertStoreExists(requestedStoreId);
+    if (!exists) {
+      return notFound("Store not found");
+    }
+
+    return requestedStoreId;
+  }
+
+  return resolveStorePortalStoreId(session, requestedStoreId);
 }
 
 /** @deprecated Use resolveStorePortalStoreId */

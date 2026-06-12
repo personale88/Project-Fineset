@@ -67,7 +67,10 @@ export function enrollmentOutcomeFromLabel(
   return OUTCOME_MAP[label];
 }
 
-export function buildStoreFieldSalesLogHref(filters: FieldLogLinkFilters): string {
+export function buildStoreFieldSalesLogHref(
+  filters: FieldLogLinkFilters,
+  dashboardBase = BUSINESS_OWNER_DASHBOARD_PATH,
+): string {
   const params = new URLSearchParams();
 
   if (filters.year != null) params.set("year", String(filters.year));
@@ -79,5 +82,5 @@ export function buildStoreFieldSalesLogHref(filters: FieldLogLinkFilters): strin
   if (filters.storeId) params.set("storeId", filters.storeId);
 
   const qs = params.toString();
-  return `${BUSINESS_OWNER_DASHBOARD_PATH}/field-sales${qs ? `?${qs}` : ""}`;
+  return `${dashboardBase}/field-sales${qs ? `?${qs}` : ""}`;
 }

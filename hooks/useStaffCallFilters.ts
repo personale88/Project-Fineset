@@ -21,6 +21,7 @@ import type {
 interface UseStaffCallFiltersOptions {
   initialParams?: GetStaffCallsParams;
   pageSize?: number;
+  fixedStoreId?: string;
 }
 
 function searchParamsRecord(
@@ -101,6 +102,7 @@ export function useStaffCallFilters(options: UseStaffCallFiltersOptions = {}) {
 
   const queryParams = useMemo<GetStaffCallsParams>(
     () => ({
+      ...(options.fixedStoreId ? { storeId: options.fixedStoreId } : {}),
       year,
       month,
       segment,
@@ -112,7 +114,19 @@ export function useStaffCallFilters(options: UseStaffCallFiltersOptions = {}) {
       page,
       pageSize,
     }),
-    [year, month, segment, valueTier, queue, master, birthday, anniversary, page, pageSize],
+    [
+      options.fixedStoreId,
+      year,
+      month,
+      segment,
+      valueTier,
+      queue,
+      master,
+      birthday,
+      anniversary,
+      page,
+      pageSize,
+    ],
   );
 
   const syncUrl = useCallback(
@@ -129,6 +143,7 @@ export function useStaffCallFilters(options: UseStaffCallFiltersOptions = {}) {
   const applyFilters = useCallback(
     (patch: Partial<GetStaffCallsParams>, resetPage = true) => {
       const next: GetStaffCallsParams = {
+        ...(options.fixedStoreId ? { storeId: options.fixedStoreId } : {}),
         year: patch.year ?? year,
         month: patch.month ?? month,
         segment: patch.segment ?? segment,
@@ -164,6 +179,7 @@ export function useStaffCallFilters(options: UseStaffCallFiltersOptions = {}) {
       syncUrl,
       valueTier,
       year,
+      options.fixedStoreId,
     ],
   );
 
