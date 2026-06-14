@@ -24,7 +24,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   const { id } = await params;
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["BUSINESS_OWNER"])) return unauthorized();
+    if (!requireRole(session, ["BUSINESS_OWNER", "STORE_MANAGER"])) return unauthorized();
 
     const { searchParams } = new URL(req.url);
     const resolved = await resolveStorePortalStoreId(
@@ -53,7 +53,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
   const { id } = await params;
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["BUSINESS_OWNER"])) return unauthorized();
+    if (!requireRole(session, ["BUSINESS_OWNER", "STORE_MANAGER"])) return unauthorized();
 
     const { searchParams } = new URL(req.url);
     const resolved = await resolveStorePortalStoreId(

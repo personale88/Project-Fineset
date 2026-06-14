@@ -19,6 +19,7 @@ jobs:
         run: |
           if [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ] || [ -z "$VERCEL_TOKEN" ]; then
             echo "::error::Missing GitHub secrets. Add VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROJECT_ID."
+            echo "See docs/VERCEL_STAGING_DEPLOY.md"
             exit 1
           fi
 

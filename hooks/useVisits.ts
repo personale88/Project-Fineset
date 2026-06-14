@@ -48,11 +48,11 @@ export function useCreateVisit() {
   });
 }
 
-export function useImportVisitsCsv() {
+export function useImportVisitsCsv(storeId?: string) {
   const queryClient = useQueryClient();
 
   return useMutation<VisitsImportResult, Error, File>({
-    mutationFn: (file) => importVisitsCsv(file),
+    mutationFn: (file) => importVisitsCsv(file, storeId),
     onSuccess: () => {
       void invalidatePortalData(queryClient);
     },

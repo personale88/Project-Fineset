@@ -101,9 +101,14 @@ export async function GET(request: Request) {
   });
   mark("activateProfile");
 
-  if (!profile?.isActive) {
-    logCallback("inactive", { totalMs: Date.now() - startedAt, timings });
+  if (!profile) {
+    logCallback("inactive", { totalMs: Date.now() - startedAt, timings, reason: "missing_profile" });
     return NextResponse.redirect(`${origin}/?error=account_inactive`);
+  }
+
+  if (!profile.isActive) {
+    logCallback("deactivated", { totalMs: Date.now() - startedAt, timings });
+    return NextResponse.redirect(`${origin}/?error=account_deactivated`);
   }
 
   let role = profile.role;

@@ -44,6 +44,7 @@ export function LoginScreen({ showLogo = false }: LoginScreenProps) {
             submitLabel={c.submitLabel}
             errorInvalid={c.errorInvalid}
             errorInactive={c.errorInactive}
+            errorDeactivated={c.errorDeactivated}
             errorGeneric={c.errorGeneric}
             errorWrongPortal={c.errorWrongPortal}
             errorSessionExpired={c.errorSessionExpired}

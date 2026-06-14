@@ -113,6 +113,7 @@ export const createVisitSchema = z
     followUpNeeded: z.boolean().default(false),
     followUpDate: z.coerce.date().optional(),
     staffNotes: z.string().max(500).optional(),
+    marketingOptIn: z.boolean().default(false),
   })
   .superRefine((data, ctx) => {
     if (!data.purchaseStatus) {
@@ -183,10 +184,22 @@ function optionalQueryEnum<T extends z.ZodType<string>>(schema: T) {
   );
 }
 
-export const getVisitsQuerySchema = paginationQuerySchema.extend({
+const calendarDateQuerySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD date format");
+
+function optionalQueryString(schema: z.ZodString) {
+  return z.preprocess(
+    (value) => (typeof value === "string" && value.length === 0 ? undefined : value),
+    schema.optional(),
+  );
+}
+
+export const getVisitsQuerySchema = paginationQuerySchema
+  .extend({
   search: z.string().optional(),
-  startDate: z.coerce.date().optional(),
-  endDate: z.coerce.date().optional(),
+  startDate: optionalQueryString(calendarDateQuerySchema),
+  endDate: optionalQueryString(calendarDateQuerySchema),
   sortBy: z
     .enum(["visitDate", "transactionAmount", "customerName", "purchaseStatus"])
     .default("visitDate"),
@@ -204,7 +217,16 @@ export const getVisitsQuerySchema = paginationQuerySchema.extend({
   visitType: optionalQueryEnum(visitTypeSchema),
   customerType: optionalQueryEnum(customerTypeSchema),
   sourceChannel: optionalQueryEnum(sourceChannelSchema),
-});
+})
+  .superRefine((data, ctx) => {
+    if (data.startDate && data.endDate && data.startDate > data.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "End date must be on or after start date",
+        path: ["endDate"],
+      });
+    }
+  });
 
 export type CreateVisitInput = z.infer<typeof createVisitSchema>;
 export type GetVisitsQuery = z.infer<typeof getVisitsQuerySchema>;

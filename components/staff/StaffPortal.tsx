@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardList, MapPin, Phone } from "lucide-react";
+import { ClipboardList, MapPin, Phone, CalendarClock } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DashboardNotifications } from "@/components/dashboard/DashboardNotifications";
 import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
 import type { Content } from "@/content/en";
 
@@ -21,6 +22,7 @@ const actionIcons = {
   logVisit: ClipboardList,
   callUsers: Phone,
   fieldSales: MapPin,
+  followUps: CalendarClock,
 } as const;
 
 export function StaffPortal({ copy }: StaffPortalProps) {
@@ -40,6 +42,11 @@ export function StaffPortal({ copy }: StaffPortalProps) {
       href: `${STAFF_DASHBOARD_PATH}/field-sales`,
       ...copy.portal.actions.fieldSales,
     },
+    {
+      key: "followUps" as const,
+      href: `${STAFF_DASHBOARD_PATH}/follow-ups`,
+      ...copy.portal.actions.followUps,
+    },
   ];
 
   return (
@@ -50,6 +57,8 @@ export function StaffPortal({ copy }: StaffPortalProps) {
         </h1>
         <p className="text-text-secondary">{copy.portal.subtitle}</p>
       </header>
+
+      <DashboardNotifications variant="staff" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {actions.map((action) => {

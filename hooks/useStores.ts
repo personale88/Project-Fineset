@@ -37,6 +37,8 @@ type StoreListResponse = PaginatedResponse<{
   businessOwnerName?: string | null;
   businessOwnerEmail?: string | null;
   isActive: boolean;
+  deletedAt?: string | null;
+  purgeAt?: string | null;
   staffCount: number;
   visits: number;
   revenue: number;

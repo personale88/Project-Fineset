@@ -331,6 +331,9 @@ export async function softDeleteStore(
         isActive: false,
       },
     });
+    await supabase.auth.admin.signOut(manager.authId, "global").catch((err) => {
+      console.warn("[softDeleteStore] signOut failed", manager.authId, err.message);
+    });
   }
 
   void logAuthEvent({

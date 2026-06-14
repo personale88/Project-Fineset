@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { content } from "@/content/en";
 import { StorePortfolio } from "@/components/store/StorePortfolio";
@@ -33,10 +34,13 @@ export default async function StoreDashboardPage({
   }
 
   return (
-    <StorePortfolio
-      store={content.store}
-      initialPortfolio={initial?.data}
-      initialParams={initial?.params}
-    />
+    <Suspense fallback={null}>
+      <StorePortfolio
+        store={content.store}
+        initialPortfolio={initial?.data}
+        initialParams={initial?.params}
+        initialPeriod={period}
+      />
+    </Suspense>
   );
 }

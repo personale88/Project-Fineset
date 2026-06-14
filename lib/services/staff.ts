@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { buildAppMetadata } from "@/lib/auth/activate-profile";
+import { logAuthEvent } from "@/lib/auth/audit";
 import { inviteUser } from "@/lib/auth/invite-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CreateStaffInput, UpdateStaffInput } from "@/lib/validations/staff.schema";
@@ -121,7 +122,7 @@ export async function listStaff(storeId: string) {
 }
 
 export async function createStaff(storeId: string, input: CreateStaffInput) {
-  return inviteUser({
+  const result = await inviteUser({
     name: input.name,
     email: input.email,
     password: input.password,
@@ -130,6 +131,14 @@ export async function createStaff(storeId: string, input: CreateStaffInput) {
     employeeId: input.employeeId,
     phone: input.phone,
   });
+
+  void logAuthEvent({
+    event: "STAFF_CREATED",
+    email: input.email,
+    metadata: { storeId, appUserId: result.appUserId, role: input.role },
+  });
+
+  return result;
 }
 
 export async function updateStaff(
@@ -194,7 +203,10 @@ export async function updateStaff(
 
   const appUserNeedsUpdate =
     staff.appUser &&
-    (input.name !== undefined || normalizedEmail || input.role !== undefined);
+    (input.name !== undefined ||
+      normalizedEmail ||
+      input.role !== undefined ||
+      input.isActive !== undefined);
 
   if (appUserNeedsUpdate && staff.appUser) {
     const appUserData: Prisma.AppUserUpdateInput = {};
@@ -206,6 +218,9 @@ export async function updateStaff(
     }
     if (input.role !== undefined) {
       appUserData.role = input.role;
+    }
+    if (input.isActive !== undefined) {
+      appUserData.isActive = input.isActive;
     }
     await prisma.appUser.update({
       where: { id: staff.appUser.id },
@@ -256,6 +271,33 @@ export async function updateStaff(
           error.message ?? "Failed to update staff login",
           502,
         );
+      }
+
+      if (input.isActive === false) {
+        void logAuthEvent({
+          event: "USER_DEACTIVATED",
+          authId: staff.appUser.authId,
+          email: staff.appUser.email,
+          metadata: { staffId, storeId },
+        });
+        const { error: signOutError } = await supabase.auth.admin.signOut(
+          staff.appUser.authId,
+          "global",
+        );
+        if (signOutError) {
+          console.warn(
+            "[updateStaff] global signOut failed after deactivation",
+            staff.appUser.authId,
+            signOutError.message,
+          );
+        }
+      } else if (input.isActive === true) {
+        void logAuthEvent({
+          event: "USER_ACTIVATED",
+          authId: staff.appUser.authId,
+          email: staff.appUser.email,
+          metadata: { staffId, storeId },
+        });
       }
     }
   }

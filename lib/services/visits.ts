@@ -14,6 +14,7 @@ import { calculateDurationMins } from "@/lib/utils/formatters";
 import { resolveSchemeEnrollmentFlags } from "@/lib/services/scheme-enrollment";
 import { normalizeSchemesPitched } from "@/lib/validations/scheme.schema";
 import { broadcastSyncEvent } from "@/lib/sync/broadcaster";
+import { endOfCalendarDay, startOfCalendarDay } from "@/lib/utils/calendar-date";
 
 interface CreateVisitParams extends CreateVisitInput {
   storeId: string;
@@ -59,6 +60,7 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
     anniversary,
     followUpNeeded,
     followUpDate,
+    marketingOptIn,
     purchaseStatus,
     enrollmentOutcome,
     visitDate: visitDateInput,
@@ -95,6 +97,7 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
         anniversary,
         ghsEnrolled: schemeFlags.ghsPolicy,
         activeScheme: schemeFlags.activeScheme,
+        marketingOptIn: marketingOptIn ?? false,
         storeId,
       },
       update: {
@@ -109,6 +112,7 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
         ageGroup,
         dateOfBirth,
         anniversary,
+        ...(marketingOptIn !== undefined ? { marketingOptIn } : {}),
         ...(schemeFlags.ghsPolicy ? { ghsEnrolled: true } : {}),
         ...(schemeFlags.activeScheme ? { activeScheme: schemeFlags.activeScheme } : {}),
       },
@@ -193,8 +197,8 @@ interface ListVisitsParams {
   page: number;
   pageSize: number;
   search?: string;
-  startDate?: Date;
-  endDate?: Date;
+  startDate?: Date | string;
+  endDate?: Date | string;
   sortBy: string;
   sortOrder: "asc" | "desc";
   followUpOnly?: boolean;
@@ -216,8 +220,12 @@ export async function listVisits(
 
   if (params.startDate || params.endDate) {
     where.visitDate = {};
-    if (params.startDate) where.visitDate.gte = params.startDate;
-    if (params.endDate) where.visitDate.lte = params.endDate;
+    if (params.startDate) {
+      where.visitDate.gte = startOfCalendarDay(params.startDate);
+    }
+    if (params.endDate) {
+      where.visitDate.lte = endOfCalendarDay(params.endDate);
+    }
   }
 
   if (params.followUpOnly) {

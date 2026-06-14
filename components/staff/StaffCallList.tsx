@@ -2,17 +2,21 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus, Upload } from "lucide-react";
 import {
   useRevealStaffCallPhone,
   useStaffCallFilterCounts,
   useStaffCalls,
+  useSubmitManualStaffCall,
   useSubmitStaffCallOutcome,
 } from "@/hooks/useStaffCalls";
 import { useStaffCallFilters } from "@/hooks/useStaffCallFilters";
 import { toast } from "@/hooks/useToast";
 import { CallFeedbackDialog } from "@/components/staff/CallFeedbackDialog";
+import { ManualCallDialog } from "@/components/staff/ManualCallDialog";
+import { ImportHistoryPanel, ImportModal } from "@/components/import";
 import { CallLogList, StaffCallCard, StaffCallFilterPanel } from "@/components/shared/calls";
+import { Button } from "@/components/ui/button";
 import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { content } from "@/content/en";
 import { getStaffCallsErrorMessage } from "@/lib/utils/staff-calls-errors";
@@ -29,6 +33,7 @@ interface StaffCallListProps {
   initialData?: StaffCallListResponse;
   initialParams?: GetStaffCallsParams;
   backHref?: string;
+  showImport?: boolean;
 }
 
 export function StaffCallList({
@@ -39,6 +44,7 @@ export function StaffCallList({
   initialData,
   initialParams,
   backHref = STAFF_DASHBOARD_PATH,
+  showImport = false,
 }: StaffCallListProps) {
   const {
     filters,
@@ -59,9 +65,12 @@ export function StaffCallList({
   const { data: filterCounts } = useStaffCallFilterCounts(queryParams);
   const revealPhone = useRevealStaffCallPhone();
   const submitOutcome = useSubmitStaffCallOutcome();
+  const submitManualCall = useSubmitManualStaffCall(storeId);
 
   const [activeItem, setActiveItem] = useState<StaffCallListItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [manualDialogOpen, setManualDialogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const { yearOptions, getMonthCount, getFilterCount } = bindFilterCounts(filterCounts);
 
@@ -129,6 +138,20 @@ export function StaffCallList({
     );
   }
 
+  function handleSubmitManualCall(
+    payload: Parameters<typeof submitManualCall.mutate>[0],
+  ) {
+    submitManualCall.mutate(payload, {
+      onSuccess: () => {
+        toast({ title: copy.calls.manualCall.saved });
+        setManualDialogOpen(false);
+      },
+      onError: () => {
+        toast({ title: content.errors.generic, description: copy.calls.loadError });
+      },
+    });
+  }
+
   const listEmptyMessage =
     ui.isDefaultFilters && (!data || data.data.length === 0)
       ? copy.calls.noCustomersYet
@@ -148,11 +171,35 @@ export function StaffCallList({
           <ArrowLeft className="h-4 w-4" aria-hidden />
           {copy.calls.back}
         </Link>
-        <div>
-          <h1 className="font-display text-2xl font-bold text-text-primary">
-            {copy.calls.title}
-          </h1>
-          <p className="text-sm text-text-secondary">{copy.calls.subtitle}</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-text-primary">
+              {copy.calls.title}
+            </h1>
+            <p className="text-sm text-text-secondary">{copy.calls.subtitle}</p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {showImport && storeId ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2"
+                onClick={() => setImportOpen(true)}
+              >
+                <Upload className="h-4 w-4" aria-hidden />
+                {copy.calls.importSpreadsheet}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              className="shrink-0 gap-2"
+              onClick={() => setManualDialogOpen(true)}
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              {copy.calls.logManualCall}
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -223,6 +270,30 @@ export function StaffCallList({
         isSubmitting={submitOutcome.isPending}
         onSubmit={handleSubmitOutcome}
       />
+
+      <ManualCallDialog
+        copy={copy.calls}
+        open={manualDialogOpen}
+        onOpenChange={setManualDialogOpen}
+        isSubmitting={submitManualCall.isPending}
+        onSubmit={handleSubmitManualCall}
+      />
+
+      {showImport && storeId ? (
+        <>
+          <ImportModal
+            featureKey="call_log"
+            storeId={storeId}
+            open={importOpen}
+            onClose={() => setImportOpen(false)}
+            onImportComplete={() => {
+              toast({ title: copy.calls.importSpreadsheet });
+              void refetch();
+            }}
+          />
+          <ImportHistoryPanel storeId={storeId} featureKey="call_log" />
+        </>
+      ) : null}
     </div>
   );
 }

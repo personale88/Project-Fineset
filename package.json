@@ -3,8 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "prisma generate",
+    "predev": "node scripts/ensure-prisma-client.mjs",
+    "predev:staging": "node scripts/ensure-prisma-client.mjs",
     "dev": "next dev --hostname 0.0.0.0",
+    "dev:staging": "dotenv -e .env.staging.local -- next dev --hostname 0.0.0.0",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
@@ -26,8 +28,10 @@
     "db:backfill-search": "dotenv -e .env.local -- tsx scripts/backfill-customer-search-fields.ts",
     "db:link-visits": "dotenv -e .env.local -- tsx scripts/link-visit-customers.ts",
     "db:seed:store-selector": "dotenv -e .env.local -- tsx scripts/seed-store-selector-dev.ts",
+    "db:seed:business-owner": "dotenv -e .env.local -- tsx scripts/seed-business-owner-dev.ts",
     "db:seed:staff-calls": "dotenv -e .env.local -- tsx scripts/seed-staff-calls-dev.ts",
     "db:seed:mock": "dotenv -e .env.local -- tsx scripts/seed-mock-edge-cases-dev.ts",
+    "db:seed:rso-staff": "dotenv -e .env.local -- tsx scripts/seed-rso-staff-dev.ts",
     "auth:bootstrap": "dotenv -e .env.local -- tsx scripts/bootstrap-admin.ts",
     "auth:bootstrap-dev": "dotenv -e .env.local -- tsx scripts/bootstrap-dev-users.ts",
     "auth:reset-password": "dotenv -e .env.local -- tsx scripts/reset-admin-password.ts",
@@ -43,6 +47,7 @@
     "postinstall": "prisma generate"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
     "@hookform/resolvers": "^3.9.1",
     "@prisma/client": "^6.1.0",
     "@radix-ui/react-dialog": "^1.1.4",
@@ -68,6 +73,7 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^0.469.0",
     "next": "16.2.6",
+    "papaparse": "^5.5.3",
     "react": "^18.3.1",
     "react-day-picker": "^10.0.1",
     "react-dom": "^18.3.1",
@@ -75,6 +81,7 @@
     "recharts": "^2.15.4",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
+    "xlsx": "^0.18.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -86,6 +93,7 @@
     "@testing-library/user-event": "^14.6.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20.17.10",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitest/coverage-v8": "^3.2.4",

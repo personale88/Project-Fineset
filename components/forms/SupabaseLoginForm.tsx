@@ -25,6 +25,7 @@ interface SupabaseLoginFormProps {
   submitLabel: string;
   errorInvalid: string;
   errorInactive: string;
+  errorDeactivated: string;
   errorGeneric: string;
   errorWrongPortal: string;
   errorSessionExpired: string;
@@ -45,6 +46,7 @@ export function SupabaseLoginForm({
   submitLabel,
   errorInvalid,
   errorInactive,
+  errorDeactivated,
   errorGeneric,
   errorWrongPortal,
   errorSessionExpired,
@@ -79,10 +81,11 @@ export function SupabaseLoginForm({
   const urlBootstrapError = useMemo(() => {
     if (!urlError) return null;
     if (urlError === "account_inactive") return errorInactive;
+    if (urlError === "account_deactivated") return errorDeactivated;
     if (urlError === "wrong_portal") return errorWrongPortal;
     if (urlError === "session_expired") return errorSessionExpired;
     return errorInvalid;
-  }, [urlError, errorInactive, errorWrongPortal, errorSessionExpired, errorInvalid]);
+  }, [urlError, errorInactive, errorDeactivated, errorWrongPortal, errorSessionExpired, errorInvalid]);
 
   useEffect(() => {
     if (!urlError) return;
@@ -134,6 +137,9 @@ export function SupabaseLoginForm({
               break;
             case "inactive":
               setError(errorInactive);
+              break;
+            case "deactivated":
+              setError(errorDeactivated);
               break;
             case "rate_limited":
               setError("Too many attempts. Please wait a few minutes and try again.");

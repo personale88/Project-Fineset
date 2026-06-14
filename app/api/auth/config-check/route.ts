@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireDiagnosticsAccess } from "@/lib/auth/diagnostics-access";
 import { getCustomerSchemaHealth } from "@/lib/db/customer-schema-health";
 import { ensureProductionCustomerSchema } from "@/lib/db/ensure-production-customer-schema";
 import {
@@ -70,6 +71,9 @@ async function getStoreSchemaHealth() {
  * GET /api/auth/config-check
  */
 export async function GET() {
+  const denied = await requireDiagnosticsAccess();
+  if (denied) return denied;
+
   const dbUrl = process.env.DATABASE_URL ?? "";
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 

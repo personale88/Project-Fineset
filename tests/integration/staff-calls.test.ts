@@ -247,6 +247,7 @@ describe.skipIf(!hasDb)("staff calls integration", () => {
       sourceChannel: "ORGANIC_WALK_IN",
       dateOfBirth: new Date(fixtures.year, fixtures.month - 1, 5),
       followUpNeeded: false,
+      marketingOptIn: false,
     });
 
     const stored = await prisma.visit.findUnique({

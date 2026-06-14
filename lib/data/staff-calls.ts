@@ -5,6 +5,7 @@ import {
   requireStaffContext,
   requireStaffCallsContext,
 } from "@/lib/auth/resolve-staff";
+import { resolveAccessibleStoreId } from "@/lib/services/manager-stores";
 import { listStaffCalls } from "@/lib/services/staff-calls";
 import { defaultStaffCallsParams } from "@/lib/query/initial-data";
 import type { GetStaffCallsParams, StaffCallListResponse } from "@/types";
@@ -117,14 +118,15 @@ export const fetchInitialAdminCalls = cache(
   },
 );
 
-export const fetchInitialBusinessOwnerCalls = cache(
+export const fetchInitialStorePortalCalls = cache(
   async (
-    storeId: string,
+    storeIdOverride?: string,
     overrides: GetStaffCallsParams = {},
   ): Promise<InitialStaffCallsPayload | null> => {
     const session = await getServerSession();
-    if (!requireRole(session, ["BUSINESS_OWNER"])) return null;
+    if (!requireRole(session, ["BUSINESS_OWNER", "STORE_MANAGER"])) return null;
 
+    const storeId = await resolveAccessibleStoreId(session, storeIdOverride);
     const staff = await requireStaffCallsContext(session, storeId);
     if (!staff) return null;
 
@@ -135,3 +137,6 @@ export const fetchInitialBusinessOwnerCalls = cache(
     return { params: merged, data };
   },
 );
+
+/** @deprecated Use fetchInitialStorePortalCalls */
+export const fetchInitialBusinessOwnerCalls = fetchInitialStorePortalCalls;

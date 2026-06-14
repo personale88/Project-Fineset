@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useStoreManagerPortfolio } from "@/hooks/useStoreManagerPortfolio";
 import { StorePerformanceCard } from "@/components/admin/overview/StorePerformanceCard";
 import { PeriodSwitcher, type PeriodValue } from "@/components/shared/PeriodSwitcher";
+import { BusinessOwnerStoreNotifications } from "@/components/dashboard/BusinessOwnerStoreNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import { storeDetailPath } from "@/lib/utils/store-dashboard-url";
 import type { Content } from "@/content/en";
@@ -25,24 +26,32 @@ interface StorePortfolioProps {
   store: StoreContent;
   initialPortfolio?: StoreManagerPortfolio;
   initialParams?: GetAnalyticsParams;
+  initialPeriod?: PeriodValue;
 }
 
 export function StorePortfolio({
   store,
   initialPortfolio,
   initialParams,
+  initialPeriod,
 }: StorePortfolioProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [period, setPeriodState] = useState<PeriodValue>(() => {
-    const fromUrl = searchParams.get("period");
-    if (isPeriodValue(fromUrl)) return fromUrl;
+    if (initialPeriod && isPeriodValue(initialPeriod)) return initialPeriod;
     const fromInitial = initialParams?.period ?? null;
     if (isPeriodValue(fromInitial)) return fromInitial;
     return "today";
   });
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("period");
+    if (isPeriodValue(fromUrl) && fromUrl !== period) {
+      setPeriodState(fromUrl);
+    }
+  }, [period, searchParams]);
 
   const setPeriod = useCallback(
     (value: PeriodValue) => {
@@ -94,6 +103,9 @@ export function StorePortfolio({
             {store.portfolio.title}
           </h1>
           <p className="mt-1 text-sm text-text-secondary">{store.portfolio.subtitle}</p>
+          {store.portfolio.viewOnlyHint ? (
+            <p className="mt-2 text-xs text-text-muted">{store.portfolio.viewOnlyHint}</p>
+          ) : null}
         </div>
         <PeriodSwitcher
           options={periodOptions}
@@ -102,6 +114,8 @@ export function StorePortfolio({
           className="mt-1"
         />
       </div>
+
+      <BusinessOwnerStoreNotifications />
 
       {loading ? (
         <div className={STORE_CAROUSEL_CLASS} aria-live="polite">

@@ -13,7 +13,10 @@ export type AuthAuditEvent =
   | "PASSWORD_RESET_REQUESTED"
   | "UNAUTHORIZED_ACCESS"
   | "STORE_SOFT_DELETED"
-  | "STORE_RESTORED";
+  | "STORE_RESTORED"
+  | "STAFF_CREATED"
+  | "VISIT_IMPORT"
+  | "CUSTOMER_MERGED";
 
 interface LogAuthEventParams {
   event: AuthAuditEvent;

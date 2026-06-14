@@ -70,3 +70,16 @@ export async function getStaffPerformance(
   const qs = storeId ? `?storeId=${storeId}` : "";
   return apiFetch<StaffPerformanceRow[]>(`/api/staff/performance${qs}`);
 }
+
+export async function importStaffCsv(
+  file: File,
+  storeId?: string,
+): Promise<{ createdCount: number; failedCount: number; errors: Array<{ row: number; message: string }> }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const qs = storeId ? `?storeId=${encodeURIComponent(storeId)}` : "";
+  return apiFetch(`/api/staff/import${qs}`, {
+    method: "POST",
+    body: formData,
+  });
+}

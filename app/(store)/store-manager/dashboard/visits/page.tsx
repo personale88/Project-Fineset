@@ -1,33 +1,35 @@
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-import { content } from "@/content/en";
-import { VisitForm } from "@/components/forms/VisitForm";
-import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
+import { StoreVisitsPageClient } from "@/components/store/StoreVisitsPageClient";
+import { fetchInitialStoreStaff } from "@/lib/data/staff";
+import { fetchInitialVisits } from "@/lib/data/visits";
 
-export default function StoreManagerLogVisitPage() {
+interface StoreManagerVisitsPageProps {
+  searchParams: Promise<{ storeId?: string }>;
+}
+
+export default async function StoreManagerVisitsPage({
+  searchParams,
+}: StoreManagerVisitsPageProps) {
+  const { storeId } = await searchParams;
+  let initialVisits: Awaited<ReturnType<typeof fetchInitialVisits>> = null;
+  let initialStaff: Awaited<ReturnType<typeof fetchInitialStoreStaff>> = null;
+  try {
+    [initialVisits, initialStaff] = await Promise.all([
+      fetchInitialVisits(storeId),
+      fetchInitialStoreStaff(storeId),
+    ]);
+  } catch (error) {
+    console.error("[store-manager-visits] initial data failed", { storeId, error });
+  }
+
+  const resolvedStoreId = initialVisits?.params.storeId ?? storeId;
+
   return (
-    <div className="space-y-4 lg:space-y-6">
-      <div className="space-y-3">
-        <Link
-          href={STORE_MANAGER_DASHBOARD_PATH}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary transition-colors hover:text-brand-gold"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden />
-          {content.common.back}
-        </Link>
-        <div>
-          <h1 className="font-display text-2xl font-bold text-text-primary">
-            {content.visitForm.title}
-          </h1>
-          <p className="text-text-secondary">{content.visitForm.subtitle}</p>
-        </div>
-      </div>
-
-      <VisitForm
-        copy={content.visitForm}
-        common={content.common}
-        errors={content.errors}
-      />
-    </div>
+    <StoreVisitsPageClient
+      portalRole="STORE_MANAGER"
+      urlStoreId={resolvedStoreId}
+      initialVisits={initialVisits?.data}
+      initialVisitsParams={initialVisits?.params}
+      initialStaff={initialStaff?.data}
+    />
   );
 }

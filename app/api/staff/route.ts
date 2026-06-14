@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const startedAt = Date.now();
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["BUSINESS_OWNER", "MASTER_ADMIN"])) {
+    if (!requireRole(session, ["BUSINESS_OWNER", "MASTER_ADMIN", "STORE_MANAGER"])) {
       return unauthorized();
     }
 
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
 
     if (query.data.performance === "true") {
       let storeId: string | undefined;
-      if (session.role === "BUSINESS_OWNER") {
+      if (session.role === "BUSINESS_OWNER" || session.role === "STORE_MANAGER") {
         const resolved = await resolveStorePortalStoreId(
           session,
           query.data.storeId,
@@ -43,7 +43,7 @@ export async function GET(req: Request) {
       return NextResponse.json(data);
     }
 
-    if (session.role === "BUSINESS_OWNER") {
+    if (session.role === "BUSINESS_OWNER" || session.role === "STORE_MANAGER") {
       const resolved = await resolveStorePortalStoreId(
         session,
         query.data.storeId,
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
   const startedAt = Date.now();
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["BUSINESS_OWNER"])) return unauthorized();
+    if (!requireRole(session, ["BUSINESS_OWNER", "STORE_MANAGER"])) return unauthorized();
 
     const body: unknown = await req.json();
     const parsed = createStaffSchema.safeParse(body);

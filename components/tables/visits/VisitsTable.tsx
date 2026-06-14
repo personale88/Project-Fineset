@@ -44,6 +44,9 @@ export function VisitsTable({
   onSearchChange,
   onPageChange,
   onImportCsv,
+  onOpenImport,
+  importLabel,
+  showImport = false,
   isImportingCsv,
   importStatusMessage,
   importStatusTone,
@@ -53,6 +56,8 @@ export function VisitsTable({
   onColumnFiltersChange,
   staffOptions = [],
   filterAllLabel = "All",
+  showCustomerMerge = false,
+  storeId,
 }: VisitsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [selectedVisit, setSelectedVisit] = useState<VisitListItem | null>(null);
@@ -104,6 +109,9 @@ export function VisitsTable({
         isSearching={isSearching}
         onSearchChange={onSearchChange}
         onImport={onImportCsv}
+        onOpenImport={onOpenImport}
+        importLabel={importLabel}
+        showImport={showImport}
         importDisabled={false}
         isImporting={isImportingCsv}
         importStatusMessage={importStatusMessage}
@@ -200,6 +208,8 @@ export function VisitsTable({
           setProfileVisit(null);
           if (match) setSelectedVisit(match);
         }}
+        showMerge={showCustomerMerge}
+        storeId={storeId}
       />
 
       <VisitDetailDialog

@@ -19,6 +19,52 @@ export const content = {
     viewAll: "View all",
     signOut: "Sign out",
   },
+  dashboardNotifications: {
+    title: "Reminders & follow-ups",
+    empty: "You're all caught up — no pending calls or follow-ups.",
+    overdueFollowUps: {
+      title: "Overdue follow-ups",
+      description: "{count} follow-up(s) past due",
+      descriptionStore: "{count} overdue follow-up(s) across your store",
+    },
+    dueTodayFollowUps: {
+      title: "Follow-ups due today",
+      description: "{count} follow-up(s) scheduled for today",
+    },
+    followUpCalls: {
+      title: "Follow-up call queue",
+      description: "{count} customer(s) waiting for a follow-up call",
+    },
+    notAnsweredCalls: {
+      title: "Not answered calls",
+      description: "{count} customer(s) did not answer — call again",
+    },
+    birthdays: {
+      title: "Birthday reminders",
+      description: "{count} customer birthday(s) this month",
+    },
+    anniversaries: {
+      title: "Anniversary reminders",
+      description: "{count} customer anniversary(ies) this month",
+    },
+    businessOwner: {
+      title: "Store reminders & calls",
+      subtitle: "Pending follow-ups, calls, and occasion reminders across your stores",
+      empty: "All stores are caught up — no pending calls or reminders.",
+      emptyStore: "No pending calls or reminders at this store.",
+      storeIdLabel: "Store ID",
+      staffHeading: "Staff with pending items",
+      viewCalls: "View store calls",
+      viewStore: "Open store dashboard",
+      staffLine: "{name} — {details}",
+      staffDetail: {
+        overdueFollowUps: "{count} overdue",
+        dueTodayFollowUps: "{count} due today",
+        followUpCalls: "{count} follow-up calls",
+        notAnsweredCalls: "{count} not answered",
+      },
+    },
+  },
   auth: {
     login: {
       title: "Sign in to MyStore",
@@ -27,6 +73,8 @@ export const content = {
       errorInvalid: "Invalid email or password",
       errorInactive:
         "Your account is not active. Open your invite email or contact your administrator.",
+      errorDeactivated:
+        "Your account has been deactivated. Contact your store manager or business owner.",
       errorGeneric: "Sign-in failed. Please try again.",
       errorWrongPortal:
         "This account uses a different dashboard. Sign in from the correct portal link for your role.",
@@ -300,6 +348,9 @@ export const content = {
         label: "Staff Notes",
         placeholder: "Additional notes (max 500 characters)",
       },
+      marketingOptIn: {
+        label: "Customer opted in to marketing communications",
+      },
     },
     actions: {
       submit: "Submit Visit",
@@ -467,7 +518,18 @@ export const content = {
           description: "Log outdoor visits and GHS / JPP enrollments in the field",
           cta: "Log field sale",
         },
+        followUps: {
+          title: "Follow-ups",
+          description: "Review overdue follow-up tasks assigned to you",
+          cta: "View follow-ups",
+        },
       },
+    },
+    followUps: {
+      title: "Follow-ups",
+      subtitle: "Overdue follow-up tasks for your store",
+      empty: "No overdue follow-ups right now.",
+      dueLabel: "Due",
     },
     calls: {
       back: "Back",
@@ -495,6 +557,8 @@ export const content = {
       valueTierLabel: "Ticket value",
       call: "Call",
       noPhone: "No phone on file",
+      logManualCall: "Log manual call",
+      importSpreadsheet: "Import spreadsheet",
       due: "Due",
       loadError: "Could not load customers. Sign out and sign in again, then retry.",
       loadErrorUnauthorized:
@@ -594,6 +658,25 @@ export const content = {
         saving: "Saving…",
         feedbackSaved: "Call outcome saved",
       },
+      manualCall: {
+        title: "Log manual call",
+        description: "Record a call to someone not already in your call list.",
+        nameLabel: "Customer name",
+        namePlaceholder: "Enter customer name",
+        phoneLabel: "Phone number",
+        phonePlaceholder: "10-digit mobile number",
+        phoneInvalid: "Enter a valid 10-digit phone number",
+        customerTypeLabel: "Customer type",
+        customerTypes: [
+          { key: "NEW", label: "New" },
+          { key: "REPEAT", label: "Retained" },
+          { key: "VIP", label: "VIP" },
+        ],
+        notesLabel: "Notes (optional)",
+        notesPlaceholder: "Context about the customer or call",
+        saveCall: "Save call",
+        saved: "Manual call logged",
+      },
     },
     fieldSales: {
       back: "Back",
@@ -665,7 +748,10 @@ export const content = {
     portfolio: {
       title: "Your Stores",
       subtitle:
-        "Each store is tracked separately. Select a store to open its dashboard, visits, calls, and staff.",
+        "Each store is tracked separately. Select a store to review analytics, visits, calls, and staff. Logging visits and field sales is done by store staff and managers.",
+      viewOnlyBadge: "View only",
+      viewOnlyHint:
+        "Business owners review store activity. Store managers and RSO staff log visits, calls, and field sales.",
       viewDetails: "Open store dashboard",
       emptyStores: "No stores are linked to your account yet.",
       selectStorePrompt:
@@ -684,6 +770,7 @@ export const content = {
     },
     storeDetail: {
       backToPortfolio: "All stores",
+      backToPortal: "Back to portal",
       titleFallback: "Store dashboard",
       locationHint: "Store location on file",
       viewOverview: "Overview",
@@ -692,6 +779,7 @@ export const content = {
       viewCalls: "Call users",
       viewFieldSales: "Field sales",
       viewStaff: "Staff",
+      viewAudit: "Activity log",
     },
     businessOverview: {
       title: "Business Overview ({period})",
@@ -918,12 +1006,16 @@ export const content = {
     },
     visits: {
       title: "Visits Log",
+      viewOnlySubtitle: "View only — store staff and managers log new visits from their portal.",
       searchPlaceholder: "Customer name, phone, or staff name",
       filters: {
         all: "All Visits",
         followUpOnly: "Follow-up Only",
         startDate: "From Date",
         endDate: "To Date",
+        clearDate: "Clear date",
+        invalidDateRange: "End date must be on or after start date.",
+        dateRangeHint: "Leave dates empty to show all visits, or pick a from/to range.",
         columnAll: "All",
         clearColumnFilters: "Clear column filters",
       },
@@ -962,6 +1054,7 @@ export const content = {
       },
       detailTitle: "Visit Details",
       importCsv: "Import CSV",
+      importSpreadsheet: "Import spreadsheet",
       importingCsv: "Importing...",
       importHint:
         "Upload a CSV with visit fields. Data is validated and saved to your store database.",
@@ -1055,6 +1148,9 @@ export const content = {
       },
       statusUpdated: "Staff status updated",
       deleted: "Staff member deleted",
+      importCsv: "Import CSV",
+      importResult: "Imported {created} staff ({failed} failed)",
+      readOnlyHint: "View-only roster — contact the business owner to manage staff.",
       modal: {
         title: "Add Staff Member",
         nameLabel: "Name",
@@ -1083,6 +1179,7 @@ export const content = {
       overview: "Portfolio",
       analytics: "Analytics",
       stores: "Stores",
+      audit: "Audit",
     },
     analytics: {
       title: "AI Analytics",
@@ -1303,6 +1400,13 @@ export const content = {
       deleted: "Store removed (recoverable for 90 days)",
       restored: "Store restored",
       updated: "Store updated",
+      purgeCountdown: "Purges in {days} days",
+      ownershipTransfer: {
+        title: "Transfer business owner login?",
+        description:
+          "Changing the business owner email updates the manager login for this store. The new email must not already belong to another user.",
+        confirm: "Update owner email",
+      },
       modal: {
         title: "Add Store",
         nameLabel: "Store Name",
@@ -1382,6 +1486,75 @@ export const content = {
     fieldSales: "No field sales match these filters",
     staff: "No staff members found",
     stores: "No stores found",
+  },
+  import: {
+    upload: {
+      sheetsTitle: "Choose sheets to import",
+      sheetsHint:
+        "This workbook has multiple tabs. Select which ones to include — rows from each tab are combined into one import.",
+      sheetRows: "{count} rows",
+      selectAll: "Select all",
+      deselectAll: "Deselect all",
+      continue: "Continue with selected sheets",
+      noSheetsSelected: "Select at least one sheet to continue.",
+    },
+    mapping: {
+      summary: "{autoMapped} of {total} columns mapped automatically · {needsReview} need review",
+      tableHint:
+        "Check that each spreadsheet column maps to the right store field. The preview shows real values from the first rows of your file.",
+      columns: {
+        uploadedHeader: "Column in your file",
+        preview: "Preview from file",
+        previewHint: "First 3 values",
+        mappedTo: "Maps to store field",
+        confidence: "Match quality",
+        action: "How mapped",
+      },
+      previewEmpty: "Empty in file",
+      previewPrefix: "e.g.",
+      actionAuto: "Auto",
+      actionManual: "You chose",
+      callLogDefaults:
+        "Call date and agent name are optional — if missing, we use today’s date and the staff member running the import.",
+    },
+    confirm: {
+      severityTitle: "Understanding row status",
+      severityIntro:
+        "Every row is checked before import. Some issues block a row entirely; others import with missing or corrected fields.",
+      errorSeverityTitle: "Error rows — will not import",
+      errorSeverityBody:
+        "{count} row(s) have blocking problems (e.g. invalid phone). Fix them in your spreadsheet and re-upload, or proceed without these rows.",
+      warningSeverityTitle: "Warning rows — will import with gaps",
+      warningSeverityBody:
+        "{count} row(s) will import, but some fields could not be matched or parsed and will be left empty (e.g. staff name not found).",
+      validSeverityTitle: "Valid rows — ready to import",
+      validSeverityBody: "{count} row(s) passed all checks with no issues.",
+      importCountNote: "Starting import will add {count} row(s): valid + warning rows.",
+      blockingIssues: "Blocking issues ({count} rows affected)",
+      reviewIssues: "Items to review ({count} rows affected)",
+      howToFix: "How to fix",
+      willNotImport: "Will not import",
+      willImport: "Will still import",
+      rowCount: "{count} rows",
+      noBlockingIssues: "No blocking issues — all rows except blanks are importable.",
+      noReviewIssues: "No warnings — every importable row is fully valid.",
+      statErrorHint: "Skipped on import",
+      statWarningHint: "Import with empty fields",
+      statValidHint: "No issues found",
+      autoFixTitle: "Convert & fix data",
+      autoFixIntro:
+        "Adjust how values are converted before import. The preview updates when you change an option.",
+      autoFixAlwaysOnTitle: "Always applied",
+      autoFixAlwaysOn: [
+        "Blank placeholders (-, N/A, - - - -) are treated as empty",
+        "Duration text (1HR 2 MINS) is converted to minutes",
+        "Multiple phones (986…/944…) uses the first valid number",
+      ],
+      autoFixInvalidPhoneLabel: "Import rows with invalid or missing phone numbers",
+      autoFixInvalidPhoneHint:
+        "Keeps the visit/customer row; phone is stored empty instead of blocking the import.",
+      autoFixRefreshing: "Updating preview…",
+    },
   },
   portal: {
     allStores: "All stores",

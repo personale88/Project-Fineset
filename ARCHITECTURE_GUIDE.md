@@ -12,7 +12,7 @@ FineSet is a **multi-tenant SaaS** for jewelry store chains (and similar retail)
 |--------|------------|-------------|-----------|
 | **Staff** | `/staff/dashboard` | Floor sales staff (RSO) | Log store visits, field sales, follow-up calls |
 | **Store Manager** | `/store-manager/dashboard` | Per-store managers | Log visits/calls/field sales, store analytics |
-| **Business Owner** | `/business-owner/dashboard` | Chain owners | Multi-store portfolio, visits, staff, analytics |
+| **Business Owner** | `/business-owner/dashboard` | Chain owners | Multi-store portfolio, **view** visits/calls/analytics, manage staff (does not log visits — see `PORTAL_ACTOR_ROLES`) |
 | **Admin** | `/admin/dashboard` | Master admin (HQ) | All stores, invite users, chain-wide analytics |
 
 **Business domains we model:**

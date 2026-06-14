@@ -28,11 +28,15 @@ export async function getVisits(
   return apiFetch<PaginatedResponse<VisitListItem>>(`/api/visits${qs}`);
 }
 
-export async function importVisitsCsv(file: File): Promise<VisitsImportResult> {
+export async function importVisitsCsv(
+  file: File,
+  storeId?: string,
+): Promise<VisitsImportResult> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const res = await fetch("/api/visits/import", {
+  const qs = storeId ? `?storeId=${encodeURIComponent(storeId)}` : "";
+  const res = await fetch(`/api/visits/import${qs}`, {
     method: "POST",
     body: formData,
     cache: "no-store",

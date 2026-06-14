@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, LayoutGrid, Store } from "lucide-react";
+import { BarChart3, LayoutGrid, ScrollText, Store } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Content } from "@/content/en";
 
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { href: "/admin/dashboard", labelKey: "overview" as const, icon: LayoutGrid },
   { href: "/admin/dashboard/analytics", labelKey: "analytics" as const, icon: BarChart3 },
   { href: "/admin/dashboard/stores", labelKey: "stores" as const, icon: Store },
+  { href: "/admin/dashboard/audit", labelKey: "audit" as const, icon: ScrollText },
 ] as const;
 
 function isAdminNavActive(pathname: string, href: string): boolean {

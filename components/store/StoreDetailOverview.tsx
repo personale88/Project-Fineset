@@ -18,6 +18,7 @@ import {
   portalDashboardPath,
   portalSectionPath,
   SELECTED_STORE_STORAGE_KEY,
+  storeDetailBackLabel,
   storeDetailHrefForRole,
 } from "@/lib/utils/store-dashboard-url";
 import type { StoreOverviewBundle } from "@/lib/services/store-overview-bundle";
@@ -110,6 +111,7 @@ export function StoreDetailOverview({
     ? formatStoreLocation(storeMeta.city, storeMeta.state)
     : null;
   const dashboardPath = portalDashboardPath(portalRole);
+  const backLabel = storeDetailBackLabel(portalRole, detail);
 
   return (
     <div className="min-w-0 space-y-6">
@@ -120,7 +122,7 @@ export function StoreDetailOverview({
           className="inline-flex items-center gap-1 text-sm font-medium text-text-secondary hover:text-brand-gold"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
-          {detail.backToPortfolio}
+          {backLabel}
         </Link>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -187,6 +189,13 @@ export function StoreDetailOverview({
                 prefetch={false}
               >
                 {detail.viewStaff}
+              </Link>
+            </Button>
+          ) : null}
+          {portalRole === "BUSINESS_OWNER" ? (
+            <Button asChild size="sm" variant="outline">
+              <Link href="/business-owner/dashboard/audit" prefetch={false}>
+                {detail.viewAudit}
               </Link>
             </Button>
           ) : null}

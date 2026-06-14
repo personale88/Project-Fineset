@@ -20,7 +20,11 @@ import { decryptVisitPii } from "@/lib/services/pii";
 import { broadcastSyncEvent } from "@/lib/sync/broadcaster";
 import { isFieldSaleEnrolled } from "@/lib/utils/field-enrollment";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
-import type { StaffCallOutcomeInput } from "@/lib/validations/staff-calls.schema";
+import type {
+  ManualStaffCallInput,
+  StaffCallOutcomeInput,
+} from "@/lib/validations/staff-calls.schema";
+import { createVisit } from "@/lib/services/visits";
 import type {
   StaffCallDialResult,
   StaffCallFilterCounts,
@@ -766,4 +770,97 @@ export async function recordStaffCallOutcome(
     return recordFieldSaleCallOutcome(params);
   }
   return recordVisitCallOutcome(params);
+}
+
+interface RecordManualStaffCallParams extends ManualStaffCallInput {
+  staffId: string;
+  storeId: string;
+}
+
+export class ManualStaffCallError extends Error {
+  constructor(
+    message: string,
+    public status = 500,
+  ) {
+    super(message);
+    this.name = "ManualStaffCallError";
+  }
+}
+
+/** Creates a phone-sourced visit record and logs the call outcome in one flow. */
+export async function recordManualStaffCall(
+  params: RecordManualStaffCallParams,
+): Promise<StaffCallOutcomeResult> {
+  const {
+    customerName,
+    customerPhone,
+    customerType,
+    staffNotes,
+    answered,
+    feedback,
+    scheduleFollowUp,
+    followUpDate,
+    staffId,
+    storeId,
+  } = params;
+
+  let visitId: string | null = null;
+
+  try {
+    const visit = await createVisit({
+      storeId,
+      staffId,
+      customerName,
+      customerPhone,
+      customerType,
+      visitType: "WALK_IN",
+      sourceChannel: "PHONE",
+      purchaseStatus: "NOT_PURCHASED",
+      productsExplored: [],
+      productsPurchased: [],
+      schemesPitched: [],
+      followUpNeeded: false,
+      staffNotes,
+      visitDate: new Date(),
+      marketingOptIn: false,
+    });
+
+    visitId = visit.id;
+
+    const result = await recordStaffCallOutcome({
+      recordId: visit.id,
+      masterSource: "EXTERNAL",
+      staffId,
+      storeId,
+      answered,
+      feedback,
+      scheduleFollowUp,
+      followUpDate,
+    });
+
+    if (!result) {
+      throw new ManualStaffCallError("Failed to record manual call outcome");
+    }
+
+    return result;
+  } catch (error) {
+    if (visitId) {
+      await prisma.followUp.deleteMany({ where: { visitId } }).catch(() => undefined);
+      await prisma.visit.delete({ where: { id: visitId } }).catch((rollbackError) => {
+        console.error(
+          "[recordManualStaffCall] failed to rollback orphan visit",
+          visitId,
+          rollbackError,
+        );
+      });
+    }
+
+    if (error instanceof ManualStaffCallError) {
+      throw error;
+    }
+
+    throw new ManualStaffCallError(
+      error instanceof Error ? error.message : "Failed to record manual call",
+    );
+  }
 }

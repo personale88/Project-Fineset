@@ -29,8 +29,10 @@ export async function listFollowUps(
   }
 
   if (params.overdue) {
-    where.status = "OPEN";
     where.followUpDate = { lt: new Date() };
+    if (!params.status) {
+      where.status = "OPEN";
+    }
   }
 
   const followUps = await prisma.followUp.findMany({

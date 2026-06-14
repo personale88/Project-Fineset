@@ -1,6 +1,7 @@
 import { content } from "@/content/en";
 import { PortalShell } from "@/components/layout/PortalShell";
 import { RealtimeSyncProvider } from "@/components/layout/RealtimeSyncProvider";
+import { RoleOnboardingModalGate } from "@/components/onboarding/RoleOnboardingModalGate";
 import { requirePortalSession } from "@/lib/auth/require-portal-session";
 
 import type { Metadata } from "next";
@@ -24,7 +25,10 @@ export default async function AdminLayout({
       title={content.admin.shell.title}
       signOutLabel={content.common.signOut}
     >
-      <RealtimeSyncProvider>{children}</RealtimeSyncProvider>
+      <RealtimeSyncProvider>
+        {children}
+        <RoleOnboardingModalGate role="MASTER_ADMIN" />
+      </RealtimeSyncProvider>
     </PortalShell>
   );
 }

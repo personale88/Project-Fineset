@@ -37,7 +37,7 @@ const DEV_USERS: DevUserSpec[] = [
   },
   {
     email: "staff-a@store-alpha.local",
-    name: "Staff Member A",
+    name: "Vamsi",
     role: "STAFF",
     employeeId: "EMP001",
   },

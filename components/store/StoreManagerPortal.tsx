@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DashboardNotifications } from "@/components/dashboard/DashboardNotifications";
 import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
 import type { Content } from "@/content/en";
 
@@ -29,17 +30,17 @@ export function StoreManagerPortal({ copy, storeId }: StoreManagerPortalProps) {
   const actions = [
     {
       key: "logVisit" as const,
-      href: `${STORE_MANAGER_DASHBOARD_PATH}/visits`,
+      href: `${STORE_MANAGER_DASHBOARD_PATH}/log-visit`,
       ...copy.managerPortal.actions.logVisit,
     },
     {
       key: "callUsers" as const,
-      href: `${STORE_MANAGER_DASHBOARD_PATH}/calls`,
+      href: `${STORE_MANAGER_DASHBOARD_PATH}/my-calls`,
       ...copy.managerPortal.actions.callUsers,
     },
     {
       key: "fieldSales" as const,
-      href: `${STORE_MANAGER_DASHBOARD_PATH}/field-sales`,
+      href: `${STORE_MANAGER_DASHBOARD_PATH}/log-field-sale`,
       ...copy.managerPortal.actions.fieldSales,
     },
     {
@@ -57,6 +58,8 @@ export function StoreManagerPortal({ copy, storeId }: StoreManagerPortalProps) {
         </h1>
         <p className="text-text-secondary">{copy.managerPortal.subtitle}</p>
       </header>
+
+      <DashboardNotifications variant="store_manager" storeId={storeId} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {actions.map((action) => {

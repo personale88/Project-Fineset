@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { resolvePortalStoreIdForSession } from "@/lib/auth/resolve-manager-store-id";
 import {
   badRequest,
   getServerSession,
@@ -26,13 +27,20 @@ export async function GET(req: Request) {
     );
     if (!query.success) return badRequest(query.error.flatten());
 
-    const storeId =
-      session.role === "STORE_MANAGER" || session.role === "BUSINESS_OWNER"
-        ? session.storeId
-        : searchParams.get("storeId") ?? undefined;
-
-    if (!storeId) {
-      return badRequest({ message: "storeId is required for admin profile lookup" });
+    let storeId: string;
+    if (session.role === "MASTER_ADMIN") {
+      const adminStoreId = searchParams.get("storeId") ?? undefined;
+      if (!adminStoreId) {
+        return badRequest({ message: "storeId is required for admin profile lookup" });
+      }
+      storeId = adminStoreId;
+    } else {
+      const resolved = await resolvePortalStoreIdForSession(
+        session,
+        searchParams.get("storeId"),
+      );
+      if (resolved instanceof NextResponse) return resolved;
+      storeId = resolved;
     }
 
     const customerId = await resolveCustomerId({

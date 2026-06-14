@@ -67,7 +67,14 @@ export function portalSectionPath(
   storeId?: string | null,
 ): string {
   const base = `${portalDashboardPath(role)}/${section}`;
-  return role === "BUSINESS_OWNER" ? appendStoreQuery(base, storeId) : base;
+  return appendStoreQuery(base, storeId);
+}
+
+export function storeDetailBackLabel(
+  role: "STORE_MANAGER" | "BUSINESS_OWNER",
+  labels: { backToPortal: string; backToPortfolio: string },
+): string {
+  return role === "STORE_MANAGER" ? labels.backToPortal : labels.backToPortfolio;
 }
 
 export function parseStoreIdFromPath(pathname: string): string | null {
