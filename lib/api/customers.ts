@@ -24,3 +24,20 @@ export async function lookupCustomerByPhone(
     throw error;
   }
 }
+
+export async function mergeCustomers(payload: {
+  sourceCustomerId: string;
+  targetCustomerId: string;
+  storeId?: string;
+}): Promise<{ mergedInto: string }> {
+  const qs = payload.storeId
+    ? buildQueryString({ storeId: payload.storeId })
+    : "";
+  return apiFetch(`/api/customers/merge${qs}`, {
+    method: "POST",
+    body: JSON.stringify({
+      sourceCustomerId: payload.sourceCustomerId,
+      targetCustomerId: payload.targetCustomerId,
+    }),
+  });
+}

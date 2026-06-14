@@ -9,7 +9,7 @@ import type { User } from "@supabase/supabase-js";
 
 export type CompleteLoginResult =
   | { ok: true; session: AppSession }
-  | { ok: false; reason: "inactive_or_missing_profile" };
+  | { ok: false; reason: "inactive_or_missing_profile" | "deactivated" };
 
 /**
  * Resolve AppUser profile after Supabase auth, activating invited users on first login.
@@ -26,14 +26,24 @@ export async function completeLoginForSupabaseUser(
     awaitMetadataSync: options.awaitMetadataSync ?? false,
   });
 
-  if (!profile?.isActive) {
+  if (!profile) {
     void logAuthEvent({
       event: "LOGIN_FAILED",
       authId: user.id,
       email: user.email,
-      metadata: { reason: "inactive_or_missing_profile" },
+      metadata: { reason: "missing_profile" },
     });
     return { ok: false, reason: "inactive_or_missing_profile" };
+  }
+
+  if (!profile.isActive) {
+    void logAuthEvent({
+      event: "LOGIN_FAILED",
+      authId: user.id,
+      email: user.email,
+      metadata: { reason: "deactivated" },
+    });
+    return { ok: false, reason: "deactivated" };
   }
 
   try {

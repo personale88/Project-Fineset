@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
+import { handleRouteError } from "@/lib/api/route-handler";
+import { resolvePortalStoreIdForSession } from "@/lib/auth/resolve-manager-store-id";
 import {
   badRequest,
   getServerSession,
@@ -9,35 +10,55 @@ import {
 } from "@/lib/auth/session";
 import { requireStaffContext } from "@/lib/auth/resolve-staff";
 import { updateFollowUpStatus } from "@/lib/services/follow-ups";
-
-const patchFollowUpSchema = z.object({
-  status: z.enum(["OPEN", "CLOSED", "CONVERTED", "NO_RESPONSE"]),
-});
+import { updateFollowUpSchema } from "@/lib/validations/follow-ups.schema";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 export async function PATCH(req: Request, { params }: RouteParams) {
-  const { id } = await params;
-  const session = await getServerSession();
-  if (!requireRole(session, ["STORE_MANAGER", "BUSINESS_OWNER", "STAFF"])) return unauthorized();
+  try {
+    const { id } = await params;
+    const session = await getServerSession();
+    if (!requireRole(session, ["STORE_MANAGER", "BUSINESS_OWNER", "STAFF"])) {
+      return unauthorized();
+    }
 
-  const body: unknown = await req.json();
-  const parsed = patchFollowUpSchema.safeParse(body);
-  if (!parsed.success) return badRequest(parsed.error.flatten());
+    const body: unknown = await req.json();
+    const parsed = updateFollowUpSchema.safeParse(body);
+    if (!parsed.success) return badRequest(parsed.error.flatten());
+    if (!parsed.data.status) {
+      return badRequest({ status: ["status is required"] });
+    }
 
-  const staff =
-    session.role === "STAFF" ? await requireStaffContext(session) : null;
-  if (session.role === "STAFF" && !staff) return unauthorized();
+    let storeId: string;
+    let staffId: string | undefined;
 
-  const updated = await updateFollowUpStatus(
-    id,
-    staff?.storeId ?? session.storeId,
-    parsed.data.status,
-    staff?.staffId,
-  );
-  if (!updated) return notFound("Follow-up not found");
+    if (session.role === "STAFF") {
+      const staff = await requireStaffContext(session);
+      if (!staff) return unauthorized();
+      storeId = staff.storeId;
+      staffId = staff.staffId;
+    } else {
+      const { searchParams } = new URL(req.url);
+      const resolved = await resolvePortalStoreIdForSession(
+        session,
+        searchParams.get("storeId"),
+      );
+      if (resolved instanceof NextResponse) return resolved;
+      storeId = resolved;
+    }
 
-  return NextResponse.json(updated);
+    const updated = await updateFollowUpStatus(
+      id,
+      storeId,
+      parsed.data.status,
+      staffId,
+    );
+    if (!updated) return notFound("Follow-up not found");
+
+    return NextResponse.json(updated);
+  } catch (error) {
+    return handleRouteError(error);
+  }
 }

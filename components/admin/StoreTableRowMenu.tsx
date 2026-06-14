@@ -70,6 +70,7 @@ export interface StoreTableRow {
   businessOwnerEmail?: string | null;
   isActive: boolean;
   deletedAt?: string | null;
+  purgeAt?: string | null;
   staffCount: number;
 }
 
@@ -120,6 +121,10 @@ export function StoreTableRowMenu({
   const [deleteNameConfirm, setDeleteNameConfirm] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [ownershipConfirmOpen, setOwnershipConfirmOpen] = useState(false);
+  const [pendingEditValues, setPendingEditValues] = useState<EditStoreInput | null>(
+    null,
+  );
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -220,7 +225,7 @@ export function StoreTableRowMenu({
     }
   }
 
-  async function handleEditSubmit(values: EditStoreInput) {
+  async function submitEdit(values: EditStoreInput) {
     setSubmitError(null);
     try {
       await updateStoreMutation.mutateAsync({
@@ -229,11 +234,29 @@ export function StoreTableRowMenu({
       });
       toast({ title: storesCopy.updated });
       setEditOpen(false);
+      setOwnershipConfirmOpen(false);
+      setPendingEditValues(null);
     } catch (error) {
       const message = apiErrorMessage(error, errors.generic);
       setSubmitError(message);
       toast({ title: message });
     }
+  }
+
+  async function handleEditSubmit(values: EditStoreInput) {
+    const nextEmail = values.businessOwnerEmail?.trim().toLowerCase() ?? "";
+    const currentEmail = store.businessOwnerEmail?.trim().toLowerCase() ?? "";
+    if (nextEmail && nextEmail !== currentEmail) {
+      setPendingEditValues(values);
+      setOwnershipConfirmOpen(true);
+      return;
+    }
+    await submitEdit(values);
+  }
+
+  async function handleConfirmOwnershipTransfer() {
+    if (!pendingEditValues) return;
+    await submitEdit(pendingEditValues);
   }
 
   async function handlePasswordSubmit(values: { password: string }) {
@@ -690,6 +713,37 @@ export function StoreTableRowMenu({
               </div>
             </form>
           </Form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={ownershipConfirmOpen} onOpenChange={setOwnershipConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{storesCopy.ownershipTransfer.title}</DialogTitle>
+            <DialogDescription>
+              {storesCopy.ownershipTransfer.description}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isMutating}
+              onClick={() => {
+                setOwnershipConfirmOpen(false);
+                setPendingEditValues(null);
+              }}
+            >
+              {common.cancel}
+            </Button>
+            <Button
+              type="button"
+              disabled={isMutating}
+              onClick={() => void handleConfirmOwnershipTransfer()}
+            >
+              {storesCopy.ownershipTransfer.confirm}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </>

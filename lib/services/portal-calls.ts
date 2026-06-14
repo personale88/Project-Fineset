@@ -21,10 +21,7 @@ import {
   matchesCallValueTier,
   matchesVisitPeriod,
 } from "@/lib/services/call-list-utils";
-import {
-  maskCustomerDisplayName,
-  maskCustomerPhone,
-} from "@/lib/utils/pii-display";
+import { maskCustomerPhone } from "@/lib/utils/pii-display";
 import { decryptVisitPii } from "@/lib/services/pii";
 import { formatDate } from "@/lib/utils/formatters";
 import type {
@@ -125,7 +122,7 @@ function toPortalCallItem(visit: PortalVisitRow): PortalCallListItem {
   return {
     visitId: visit.id,
     followUpId: visit.followUp?.id ?? null,
-    customerName: maskCustomerDisplayName(decrypted.customerName),
+    customerName: decrypted.customerName,
     customerPhone: maskCustomerPhoneForPortal(decrypted.customerPhone),
     staffId: visit.staff.id,
     staffName: visit.staff.name,

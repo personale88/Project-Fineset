@@ -12,6 +12,7 @@ export interface ResolvedStaffContext {
   storeId: string;
 }
 
+/** Floor roles that create visits, field sales, and customer lookups. Business owners view logs only. */
 export const PORTAL_ACTOR_ROLES = ["STAFF", "STORE_MANAGER"] as const;
 
 export const STAFF_CALLS_ROLES = [

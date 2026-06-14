@@ -1,0 +1,132 @@
+/**
+ * FineSet typography & text-color tokens — portable export.
+ * Copy this file into another project and import in your global CSS.
+ *
+ * Requires:
+ *   --font-inter   (set via next/font or @font-face)
+ *   --font-playfair (set via next/font or @font-face)
+ *
+ * Tailwind: map colors in tailwind.config (see docs/TYPOGRAPHY.md).
+ */
+
+:root {
+  /* Brand palette */
+  --brand-gold: #b8972e;
+  --brand-gold-light: #d4af37;
+  --brand-gold-dark: #8b6914;
+  --brand-charcoal: #1c1c1e;
+  --brand-ivory: #faf7f2;
+  --brand-cream: #f5efe6;
+
+  /* Text colors */
+  --text-primary: var(--brand-charcoal);
+  --text-secondary: #4b4b4b;
+  --text-muted: #9ca3af;
+
+  /* Status text (also used for badges/alerts) */
+  --status-success: #22c55e;
+  --status-warning: #f59e0b;
+  --status-error: #ef4444;
+  --status-info: #3b82f6;
+
+  /* Chart label colors */
+  --chart-axis: #5c5c62;
+}
+
+/* Base typography — use with Tailwind @layer base or standalone */
+.fineset-typography-base,
+.fineset-typography-base body {
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.fineset-typography-base h1,
+.fineset-typography-base h2,
+.fineset-typography-base h3,
+.fineset-typography-base h4,
+.fineset-typography-base h5,
+.fineset-typography-base h6 {
+  font-family: var(--font-playfair), "Playfair Display", Georgia, serif;
+}
+
+/* iOS Safari: prevent zoom on inputs below 16px */
+@media (max-width: 767px) {
+  .fineset-typography-base input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]),
+  .fineset-typography-base textarea,
+  .fineset-typography-base select {
+    font-size: 1rem;
+  }
+}
+
+/* Optional utility classes (no Tailwind required) */
+.fs-text-primary { color: var(--text-primary); }
+.fs-text-secondary { color: var(--text-secondary); }
+.fs-text-muted { color: var(--text-muted); }
+.fs-text-brand { color: var(--brand-gold); }
+.fs-text-success { color: var(--status-success); }
+.fs-text-warning { color: var(--status-warning); }
+.fs-text-error { color: var(--status-error); }
+.fs-text-info { color: var(--status-info); }
+
+.fs-font-sans {
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+}
+.fs-font-display {
+  font-family: var(--font-playfair), "Playfair Display", Georgia, serif;
+}
+.fs-font-numeric {
+  font-family: var(--font-inter), Inter, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Type scale (matches Tailwind defaults used in this project) */
+.fs-text-xs { font-size: 0.75rem; line-height: 1rem; }
+.fs-text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.fs-text-base { font-size: 1rem; line-height: 1.5rem; }
+.fs-text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.fs-text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+.fs-text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.fs-text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+
+.fs-leading-none { line-height: 1; }
+.fs-leading-tight { line-height: 1.25; }
+.fs-leading-snug { line-height: 1.375; }
+.fs-leading-relaxed { line-height: 1.625; }
+
+.fs-tracking-tight { letter-spacing: -0.025em; }
+.fs-tracking-wide { letter-spacing: 0.025em; }
+.fs-tracking-wider { letter-spacing: 0.05em; }
+
+.fs-font-medium { font-weight: 500; }
+.fs-font-semibold { font-weight: 600; }
+.fs-font-bold { font-weight: 700; }
+
+/* Common composed patterns */
+.fs-page-title {
+  font-family: var(--font-playfair), "Playfair Display", Georgia, serif;
+  font-size: 1.5rem;
+  line-height: 2rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.025em;
+}
+
+.fs-section-title {
+  font-family: var(--font-playfair), "Playfair Display", Georgia, serif;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fs-label-uppercase {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  color: var(--text-muted);
+}

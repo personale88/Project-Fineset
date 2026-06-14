@@ -27,6 +27,8 @@ export const content = {
       errorInvalid: "Invalid email or password",
       errorInactive:
         "Your account is not active. Open your invite email or contact your administrator.",
+      errorDeactivated:
+        "Your account has been deactivated. Contact your store manager or business owner.",
       errorGeneric: "Sign-in failed. Please try again.",
       errorWrongPortal:
         "This account uses a different dashboard. Sign in from the correct portal link for your role.",
@@ -300,6 +302,9 @@ export const content = {
         label: "Staff Notes",
         placeholder: "Additional notes (max 500 characters)",
       },
+      marketingOptIn: {
+        label: "Customer opted in to marketing communications",
+      },
     },
     actions: {
       submit: "Submit Visit",
@@ -467,7 +472,18 @@ export const content = {
           description: "Log outdoor visits and GHS / JPP enrollments in the field",
           cta: "Log field sale",
         },
+        followUps: {
+          title: "Follow-ups",
+          description: "Review overdue follow-up tasks assigned to you",
+          cta: "View follow-ups",
+        },
       },
+    },
+    followUps: {
+      title: "Follow-ups",
+      subtitle: "Overdue follow-up tasks for your store",
+      empty: "No overdue follow-ups right now.",
+      dueLabel: "Due",
     },
     calls: {
       back: "Back",
@@ -495,6 +511,7 @@ export const content = {
       valueTierLabel: "Ticket value",
       call: "Call",
       noPhone: "No phone on file",
+      logManualCall: "Log manual call",
       due: "Due",
       loadError: "Could not load customers. Sign out and sign in again, then retry.",
       loadErrorUnauthorized:
@@ -594,6 +611,25 @@ export const content = {
         saving: "Saving…",
         feedbackSaved: "Call outcome saved",
       },
+      manualCall: {
+        title: "Log manual call",
+        description: "Record a call to someone not already in your call list.",
+        nameLabel: "Customer name",
+        namePlaceholder: "Enter customer name",
+        phoneLabel: "Phone number",
+        phonePlaceholder: "10-digit mobile number",
+        phoneInvalid: "Enter a valid 10-digit phone number",
+        customerTypeLabel: "Customer type",
+        customerTypes: [
+          { key: "NEW", label: "New" },
+          { key: "REPEAT", label: "Retained" },
+          { key: "VIP", label: "VIP" },
+        ],
+        notesLabel: "Notes (optional)",
+        notesPlaceholder: "Context about the customer or call",
+        saveCall: "Save call",
+        saved: "Manual call logged",
+      },
     },
     fieldSales: {
       back: "Back",
@@ -665,7 +701,10 @@ export const content = {
     portfolio: {
       title: "Your Stores",
       subtitle:
-        "Each store is tracked separately. Select a store to open its dashboard, visits, calls, and staff.",
+        "Each store is tracked separately. Select a store to review analytics, visits, calls, and staff. Logging visits and field sales is done by store staff and managers.",
+      viewOnlyBadge: "View only",
+      viewOnlyHint:
+        "Business owners review store activity. Store managers and RSO staff log visits, calls, and field sales.",
       viewDetails: "Open store dashboard",
       emptyStores: "No stores are linked to your account yet.",
       selectStorePrompt:
@@ -684,6 +723,7 @@ export const content = {
     },
     storeDetail: {
       backToPortfolio: "All stores",
+      backToPortal: "Back to portal",
       titleFallback: "Store dashboard",
       locationHint: "Store location on file",
       viewOverview: "Overview",
@@ -692,6 +732,7 @@ export const content = {
       viewCalls: "Call users",
       viewFieldSales: "Field sales",
       viewStaff: "Staff",
+      viewAudit: "Activity log",
     },
     businessOverview: {
       title: "Business Overview ({period})",
@@ -918,12 +959,16 @@ export const content = {
     },
     visits: {
       title: "Visits Log",
+      viewOnlySubtitle: "View only — store staff and managers log new visits from their portal.",
       searchPlaceholder: "Customer name, phone, or staff name",
       filters: {
         all: "All Visits",
         followUpOnly: "Follow-up Only",
         startDate: "From Date",
         endDate: "To Date",
+        clearDate: "Clear date",
+        invalidDateRange: "End date must be on or after start date.",
+        dateRangeHint: "Leave dates empty to show all visits, or pick a from/to range.",
         columnAll: "All",
         clearColumnFilters: "Clear column filters",
       },
@@ -1055,6 +1100,9 @@ export const content = {
       },
       statusUpdated: "Staff status updated",
       deleted: "Staff member deleted",
+      importCsv: "Import CSV",
+      importResult: "Imported {created} staff ({failed} failed)",
+      readOnlyHint: "View-only roster — contact the business owner to manage staff.",
       modal: {
         title: "Add Staff Member",
         nameLabel: "Name",
@@ -1083,6 +1131,7 @@ export const content = {
       overview: "Portfolio",
       analytics: "Analytics",
       stores: "Stores",
+      audit: "Audit",
     },
     analytics: {
       title: "AI Analytics",
@@ -1303,6 +1352,13 @@ export const content = {
       deleted: "Store removed (recoverable for 90 days)",
       restored: "Store restored",
       updated: "Store updated",
+      purgeCountdown: "Purges in {days} days",
+      ownershipTransfer: {
+        title: "Transfer business owner login?",
+        description:
+          "Changing the business owner email updates the manager login for this store. The new email must not already belong to another user.",
+        confirm: "Update owner email",
+      },
       modal: {
         title: "Add Store",
         nameLabel: "Store Name",

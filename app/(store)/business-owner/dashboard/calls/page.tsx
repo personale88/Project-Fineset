@@ -1,5 +1,5 @@
 import { StoreCallsPageClient } from "@/components/store/StoreCallsPageClient";
-import { fetchInitialBusinessOwnerCalls } from "@/lib/data/staff-calls";
+import { fetchInitialStorePortalCalls } from "@/lib/data/staff-calls";
 import { parseStaffCallsSearchParams } from "@/lib/utils/staff-calls-url";
 
 interface StoreCallsPageProps {
@@ -12,18 +12,16 @@ export default async function StoreCallsPage({ searchParams }: StoreCallsPagePro
   const storeId =
     typeof resolved.storeId === "string" ? resolved.storeId : undefined;
 
-  let initial: Awaited<ReturnType<typeof fetchInitialBusinessOwnerCalls>> = null;
-  if (storeId) {
-    try {
-      initial = await fetchInitialBusinessOwnerCalls(storeId, urlFilters);
-    } catch (error) {
-      console.error("[store-calls] initial staff calls failed", { storeId, error });
-    }
+  let initial: Awaited<ReturnType<typeof fetchInitialStorePortalCalls>> = null;
+  try {
+    initial = await fetchInitialStorePortalCalls(storeId, urlFilters);
+  } catch (error) {
+    console.error("[store-calls] initial staff calls failed", { storeId, error });
   }
 
   return (
     <StoreCallsPageClient
-      urlStoreId={storeId}
+      urlStoreId={initial?.params.storeId ?? storeId}
       initialCalls={initial?.data}
       initialCallsParams={initial?.params}
     />

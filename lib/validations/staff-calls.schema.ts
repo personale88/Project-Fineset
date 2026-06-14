@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { phoneSchema } from "@/lib/validations/common.schema";
 
 export const staffCallSegmentSchema = z.enum([
   "ALL",
@@ -53,6 +54,41 @@ export const staffCallOutcomeSchema = z
     followUpDate: z.coerce.date().optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.answered === "ANSWERED" && !data.feedback?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Feedback is required when the call is answered",
+        path: ["feedback"],
+      });
+    }
+    if (data.answered === "ANSWERED" && data.scheduleFollowUp && !data.followUpDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Follow-up date is required when scheduling a follow-up",
+        path: ["followUpDate"],
+      });
+    }
+  });
+
+export const manualStaffCallSchema = z
+  .object({
+    customerName: z.string().trim().min(1).max(100),
+    customerPhone: phoneSchema,
+    customerType: z.enum(["NEW", "REPEAT", "VIP"]).default("NEW"),
+    staffNotes: z.string().trim().max(500).optional(),
+    answered: z.enum(["ANSWERED", "NOT_ANSWERED"]),
+    feedback: z.string().max(500).optional(),
+    scheduleFollowUp: z.boolean().default(false),
+    followUpDate: z.coerce.date().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.answered === "ANSWERED" && !data.feedback?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Feedback is required when the call is answered",
+        path: ["feedback"],
+      });
+    }
     if (data.answered === "ANSWERED" && data.scheduleFollowUp && !data.followUpDate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -64,3 +100,4 @@ export const staffCallOutcomeSchema = z
 
 export type StaffCallListQuery = z.infer<typeof staffCallListQuerySchema>;
 export type StaffCallOutcomeInput = z.infer<typeof staffCallOutcomeSchema>;
+export type ManualStaffCallInput = z.infer<typeof manualStaffCallSchema>;

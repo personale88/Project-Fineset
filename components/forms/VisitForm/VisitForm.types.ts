@@ -1,5 +1,6 @@
 import type { Content } from "@/content/en";
 import type { CreateVisitInput } from "@/lib/validations/visit.schema";
+import { formatCalendarDate, parseCalendarDate } from "@/lib/utils/calendar-date";
 
 export type VisitFormCopy = Content["visitForm"];
 export type CommonCopy = Content["common"];
@@ -104,6 +105,7 @@ export function getDefaultVisitValues(
     followUpNeeded: draft?.followUpNeeded ?? false,
     followUpDate: undefined,
     staffNotes: undefined,
+    marketingOptIn: false,
   };
 }
 
@@ -121,12 +123,11 @@ export function parseTimeInput(time: string, baseDate: Date = new Date()): Date 
 }
 
 export function formatDateForInput(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  return formatCalendarDate(date);
 }
 
 export function parseDateInput(value: string): Date {
-  const parsed = new Date(`${value}T12:00:00`);
-  return parsed;
+  return parseCalendarDate(value);
 }
 
 export function extractDraftFields(values: VisitFormValues): VisitDraftFields {

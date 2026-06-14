@@ -37,6 +37,7 @@ model Store {
   visits     Visit[]
   customers  Customer[]
   fieldSales FieldSale[]
+  importHistory ImportHistory[]
 }
 
 model StoreCategoryOption {
@@ -133,6 +134,7 @@ model Customer {
   anniversary  DateTime?
   activeScheme String?
   ghsEnrolled  Boolean  @default(false)
+  marketingOptIn Boolean @default(false)
   storeId      String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -196,6 +198,8 @@ model Visit {
   callValueTier     CallValueTier?
   birthMonth        Int?
   anniversaryMonth  Int?
+  importBatchId     String?
+  importedAt        DateTime?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
 
@@ -213,6 +217,7 @@ model Visit {
   @@index([storeId, customerPhoneHash])
   @@index([storeId, customerNameSearch])
   @@index([storeId, phoneLast4])
+  @@index([importBatchId])
 }
 
 enum CustomerType {
@@ -300,13 +305,15 @@ enum CallValueTier {
 }
 
 model StaffCallLog {
-  id          String           @id @default(cuid())
-  visitId     String?
-  fieldSaleId String?
-  staffId     String
-  answered    CallAnswerStatus
-  feedback    String?
-  createdAt   DateTime         @default(now())
+  id            String           @id @default(cuid())
+  visitId       String?
+  fieldSaleId   String?
+  staffId       String
+  answered      CallAnswerStatus
+  feedback      String?
+  importBatchId String?
+  importedAt    DateTime?
+  createdAt     DateTime         @default(now())
 
   visit     Visit?     @relation(fields: [visitId], references: [id], onDelete: Cascade)
   fieldSale FieldSale? @relation(fields: [fieldSaleId], references: [id], onDelete: Cascade)
@@ -315,6 +322,7 @@ model StaffCallLog {
   @@index([visitId, staffId, createdAt(sort: Desc)])
   @@index([fieldSaleId, staffId, createdAt(sort: Desc)])
   @@index([staffId, createdAt(sort: Desc)])
+  @@index([importBatchId])
 }
 
 model PhoneRevealLog {
@@ -415,4 +423,27 @@ model FieldSale {
   @@index([staffId, storeId, activityDate(sort: Desc), lastCallAnswered])
   @@index([staffId, storeId, activityDate(sort: Desc), callValueTier, birthMonth, anniversaryMonth])
   @@index([storeId, activityDate(sort: Desc)])
+}
+
+model ImportHistory {
+  id                       String   @id @default(cuid())
+  batchId                  String   @unique
+  featureKey               String
+  fileName                 String?
+  storeId                  String
+  totalRows                Int
+  successCount             Int
+  errorCount               Int
+  newCustomers             Int
+  repeatCustomers          Int
+  importedByAuthId         String
+  importedAt               DateTime @default(now())
+  rollbackAvailableUntil   DateTime
+  rolledBackAt             DateTime?
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
+
+  @@index([featureKey])
+  @@index([storeId, importedAt(sort: Desc)])
+  @@index([importedByAuthId])
 }

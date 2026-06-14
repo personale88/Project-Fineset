@@ -29,6 +29,7 @@ export function mergeDeletedStoreWhere(
 
 export const STORE_SOFT_DELETE_GRACE_DAYS = 90;
 
+/** After purgeAt, the store purge job permanently removes visits, customers, and staff. */
 export function purgeAtFromNow(now = new Date()): Date {
   const purgeAt = new Date(now);
   purgeAt.setDate(purgeAt.getDate() + STORE_SOFT_DELETE_GRACE_DAYS);

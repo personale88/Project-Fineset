@@ -21,6 +21,7 @@ export interface VisitsTableProps {
   onSearchChange: (value: string) => void;
   onPageChange: (page: number) => void;
   onImportCsv: (file: File) => void;
+  showImport?: boolean;
   isImportingCsv: boolean;
   importStatusMessage?: string;
   importStatusTone?: "default" | "success" | "error";
@@ -30,6 +31,8 @@ export interface VisitsTableProps {
   onColumnFiltersChange?: (filters: VisitsColumnFilters) => void;
   staffOptions?: Array<{ id: string; name: string }>;
   filterAllLabel?: string;
+  showCustomerMerge?: boolean;
+  storeId?: string;
 }
 
 export interface VisitColumnLabels {

@@ -8,6 +8,7 @@ import { DEFAULT_STORES_FILTER_PARAMS } from "@/lib/query/initial-data";
 
 export interface InitialStoreStaffPayload {
   data: Awaited<ReturnType<typeof listStaff>>;
+  storeId: string;
 }
 
 export interface InitialStaffPerformancePayload {
@@ -36,14 +37,14 @@ export interface InitialStaffFilterStoresPayload {
 export const fetchInitialStoreStaff = cache(
   async (storeIdOverride?: string): Promise<InitialStoreStaffPayload | null> => {
     const session = await getServerSession();
-    if (!requireRole(session, ["BUSINESS_OWNER"])) return null;
+    if (!requireRole(session, ["BUSINESS_OWNER", "STORE_MANAGER"])) return null;
 
     const storeId = await resolveAccessibleStoreId(
       session,
       storeIdOverride,
     );
     const data = await listStaff(storeId);
-    return { data };
+    return { data, storeId };
   },
 );
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePortfolioAlerts } from "@/hooks/usePortfolioAlerts";
 import { useStoreManagerPortfolio } from "@/hooks/useStoreManagerPortfolio";
 import { StorePerformanceCard } from "@/components/admin/overview/StorePerformanceCard";
 import { PeriodSwitcher, type PeriodValue } from "@/components/shared/PeriodSwitcher";
@@ -25,24 +26,32 @@ interface StorePortfolioProps {
   store: StoreContent;
   initialPortfolio?: StoreManagerPortfolio;
   initialParams?: GetAnalyticsParams;
+  initialPeriod?: PeriodValue;
 }
 
 export function StorePortfolio({
   store,
   initialPortfolio,
   initialParams,
+  initialPeriod,
 }: StorePortfolioProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [period, setPeriodState] = useState<PeriodValue>(() => {
-    const fromUrl = searchParams.get("period");
-    if (isPeriodValue(fromUrl)) return fromUrl;
+    if (initialPeriod && isPeriodValue(initialPeriod)) return initialPeriod;
     const fromInitial = initialParams?.period ?? null;
     if (isPeriodValue(fromInitial)) return fromInitial;
     return "today";
   });
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("period");
+    if (isPeriodValue(fromUrl) && fromUrl !== period) {
+      setPeriodState(fromUrl);
+    }
+  }, [period, searchParams]);
 
   const setPeriod = useCallback(
     (value: PeriodValue) => {
@@ -60,6 +69,7 @@ export function StorePortfolio({
     initialData: initialPortfolio,
     initialParams,
   });
+  const { data: alertsData } = usePortfolioAlerts();
 
   const periodOptions = buildPeriodSwitcherOptions(store.period);
 
@@ -94,6 +104,9 @@ export function StorePortfolio({
             {store.portfolio.title}
           </h1>
           <p className="mt-1 text-sm text-text-secondary">{store.portfolio.subtitle}</p>
+          {store.portfolio.viewOnlyHint ? (
+            <p className="mt-2 text-xs text-text-muted">{store.portfolio.viewOnlyHint}</p>
+          ) : null}
         </div>
         <PeriodSwitcher
           options={periodOptions}
@@ -102,6 +115,19 @@ export function StorePortfolio({
           className="mt-1"
         />
       </div>
+
+      {(alertsData?.data?.length ?? 0) > 0 ? (
+        <div className="rounded-card border border-status-warning/30 bg-status-warning/10 p-4">
+          <p className="text-sm font-medium text-text-primary">Portfolio alerts</p>
+          <ul className="mt-2 space-y-1 text-sm text-text-secondary">
+            {alertsData!.data.map((alert) => (
+              <li key={`${alert.storeId}-${alert.type}`}>
+                {alert.storeName}: {alert.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className={STORE_CAROUSEL_CLASS} aria-live="polite">

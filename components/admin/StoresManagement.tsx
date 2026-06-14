@@ -73,6 +73,8 @@ interface StoresManagementProps {
     businessOwnerName?: string | null;
     businessOwnerEmail?: string | null;
     isActive: boolean;
+    deletedAt?: string | null;
+    purgeAt?: string | null;
     staffCount: number;
     visits: number;
     revenue: number;
@@ -258,6 +260,8 @@ export function StoresManagement({
                   businessOwnerName: store.businessOwnerName,
                   businessOwnerEmail: store.businessOwnerEmail,
                   isActive: store.isActive,
+                  deletedAt: store.deletedAt ?? null,
+                  purgeAt: store.purgeAt ?? null,
                   staffCount: store.staffCount,
                 }}
                 storesCopy={admin.stores}

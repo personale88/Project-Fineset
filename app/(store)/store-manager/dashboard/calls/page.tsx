@@ -1,7 +1,5 @@
-import { content } from "@/content/en";
-import { StaffCallList } from "@/components/staff/StaffCallList";
-import { fetchInitialStoreManagerCalls } from "@/lib/data/staff-calls";
-import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
+import { StoreCallsPageClient } from "@/components/store/StoreCallsPageClient";
+import { fetchInitialStorePortalCalls } from "@/lib/data/staff-calls";
 import { parseStaffCallsSearchParams } from "@/lib/utils/staff-calls-url";
 
 interface StoreManagerCallsPageProps {
@@ -13,16 +11,25 @@ export default async function StoreManagerCallsPage({
 }: StoreManagerCallsPageProps) {
   const resolved = await searchParams;
   const urlFilters = parseStaffCallsSearchParams(resolved);
-  const initial = await fetchInitialStoreManagerCalls(urlFilters);
+  const storeId =
+    typeof resolved.storeId === "string" ? resolved.storeId : undefined;
+
+  let initial: Awaited<ReturnType<typeof fetchInitialStorePortalCalls>> = null;
+  try {
+    initial = await fetchInitialStorePortalCalls(storeId, urlFilters);
+  } catch (error) {
+    console.error("[store-manager-calls] initial staff calls failed", {
+      storeId,
+      error,
+    });
+  }
 
   return (
-    <StaffCallList
-      copy={content.staff}
-      emptyMessage={content.empty.staffCalls}
-      initialCallsParams={urlFilters}
-      initialData={initial?.data}
-      initialParams={initial?.params}
-      backHref={STORE_MANAGER_DASHBOARD_PATH}
+    <StoreCallsPageClient
+      portalRole="STORE_MANAGER"
+      urlStoreId={initial?.params.storeId ?? storeId}
+      initialCalls={initial?.data}
+      initialCallsParams={initial?.params}
     />
   );
 }

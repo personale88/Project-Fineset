@@ -12,6 +12,7 @@ interface VisitsTableToolbarProps {
   isSearching?: boolean;
   onSearchChange: (value: string) => void;
   onImport: (file: File) => void;
+  showImport?: boolean;
   importDisabled: boolean;
   isImporting: boolean;
   importStatusMessage?: string;
@@ -26,6 +27,7 @@ export function VisitsTableToolbar({
   isSearching = false,
   onSearchChange,
   onImport,
+  showImport = false,
   importDisabled,
   isImporting,
   importStatusMessage,
@@ -64,6 +66,8 @@ export function VisitsTableToolbar({
             type="file"
             accept=".csv,text/csv"
             className="sr-only"
+            aria-hidden={!showImport}
+            tabIndex={showImport ? 0 : -1}
             onChange={(event) => {
               const file = event.target.files?.[0];
               if (file) onImport(file);
@@ -76,6 +80,7 @@ export function VisitsTableToolbar({
             size="sm"
             disabled={importDisabled || isImporting}
             onClick={() => fileInputRef.current?.click()}
+            className={showImport ? undefined : "hidden"}
           >
             <Upload className="h-4 w-4" />
             {isImporting ? copy.importingCsv : copy.importCsv}

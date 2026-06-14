@@ -7,7 +7,10 @@ import type {
   StaffCallMasterSource,
   StaffCallOutcomeResult,
 } from "@/types";
-import type { StaffCallOutcomeInput } from "@/lib/validations/staff-calls.schema";
+import type {
+  ManualStaffCallInput,
+  StaffCallOutcomeInput,
+} from "@/lib/validations/staff-calls.schema";
 
 export interface StaffCallRecordRef {
   recordId: string;
@@ -49,6 +52,17 @@ export async function submitStaffCallOutcome(
     storeId: ref.storeId,
   });
   return apiFetch<StaffCallOutcomeResult>(`/api/staff/calls/${ref.recordId}${qs}`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function submitManualStaffCall(
+  payload: ManualStaffCallInput,
+  storeId?: string,
+): Promise<StaffCallOutcomeResult> {
+  const qs = buildQueryString({ storeId });
+  return apiFetch<StaffCallOutcomeResult>(`/api/staff/calls/manual${qs}`, {
     method: "POST",
     body: JSON.stringify(payload),
   });

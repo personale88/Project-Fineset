@@ -19,7 +19,7 @@ export type SignInResult =
   | { ok: true; redirectTo: string }
   | {
       ok: false;
-      code: "invalid_credentials" | "inactive" | "rate_limited" | "generic";
+      code: "invalid_credentials" | "inactive" | "deactivated" | "rate_limited" | "generic";
     };
 
 function logSignIn(event: string, payload: Record<string, unknown>) {
@@ -113,8 +113,11 @@ export async function signInAction(
   mark("completeLogin");
 
   if (!result.ok) {
-    logSignIn("inactive", { totalMs: Date.now() - startedAt, timings });
+    logSignIn(result.reason, { totalMs: Date.now() - startedAt, timings });
     await supabase.auth.signOut();
+    if (result.reason === "deactivated") {
+      return { ok: false, code: "deactivated" };
+    }
     return { ok: false, code: "inactive" };
   }
 

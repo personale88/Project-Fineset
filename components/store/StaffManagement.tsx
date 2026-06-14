@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, Eye, EyeOff, MoreHorizontal, Sparkles } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, MoreHorizontal, Sparkles, Upload } from "lucide-react";
 import {
   createStaffSchema,
   editStaffSchema,
@@ -15,6 +15,7 @@ import { generateSecurePassword } from "@/lib/auth/generate-password";
 import {
   useCreateStaff,
   useDeleteStaff,
+  useImportStaffCsv,
   useStoreStaff,
   useUpdateStaff,
 } from "@/hooks/useStaff";
@@ -69,6 +70,8 @@ interface StaffManagementProps {
   initialStaff?: Awaited<ReturnType<typeof import("@/lib/api/staff").getStaff>>;
   backHref?: string;
   backLabel?: string;
+  readOnly?: boolean;
+  showImport?: boolean;
 }
 
 export function StaffManagement({
@@ -79,7 +82,10 @@ export function StaffManagement({
   initialStaff,
   backHref,
   backLabel,
+  readOnly = false,
+  showImport = false,
 }: StaffManagementProps) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -89,6 +95,7 @@ export function StaffManagement({
 
   const { data, isLoading } = useStoreStaff(storeId, { initialData: initialStaff });
   const createStaffMutation = useCreateStaff(storeId);
+  const importStaffMutation = useImportStaffCsv(storeId);
   const updateStaffMutation = useUpdateStaff(storeId);
   const deleteStaffMutation = useDeleteStaff(storeId);
 
@@ -310,10 +317,51 @@ export function StaffManagement({
           <h1 className="font-display text-2xl font-bold text-text-primary">
             {store.staff.title}
           </h1>
+          {readOnly ? (
+            <p className="mt-1 text-sm text-text-secondary">{store.staff.readOnlyHint}</p>
+          ) : null}
         </div>
-        <Button type="button" onClick={() => setModalOpen(true)}>
-          {store.staff.addStaff}
-        </Button>
+        {!readOnly ? (
+          <div className="flex flex-wrap gap-2">
+            {showImport ? (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="sr-only"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+                    void importStaffMutation
+                      .mutateAsync(file)
+                      .then((result) => {
+                        toast({
+                          title: store.staff.importResult
+                            .replace("{created}", String(result.createdCount))
+                            .replace("{failed}", String(result.failedCount)),
+                        });
+                      })
+                      .catch(() => toast({ title: errors.generic }));
+                    event.currentTarget.value = "";
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={importStaffMutation.isPending}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="mr-2 size-4" aria-hidden />
+                  {store.staff.importCsv}
+                </Button>
+              </>
+            ) : null}
+            <Button type="button" onClick={() => setModalOpen(true)}>
+              {store.staff.addStaff}
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       {isLoading ? (
@@ -351,9 +399,11 @@ export function StaffManagement({
                 <th className="px-4 py-3 font-medium text-text-secondary">
                   {store.staff.columns.status}
                 </th>
-                <th className="px-4 py-3 font-medium text-text-secondary">
-                  {store.staff.columns.actions}
-                </th>
+                {!readOnly ? (
+                  <th className="px-4 py-3 font-medium text-text-secondary">
+                    {store.staff.columns.actions}
+                  </th>
+                ) : null}
               </tr>
             </thead>
             <tbody>
@@ -371,8 +421,9 @@ export function StaffManagement({
                         {member.isActive ? store.staff.active : store.staff.inactive}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3">
-                      <DropdownMenu>
+                    {!readOnly ? (
+                      <td className="px-4 py-3">
+                        <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             type="button"
@@ -419,6 +470,7 @@ export function StaffManagement({
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>
+                    ) : null}
                   </tr>
               ))}
             </tbody>

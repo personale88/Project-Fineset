@@ -1,7 +1,7 @@
 "use client";
 
 import { SlidersHorizontal, X } from "lucide-react";
-import { FilterChip, ScrollableFilterRow, YearMonthFilters } from "@/components/shared/calls";
+import { ScrollableFilterRow, YearMonthFilters } from "@/components/shared/calls";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Content } from "@/content/en";
@@ -138,8 +138,8 @@ export function StaffCallFilterPanel({
       </div>
 
       {showAdvancedFilters && (
-        <div className="min-w-0 rounded-xl border border-border bg-surface-card p-3 shadow-sm sm:p-4">
-          <div className="mb-3 flex items-center justify-between">
+        <div className="min-w-0 space-y-3 rounded-xl border border-border bg-surface-card px-3 py-3 shadow-sm sm:px-4">
+          <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-text-primary">{copy.moreFilters}</p>
             {hasAdvancedFilters && (
               <button
@@ -152,64 +152,37 @@ export function StaffCallFilterPanel({
               </button>
             )}
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-text-muted">{copy.segmentLabel}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {copy.segments.map((option) => (
-                  <FilterChip
-                    key={option.key}
-                    active={segment === option.key}
-                    label={option.label}
-                    count={getFilterCount("segments", option.key)}
-                    onClick={() => onSegmentChange(option.key as StaffCallSegment)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-text-muted">{copy.valueTierLabel}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {copy.valueTiers.map((option) => (
-                  <FilterChip
-                    key={option.key}
-                    active={valueTier === option.key}
-                    label={option.label}
-                    count={getFilterCount("valueTiers", option.key)}
-                    onClick={() => onValueTierChange(option.key as StaffCallValueTier)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-text-muted">{copy.birthdayLabel}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {copy.birthdays.map((option) => (
-                  <FilterChip
-                    key={option.key}
-                    active={birthday === option.key}
-                    label={option.label}
-                    count={getFilterCount("birthdays", option.key)}
-                    onClick={() => onBirthdayChange(option.key as StaffCallOccasionFilter)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-text-muted">{copy.anniversaryLabel}</p>
-              <div className="flex flex-wrap gap-1.5">
-                {copy.anniversaries.map((option) => (
-                  <FilterChip
-                    key={option.key}
-                    active={anniversary === option.key}
-                    label={option.label}
-                    count={getFilterCount("anniversaries", option.key)}
-                    onClick={() => onAnniversaryChange(option.key as StaffCallOccasionFilter)}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
+          <ScrollableFilterRow
+            label={copy.segmentLabel}
+            options={copy.segments}
+            value={segment}
+            onChange={(key) => onSegmentChange(key as StaffCallSegment)}
+            getCount={(key) => getFilterCount("segments", key)}
+          />
+          <div className="border-t border-border/50" />
+          <ScrollableFilterRow
+            label={copy.valueTierLabel}
+            options={copy.valueTiers}
+            value={valueTier}
+            onChange={(key) => onValueTierChange(key as StaffCallValueTier)}
+            getCount={(key) => getFilterCount("valueTiers", key)}
+          />
+          <div className="border-t border-border/50" />
+          <ScrollableFilterRow
+            label={copy.birthdayLabel}
+            options={copy.birthdays}
+            value={birthday}
+            onChange={(key) => onBirthdayChange(key as StaffCallOccasionFilter)}
+            getCount={(key) => getFilterCount("birthdays", key)}
+          />
+          <div className="border-t border-border/50" />
+          <ScrollableFilterRow
+            label={copy.anniversaryLabel}
+            options={copy.anniversaries}
+            value={anniversary}
+            onChange={(key) => onAnniversaryChange(key as StaffCallOccasionFilter)}
+            getCount={(key) => getFilterCount("anniversaries", key)}
+          />
         </div>
       )}
     </div>

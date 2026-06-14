@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { PortalShell } from "@/components/layout/PortalShell";
+import { StoreGlobalSearch } from "@/components/search/GlobalSearchDialog";
 
 interface StoreDashboardShellProps {
   title: string;
@@ -15,7 +16,11 @@ export function StoreDashboardShell({
   children,
 }: StoreDashboardShellProps) {
   return (
-    <PortalShell title={title} signOutLabel={signOutLabel}>
+    <PortalShell
+      title={title}
+      signOutLabel={signOutLabel}
+      headerActions={<StoreGlobalSearch />}
+    >
       {children}
     </PortalShell>
   );

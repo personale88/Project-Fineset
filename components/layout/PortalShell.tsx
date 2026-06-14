@@ -15,6 +15,7 @@ import {
   STORE_MANAGER_DASHBOARD_PATH,
 } from "@/lib/auth/routes";
 import { Logo } from "@/components/shared/Logo";
+import { OfflineQueueBanner } from "@/components/pwa/OfflineQueueBanner";
 
 interface NavItem {
   href: string;
@@ -25,6 +26,7 @@ interface PortalShellProps {
   title: string;
   navItems?: NavItem[];
   signOutLabel: string;
+  headerActions?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -32,6 +34,7 @@ export function PortalShell({
   title,
   navItems = [],
   signOutLabel,
+  headerActions,
   children,
 }: PortalShellProps) {
   const pathname = usePathname();
@@ -123,14 +126,17 @@ export function PortalShell({
               </nav>
             )}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={isSigningOut}
-            onClick={() => void handleSignOut()}
-          >
-            {isSigningOut ? "Signing out…" : signOutLabel}
-          </Button>
+          <div className="flex items-center gap-2">
+            {headerActions}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isSigningOut}
+              onClick={() => void handleSignOut()}
+            >
+              {isSigningOut ? "Signing out…" : signOutLabel}
+            </Button>
+          </div>
         </div>
         {navItems.length > 0 && (
           <nav
@@ -155,6 +161,7 @@ export function PortalShell({
           </nav>
         )}
       </header>
+      <OfflineQueueBanner />
       <main id="main-content" className="mx-auto min-w-0 max-w-7xl px-page-x py-6 sm:px-page-md">
         {children}
       </main>

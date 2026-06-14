@@ -59,6 +59,16 @@ export function StoreListCard({
   const displayValue = (value: string | null | undefined) =>
     value?.trim() ? value.trim() : "—";
 
+  const purgeCountdown =
+    store.deletedAt && store.purgeAt
+      ? Math.max(
+          0,
+          Math.ceil(
+            (new Date(store.purgeAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+          ),
+        )
+      : null;
+
   return (
     <article className="flex flex-col rounded-card border border-border bg-surface-card shadow-card transition-colors hover:border-brand-gold/25">
       <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
@@ -84,6 +94,11 @@ export function StoreListCard({
             >
               {store.isActive ? statusActiveLabel : statusInactiveLabel}
             </span>
+            {purgeCountdown !== null ? (
+              <span className="rounded-full bg-status-warning/10 px-2.5 py-0.5 text-xs font-medium text-status-warning">
+                {storesCopy.purgeCountdown.replace("{days}", String(purgeCountdown))}
+              </span>
+            ) : null}
           </div>
           <p className="mt-2 flex items-center gap-1.5 text-sm text-text-muted">
             <MapPin className="size-3.5 shrink-0" aria-hidden />

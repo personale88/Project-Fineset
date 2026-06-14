@@ -49,6 +49,7 @@ function createLimiter(
 let loginLimiter: Ratelimit | null | undefined;
 let writeLimiter: Ratelimit | null | undefined;
 let sseLimiter: Ratelimit | null | undefined;
+let phoneRevealLimiter: Ratelimit | null | undefined;
 
 /** Rate limits run in production only unless ENABLE_RATE_LIMIT=true (avoids dev Upstash timeouts). */
 function isRateLimitEnabled(): boolean {
@@ -72,6 +73,12 @@ function getSseLimiter(): Ratelimit | null {
   if (!isRateLimitEnabled()) return null;
   sseLimiter ??= createLimiter("fineset:sse", 30, "15 m");
   return sseLimiter;
+}
+
+function getPhoneRevealLimiter(): Ratelimit | null {
+  if (!isRateLimitEnabled()) return null;
+  phoneRevealLimiter ??= createLimiter("fineset:phone-reveal", 120, "15 m");
+  return phoneRevealLimiter;
 }
 
 async function checkLimit(
@@ -124,6 +131,12 @@ export async function checkSseRateLimit(
   identifier: string,
 ): Promise<RateLimitResult> {
   return checkLimit(getSseLimiter(), identifier);
+}
+
+export async function checkPhoneRevealRateLimit(
+  identifier: string,
+): Promise<RateLimitResult> {
+  return checkLimit(getPhoneRevealLimiter(), identifier);
 }
 
 export async function getRequestIdentifier(): Promise<string> {

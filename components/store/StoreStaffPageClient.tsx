@@ -3,33 +3,45 @@
 import { content } from "@/content/en";
 import { StoreScopedSection } from "@/components/store/StoreScopedSection";
 import { StaffManagement } from "@/components/store/StaffManagement";
-import { storeDetailPath } from "@/lib/utils/store-dashboard-url";
+import {
+  storeDetailBackLabel,
+  storeDetailPathForRole,
+} from "@/lib/utils/store-dashboard-url";
 import type { getStaff } from "@/lib/api/staff";
 
 interface StoreStaffPageClientProps {
+  portalRole?: "STORE_MANAGER" | "BUSINESS_OWNER";
   initialStaff?: Awaited<ReturnType<typeof getStaff>>;
   urlStoreId?: string;
 }
 
 export function StoreStaffPageClient({
+  portalRole = "BUSINESS_OWNER",
   initialStaff,
   urlStoreId,
 }: StoreStaffPageClientProps) {
   const store = content.store;
+  const backLabel = storeDetailBackLabel(portalRole, store.storeDetail);
 
   return (
     <StoreScopedSection store={store}>
-      {(storeId) => (
-        <StaffManagement
-          store={store}
-          storeId={storeId}
-          emptyMessage={content.empty.staff}
-          errors={content.errors}
-          initialStaff={urlStoreId === storeId ? initialStaff : undefined}
-          backHref={storeDetailPath(storeId)}
-          backLabel={store.storeDetail.backToPortfolio}
-        />
-      )}
+      {(storeId) => {
+        const canUseInitialData = !urlStoreId || urlStoreId === storeId;
+
+        return (
+          <StaffManagement
+            store={store}
+            storeId={storeId}
+            emptyMessage={content.empty.staff}
+            errors={content.errors}
+            initialStaff={canUseInitialData ? initialStaff : undefined}
+            backHref={storeDetailPathForRole(storeId, portalRole)}
+            backLabel={backLabel}
+            readOnly={portalRole === "STORE_MANAGER"}
+            showImport={portalRole === "BUSINESS_OWNER"}
+          />
+        );
+      }}
     </StoreScopedSection>
   );
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardList, MapPin, Phone } from "lucide-react";
+import { ClipboardList, MapPin, Phone, CalendarClock } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -21,6 +21,7 @@ const actionIcons = {
   logVisit: ClipboardList,
   callUsers: Phone,
   fieldSales: MapPin,
+  followUps: CalendarClock,
 } as const;
 
 export function StaffPortal({ copy }: StaffPortalProps) {
@@ -39,6 +40,11 @@ export function StaffPortal({ copy }: StaffPortalProps) {
       key: "fieldSales" as const,
       href: `${STAFF_DASHBOARD_PATH}/field-sales`,
       ...copy.portal.actions.fieldSales,
+    },
+    {
+      key: "followUps" as const,
+      href: `${STAFF_DASHBOARD_PATH}/follow-ups`,
+      ...copy.portal.actions.followUps,
     },
   ];
 

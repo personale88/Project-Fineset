@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireDiagnosticsAccess } from "@/lib/auth/diagnostics-access";
 import { prisma } from "@/lib/db/prisma";
 import {
   getStoreSchemaHealth,
@@ -19,6 +20,9 @@ function databaseHostFingerprint(url: string): string {
  * GET /api/auth/schema-diagnostics
  */
 export async function GET() {
+  const denied = await requireDiagnosticsAccess();
+  if (denied) return denied;
+
   const dbUrl = process.env.DATABASE_URL ?? "";
   const directUrl = process.env.DIRECT_URL ?? "";
 

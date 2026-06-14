@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { InviteError, inviteUser } from "@/lib/auth/invite-user";
+import { resolvePortalStoreIdForSession } from "@/lib/auth/resolve-manager-store-id";
 import {
   badRequest,
   forbidden,
@@ -18,11 +19,18 @@ export async function POST(req: Request) {
   const parsed = storeInviteUserSchema.safeParse(body);
   if (!parsed.success) return badRequest(parsed.error.flatten());
 
+  const { searchParams } = new URL(req.url);
+  const resolved = await resolvePortalStoreIdForSession(
+    session,
+    searchParams.get("storeId"),
+  );
+  if (resolved instanceof NextResponse) return resolved;
+
   try {
     const result = await inviteUser({
       ...parsed.data,
       role: "STAFF",
-      storeId: session.storeId,
+      storeId: resolved,
     });
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

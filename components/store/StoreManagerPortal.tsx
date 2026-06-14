@@ -29,17 +29,17 @@ export function StoreManagerPortal({ copy, storeId }: StoreManagerPortalProps) {
   const actions = [
     {
       key: "logVisit" as const,
-      href: `${STORE_MANAGER_DASHBOARD_PATH}/visits`,
+      href: `${STORE_MANAGER_DASHBOARD_PATH}/log-visit`,
       ...copy.managerPortal.actions.logVisit,
     },
     {
       key: "callUsers" as const,
-      href: `${STORE_MANAGER_DASHBOARD_PATH}/calls`,
+      href: `${STORE_MANAGER_DASHBOARD_PATH}/my-calls`,
       ...copy.managerPortal.actions.callUsers,
     },
     {
       key: "fieldSales" as const,
-      href: `${STORE_MANAGER_DASHBOARD_PATH}/field-sales`,
+      href: `${STORE_MANAGER_DASHBOARD_PATH}/log-field-sale`,
       ...copy.managerPortal.actions.fieldSales,
     },
     {

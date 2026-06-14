@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { content } from "@/content/en";
 import { RealtimeSyncProvider } from "@/components/layout/RealtimeSyncProvider";
+import { RoleOnboardingModalGate } from "@/components/onboarding/RoleOnboardingModalGate";
 import { StoreDashboardProvider } from "@/components/store/StoreDashboardProvider";
 import { StoreDashboardShell } from "@/components/store/StoreDashboardShell";
 import { requirePortalSession } from "@/lib/auth/require-portal-session";
@@ -37,7 +38,10 @@ export default async function StoreLayout({
           title={content.store.shell.title}
           signOutLabel={content.common.signOut}
         >
-          <RealtimeSyncProvider>{children}</RealtimeSyncProvider>
+          <RealtimeSyncProvider>
+            {children}
+            <RoleOnboardingModalGate role="BUSINESS_OWNER" />
+          </RealtimeSyncProvider>
         </StoreDashboardShell>
       </StoreDashboardProvider>
     </Suspense>

@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { CustomerMergePanel } from "@/components/customers/CustomerMergePanel";
 
 type ProfileCopy = Content["store"]["visits"]["customerProfile"];
 type VisitFormFields = Content["visitForm"]["fields"];
@@ -37,6 +38,8 @@ interface CustomerProfileDialogProps {
   productLabels: Record<string, string>;
   onClose: () => void;
   onViewVisit?: (visitId: string) => void;
+  showMerge?: boolean;
+  storeId?: string;
 }
 
 const timelineStyles: Record<
@@ -82,6 +85,8 @@ export function CustomerProfileDialog({
   productLabels,
   onClose,
   onViewVisit,
+  showMerge = false,
+  storeId,
 }: CustomerProfileDialogProps) {
   const open = visit !== null;
   const { data: profile, isLoading, isError } = useCustomerProfile({
@@ -229,6 +234,13 @@ export function CustomerProfileDialog({
                     icon={MapPin}
                   />
                 </div>
+
+                {showMerge && profile?.customer.id ? (
+                  <CustomerMergePanel
+                    targetCustomerId={profile.customer.id}
+                    storeId={storeId}
+                  />
+                ) : null}
 
                 <div className="grid gap-6 lg:grid-cols-5">
                   <section className="space-y-4 lg:col-span-2">

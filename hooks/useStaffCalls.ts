@@ -3,6 +3,7 @@ import {
   getStaffCallFilters,
   getStaffCalls,
   revealStaffCallPhone,
+  submitManualStaffCall,
   submitStaffCallOutcome,
   type StaffCallRecordRef,
 } from "@/lib/api/staff-calls";
@@ -15,6 +16,7 @@ import {
 } from "@/lib/sync/constants";
 import type { GetStaffCallsParams, StaffCallListResponse } from "@/types";
 import type { StaffCallOutcomeInput } from "@/lib/validations/staff-calls.schema";
+import type { ManualStaffCallInput } from "@/lib/validations/staff-calls.schema";
 
 interface UseStaffCallsOptions {
   initialData?: StaffCallListResponse;
@@ -68,6 +70,18 @@ export function useSubmitStaffCallOutcome() {
       ref: StaffCallRecordRef;
       payload: StaffCallOutcomeInput;
     }) => submitStaffCallOutcome(ref, payload),
+    onSuccess: () => {
+      void invalidatePortalData(queryClient);
+    },
+  });
+}
+
+export function useSubmitManualStaffCall(storeId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: ManualStaffCallInput) =>
+      submitManualStaffCall(payload, storeId),
     onSuccess: () => {
       void invalidatePortalData(queryClient);
     },
