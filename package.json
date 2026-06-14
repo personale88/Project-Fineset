@@ -2,6 +2,9 @@
   "name": "jewelry-store-saas",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.22.2"
+  },
   "scripts": {
     "predev": "node scripts/ensure-prisma-client.mjs",
     "predev:staging": "node scripts/ensure-prisma-client.mjs",
