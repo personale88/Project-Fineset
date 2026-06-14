@@ -4,12 +4,19 @@ import type {
   DedupeResult,
   ErrorCode,
   FeatureSchemaConfig,
+  ImportTransformOptions,
   RowError,
   RowWarning,
   TransformedRow,
 } from "@/lib/import-engine/types";
+import { DEFAULT_IMPORT_TRANSFORM_OPTIONS } from "@/lib/import-engine/types";
 import { duplicateInFileRowIndexes } from "@/lib/import-engine/core/deduplicator";
-import { parseDate, parseDurationToSeconds } from "@/lib/import-engine/utils/dateParser";
+import { parseDate, parseDurationToMinutes, parseDurationToSeconds, parseTime } from "@/lib/import-engine/utils/dateParser";
+import { normalizeRawValue } from "@/lib/import-engine/utils/emptyPlaceholder";
+import {
+  normalizeEnumValue,
+  normalizeListValues,
+} from "@/lib/import-engine/utils/enumNormaliser";
 import { normalisePhone } from "@/lib/import-engine/utils/phoneNormaliser";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -84,16 +91,23 @@ function transformValue(
   raw: string | null,
   schema: FeatureSchemaConfig,
   lookupCache: Map<string, Map<string, string>>,
+  transformOptions: ImportTransformOptions,
 ): TransformValueResult {
   const errors: RowError[] = [];
   const warnings: RowWarning[] = [];
 
-  if (raw === null || raw.trim() === "") {
+  if (raw === null) {
     if (column.defaultValue !== undefined) return { value: column.defaultValue, errors, warnings };
     return { value: null, errors, warnings };
   }
 
-  const trimmed = raw.trim();
+  const normalizedRaw = normalizeRawValue(raw);
+  if (normalizedRaw === null) {
+    if (column.defaultValue !== undefined) return { value: column.defaultValue, errors, warnings };
+    return { value: null, errors, warnings };
+  }
+
+  const trimmed = normalizedRaw;
 
   switch (column.type) {
     case "string": {
@@ -106,11 +120,41 @@ function transformValue(
       ) {
         const duration = parseDurationToSeconds(trimmed);
         if (duration === null) {
-          errors.push({
-            column: column.frontendLabel,
-            message: `"${trimmed}" is not a valid duration`,
-            code: "TYPE_MISMATCH",
-          });
+          if (column.required) {
+            errors.push({
+              column: column.frontendLabel,
+              message: `"${trimmed}" is not a valid duration`,
+              code: "TYPE_MISMATCH",
+            });
+          } else {
+            warnings.push({
+              column: column.frontendLabel,
+              message: `"${trimmed}" could not be parsed as a duration`,
+            });
+          }
+          return { value: null, errors, warnings };
+        }
+        return { value: duration, errors, warnings };
+      }
+
+      if (
+        schema.featureKey === "visit_log" &&
+        column.supabaseColumn === "durationMins"
+      ) {
+        const duration = parseDurationToMinutes(trimmed);
+        if (duration === null) {
+          if (column.required) {
+            errors.push({
+              column: column.frontendLabel,
+              message: `"${trimmed}" is not a valid duration`,
+              code: "TYPE_MISMATCH",
+            });
+          } else {
+            warnings.push({
+              column: column.frontendLabel,
+              message: `"${trimmed}" could not be parsed as a duration`,
+            });
+          }
           return { value: null, errors, warnings };
         }
         return { value: duration, errors, warnings };
@@ -118,11 +162,18 @@ function transformValue(
 
       const numeric = Number(stripCurrency(trimmed));
       if (!Number.isFinite(numeric)) {
-        errors.push({
-          column: column.frontendLabel,
-          message: `"${trimmed}" is not a valid number`,
-          code: "TYPE_MISMATCH",
-        });
+        if (column.required) {
+          errors.push({
+            column: column.frontendLabel,
+            message: `"${trimmed}" is not a valid number`,
+            code: "TYPE_MISMATCH",
+          });
+        } else {
+          warnings.push({
+            column: column.frontendLabel,
+            message: `"${trimmed}" could not be parsed as a number`,
+          });
+        }
         return { value: null, errors, warnings };
       }
       return { value: numeric, errors, warnings };
@@ -130,6 +181,10 @@ function transformValue(
     case "date": {
       const parsed = parseDate(trimmed, column.dateFormats ?? []);
       if (!parsed) {
+        const timeParsed = parseTime(trimmed);
+        if (timeParsed) {
+          return { value: timeParsed, errors, warnings };
+        }
         const code: ErrorCode = column.required ? "INVALID_DATE" : "INVALID_DATE";
         if (column.required) {
           errors.push({
@@ -150,6 +205,13 @@ function transformValue(
     case "phone": {
       const phone = normalisePhone(trimmed);
       if (!phone) {
+        if (transformOptions.importInvalidPhoneAsEmpty) {
+          warnings.push({
+            column: column.frontendLabel,
+            message: `"${trimmed}" could not be parsed as a phone number — importing with empty phone`,
+          });
+          return { value: null, errors, warnings };
+        }
         errors.push({
           column: column.frontendLabel,
           message: `"${trimmed}" is not a valid phone number`,
@@ -185,6 +247,55 @@ function transformValue(
       }
       return { value: key, errors, warnings };
     }
+    case "enum": {
+      const allowed = column.enumValues ?? [];
+      const normalised = normalizeEnumValue(trimmed, allowed, column.enumLabels);
+      if (!normalised) {
+        if (column.required) {
+          errors.push({
+            column: column.frontendLabel,
+            message: `"${trimmed}" is not a recognised value`,
+            code: "TYPE_MISMATCH",
+          });
+        } else {
+          warnings.push({
+            column: column.frontendLabel,
+            message: `"${trimmed}" could not be matched to a known option`,
+          });
+        }
+        return { value: null, errors, warnings };
+      }
+      return { value: normalised, errors, warnings };
+    }
+    case "list": {
+      const items = normalizeListValues(trimmed, column.enumValues, column.enumLabels);
+      if (items.length === 0 && trimmed.length > 0) {
+        warnings.push({
+          column: column.frontendLabel,
+          message: `"${trimmed}" could not be parsed as a list`,
+        });
+      }
+      return { value: items, errors, warnings };
+    }
+    case "time": {
+      const parsed = parseTime(trimmed);
+      if (!parsed) {
+        if (column.required) {
+          errors.push({
+            column: column.frontendLabel,
+            message: `"${trimmed}" is not a valid time`,
+            code: "TYPE_MISMATCH",
+          });
+        } else {
+          warnings.push({
+            column: column.frontendLabel,
+            message: `"${trimmed}" could not be parsed as a time`,
+          });
+        }
+        return { value: null, errors, warnings };
+      }
+      return { value: parsed, errors, warnings };
+    }
     default:
       return { value: trimmed, errors, warnings };
   }
@@ -202,6 +313,7 @@ export async function transformRows(
   schema: FeatureSchemaConfig,
   lookupCache: Map<string, Map<string, string>>,
   dedupeResults: DedupeResult[],
+  transformOptions: ImportTransformOptions = DEFAULT_IMPORT_TRANSFORM_OPTIONS,
 ): Promise<TransformedRow[]> {
   const dedupeByIndex = new Map(dedupeResults.map((result) => [result.rowIndex, result]));
   const duplicateIndexes = duplicateInFileRowIndexes(
@@ -256,21 +368,13 @@ export async function transformRows(
         continue;
       }
 
-      const result = transformValue(column, raw, schema, lookupCache);
+      const result = transformValue(column, raw, schema, lookupCache, transformOptions);
       errors.push(...result.errors);
       warnings.push(...result.warnings);
 
       let value = result.value;
       if (schema.featureKey === "call_log" && column.supabaseColumn === "answered") {
         value = mapCallOutcome(value);
-      }
-      if (schema.featureKey === "visit_log" && column.supabaseColumn === "productsExplored") {
-        value =
-          typeof value === "string" && value.length > 0
-            ? value.split(/[,;|]/).map((part) => part.trim()).filter(Boolean)
-            : [];
-        transformedData.productsExplored = value;
-        continue;
       }
 
       if (column.isCustomerField) {

@@ -12,8 +12,9 @@ const RoleOnboardingModal = dynamic(
 
 interface RoleOnboardingModalGateProps {
   role: string;
+  userName?: string;
 }
 
-export function RoleOnboardingModalGate({ role }: RoleOnboardingModalGateProps) {
-  return <RoleOnboardingModal role={role} />;
+export function RoleOnboardingModalGate({ role, userName }: RoleOnboardingModalGateProps) {
+  return <RoleOnboardingModal role={role} userName={userName} />;
 }

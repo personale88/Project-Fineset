@@ -47,7 +47,7 @@ export function StoreVisitsPageClient({
             initialStaff={canUseInitialData ? initialStaff : undefined}
             backHref={storeDetailPathForRole(storeId, portalRole)}
             backLabel={backLabel}
-            showImport={portalRole === "BUSINESS_OWNER"}
+            showImport
             viewOnlySubtitle={
               portalRole === "BUSINESS_OWNER" ? store.visits.viewOnlySubtitle : undefined
             }

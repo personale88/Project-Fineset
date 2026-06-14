@@ -9,6 +9,7 @@ import { STAFF_FILTER_QUERY_OPTIONS, queryOptionsForHydration } from "@/lib/sync
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useImportVisitsCsv, useVisits } from "@/hooks/useVisits";
 import { VisitsTable } from "@/components/tables/VisitsTable";
+import { ImportHistoryPanel, ImportModal } from "@/components/import";
 import { QueryLoadState } from "@/components/shared/QueryLoadState";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -73,6 +74,7 @@ export function StoreVisitsLog({
     tone: "default" | "success" | "error";
     message: string;
   } | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const dateRangeError = useMemo(() => {
     if (startDate && endDate && compareCalendarDateStrings(startDate, endDate) > 0) {
@@ -230,6 +232,8 @@ export function StoreVisitsLog({
           }}
           onPageChange={setPage}
           showImport={showImport}
+          onOpenImport={() => setImportOpen(true)}
+          importLabel={store.visits.importSpreadsheet}
           onImportCsv={(file) => {
             setImportStatus({
               tone: "default",
@@ -284,6 +288,28 @@ export function StoreVisitsLog({
           storeId={storeId}
         />
       </QueryLoadState>
+
+      {showImport ? (
+        <>
+          <ImportModal
+            featureKey="visit_log"
+            storeId={storeId}
+            open={importOpen}
+            onClose={() => setImportOpen(false)}
+            onImportComplete={(result) => {
+              setImportStatus({
+                tone: "success",
+                message: store.visits.importSuccess.replace(
+                  "{count}",
+                  String(result.successCount),
+                ),
+              });
+              void refetch();
+            }}
+          />
+          <ImportHistoryPanel storeId={storeId} featureKey="visit_log" />
+        </>
+      ) : null}
     </div>
   );
 }

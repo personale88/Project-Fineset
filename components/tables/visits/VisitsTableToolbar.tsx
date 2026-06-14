@@ -12,6 +12,8 @@ interface VisitsTableToolbarProps {
   isSearching?: boolean;
   onSearchChange: (value: string) => void;
   onImport: (file: File) => void;
+  onOpenImport?: () => void;
+  importLabel?: string;
   showImport?: boolean;
   importDisabled: boolean;
   isImporting: boolean;
@@ -27,6 +29,8 @@ export function VisitsTableToolbar({
   isSearching = false,
   onSearchChange,
   onImport,
+  onOpenImport,
+  importLabel,
   showImport = false,
   importDisabled,
   isImporting,
@@ -79,11 +83,19 @@ export function VisitsTableToolbar({
             variant="outline"
             size="sm"
             disabled={importDisabled || isImporting}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => {
+              if (onOpenImport) {
+                onOpenImport();
+                return;
+              }
+              fileInputRef.current?.click();
+            }}
             className={showImport ? undefined : "hidden"}
           >
             <Upload className="h-4 w-4" />
-            {isImporting ? copy.importingCsv : copy.importCsv}
+            {isImporting
+              ? copy.importingCsv
+              : (importLabel ?? copy.importCsv)}
           </Button>
       </div>
     </div>

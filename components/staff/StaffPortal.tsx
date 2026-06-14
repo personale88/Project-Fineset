@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { DashboardNotifications } from "@/components/dashboard/DashboardNotifications";
 import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
 import type { Content } from "@/content/en";
 
@@ -56,6 +57,8 @@ export function StaffPortal({ copy }: StaffPortalProps) {
         </h1>
         <p className="text-text-secondary">{copy.portal.subtitle}</p>
       </header>
+
+      <DashboardNotifications variant="staff" />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {actions.map((action) => {

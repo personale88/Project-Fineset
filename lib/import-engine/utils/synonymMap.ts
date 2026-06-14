@@ -160,6 +160,14 @@ export const SYNONYM_MAP: Record<string, string[]> = {
     "conversion",
     "sale status",
   ],
+  customer_type: ["customer type", "client type", "new or repeat", "member type"],
+  source_channel: ["source", "channel", "source channel", "how they found us"],
+  intent_tier: ["intent tier", "interest level", "intent", "lead temperature"],
+  products_explored: ["products explored", "product explored", "items explored"],
+  products_purchased: ["products purchased", "purchased products", "items purchased"],
+  in_time: ["in time", "check in", "entry time", "arrival time"],
+  out_time: ["out time", "check out", "exit time", "departure time"],
+  follow_up: ["follow up needed", "follow-up needed", "needs follow up"],
 };
 
 export function canonicalKeyForSynonym(header: string): string | null {

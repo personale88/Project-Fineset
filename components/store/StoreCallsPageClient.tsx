@@ -33,6 +33,7 @@ export function StoreCallsPageClient({
             copy={content.staff}
             emptyMessage={content.empty.staffCalls}
             storeId={activeStoreId}
+            showImport
             initialCallsParams={canUseInitialData ? initialCallsParams : undefined}
             initialData={canUseInitialData ? initialCalls : undefined}
             initialParams={canUseInitialData ? initialCallsParams : undefined}

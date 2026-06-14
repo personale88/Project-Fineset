@@ -22,10 +22,13 @@ import type {
   ColumnMappingResult,
   ImportPreview,
   ImportResult,
+  ImportTransformOptions,
   ImportWizardStep,
   ParsedFile,
   TransformedRow,
 } from "@/lib/import-engine/types";
+import { DEFAULT_IMPORT_TRANSFORM_OPTIONS } from "@/lib/import-engine/types";
+import { resolveImportPhone } from "@/lib/import-engine/utils/phoneNormaliser";
 import { dedupeImportRows, executeImport } from "@/lib/api/import";
 import { getStaff } from "@/lib/api/staff";
 
@@ -55,6 +58,10 @@ export function ImportModal({
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const [statusLabel, setStatusLabel] = useState("Preparing import…");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [transformOptions, setTransformOptions] = useState<ImportTransformOptions>(
+    DEFAULT_IMPORT_TRANSFORM_OPTIONS,
+  );
+  const [isRefreshingPreview, setIsRefreshingPreview] = useState(false);
 
   const reset = useCallback(() => {
     setStep("upload");
@@ -67,6 +74,8 @@ export function ImportModal({
     setProgress({ processed: 0, total: 0 });
     setStatusLabel("Preparing import…");
     setIsSubmitting(false);
+    setTransformOptions(DEFAULT_IMPORT_TRANSFORM_OPTIONS);
+    setIsRefreshingPreview(false);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -87,58 +96,72 @@ export function ImportModal({
     [schema],
   );
 
-  const buildPreview = useCallback(async () => {
-    if (!schema || !parsedFile) return;
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      const phoneHeader = mappings.find((m) => m.matchedColumn?.supabaseColumn === "phone")
-        ?.uploadedHeader;
-      const emailHeader = mappings.find((m) => m.matchedColumn?.supabaseColumn === "email")
-        ?.uploadedHeader;
+  const buildPreview = useCallback(
+    async (options: ImportTransformOptions = transformOptions) => {
+      if (!schema || !parsedFile) return;
+      setError(null);
+      setIsSubmitting(true);
+      try {
+        const phoneHeader = mappings.find((m) => m.matchedColumn?.supabaseColumn === "phone")
+          ?.uploadedHeader;
+        const emailHeader = mappings.find((m) => m.matchedColumn?.supabaseColumn === "email")
+          ?.uploadedHeader;
 
-      const dedupePayload = parsedFile.rows.map((row, rowIndex) => ({
-        rowIndex,
-        phone: phoneHeader ? row[phoneHeader] ?? null : null,
-        email: emailHeader ? row[emailHeader] ?? null : null,
-      }));
+        const dedupePayload = parsedFile.rows.map((row, rowIndex) => ({
+          rowIndex,
+          phone: phoneHeader ? resolveImportPhone(row[phoneHeader]) : null,
+          email: emailHeader ? row[emailHeader] ?? null : null,
+        }));
 
-      const { results: dedupeResults } = await dedupeImportRows({
-        featureKey,
-        storeId,
-        rows: dedupePayload,
-      });
+        const { results: dedupeResults } = await dedupeImportRows({
+          featureKey,
+          storeId,
+          rows: dedupePayload,
+        });
 
-      const staff = await getStaff(storeId);
-      const lookupCache = mergeLookupCaches(
-        buildLookupCacheFromRecords(
-          "staff",
-          staff.map((member) => ({ display: member.name, key: member.id })),
-        ),
-        buildLookupCacheFromRecords(
-          "staff",
-          staff.map((member) => ({ display: member.employeeId, key: member.id })),
-        ),
-      );
+        const staff = await getStaff(storeId);
+        const lookupCache = mergeLookupCaches(
+          buildLookupCacheFromRecords(
+            "staff",
+            staff.map((member) => ({ display: member.name, key: member.id })),
+          ),
+          buildLookupCacheFromRecords(
+            "staff",
+            staff.map((member) => ({ display: member.employeeId, key: member.id })),
+          ),
+        );
 
-      const transformed = await transformRows(
-        parsedFile.rows,
-        mappings,
-        schema,
-        lookupCache,
-        dedupeResults,
-      );
+        const transformed = await transformRows(
+          parsedFile.rows,
+          mappings,
+          schema,
+          lookupCache,
+          dedupeResults,
+          options,
+        );
 
-      const importPreview = buildImportPreview(transformed, mappings, schema);
-      setTransformedRows(transformed);
-      setPreview(importPreview);
-      setStep("confirm");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to build preview");
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [featureKey, mappings, parsedFile, schema, storeId]);
+        const importPreview = buildImportPreview(transformed, mappings, schema);
+        setTransformOptions(options);
+        setTransformedRows(transformed);
+        setPreview(importPreview);
+        setStep("confirm");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to build preview");
+      } finally {
+        setIsSubmitting(false);
+        setIsRefreshingPreview(false);
+      }
+    },
+    [featureKey, mappings, parsedFile, schema, storeId, transformOptions],
+  );
+
+  const handleTransformOptionsChange = useCallback(
+    (options: ImportTransformOptions) => {
+      setIsRefreshingPreview(true);
+      void buildPreview(options);
+    },
+    [buildPreview],
+  );
 
   const handleConfirmImport = useCallback(async () => {
     if (!schema || !preview) return;
@@ -183,7 +206,7 @@ export function ImportModal({
   return (
     <Dialog open={open} onOpenChange={(next) => !next && handleClose()}>
       <DialogContent
-        className="max-h-[90vh] max-w-3xl overflow-y-auto"
+        className="top-[4vh] flex max-h-[92vh] w-[calc(100vw-1.5rem)] max-w-4xl translate-x-[-50%] translate-y-0 flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
         onPointerDownOutside={(event) => {
           if (step === "progress") event.preventDefault();
         }}
@@ -191,74 +214,81 @@ export function ImportModal({
           if (step === "progress") event.preventDefault();
         }}
       >
-        <DialogHeader>
-          <DialogTitle>Import {schema.featureLabel}</DialogTitle>
-          <DialogDescription>
-            Upload a spreadsheet, review column mapping, and import into your store.
-          </DialogDescription>
-        </DialogHeader>
+        <div className="shrink-0 space-y-4 border-b border-border px-6 pb-4 pt-6">
+          <DialogHeader>
+            <DialogTitle>Import {schema.featureLabel}</DialogTitle>
+            <DialogDescription>
+              Upload a spreadsheet, review column mapping, and import into your store.
+            </DialogDescription>
+          </DialogHeader>
+          <ImportStepIndicator currentStep={step} />
+        </div>
 
-        <ImportStepIndicator currentStep={step} />
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          {error && step !== "upload" && (
+            <div className="mb-4 rounded-card border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
 
-        {error && step !== "upload" && (
-          <div className="rounded-card border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-            {error}
-          </div>
-        )}
+          {step === "upload" && (
+            <UploadStep
+              schema={schema}
+              onParsed={handleParsed}
+              error={error}
+              onError={setError}
+            />
+          )}
 
-        {step === "upload" && (
-          <UploadStep
-            schema={schema}
-            onParsed={handleParsed}
-            error={error}
-            onError={setError}
-          />
-        )}
+          {step === "mapping" && parsedFile && (
+            <MappingStep
+              schema={schema}
+              mappings={mappings}
+              onMappingsChange={setMappings}
+              uploadedHeaders={parsedFile.headers}
+              rows={parsedFile.rows}
+              onContinue={() => void buildPreview()}
+              onBack={() => setStep("upload")}
+              isSubmitting={isSubmitting}
+            />
+          )}
 
-        {step === "mapping" && parsedFile && (
-          <MappingStep
-            schema={schema}
-            mappings={mappings}
-            onMappingsChange={setMappings}
-            uploadedHeaders={parsedFile.headers}
-            rows={parsedFile.rows}
-            onContinue={() => void buildPreview()}
-            onBack={() => setStep("upload")}
-          />
-        )}
+          {step === "confirm" && preview && (
+            <ConfirmationStep
+              preview={preview}
+              importRowCount={importRowCount}
+              transformOptions={transformOptions}
+              onTransformOptionsChange={handleTransformOptionsChange}
+              isRefreshing={isRefreshingPreview}
+              onConfirm={() => void handleConfirmImport()}
+              onBack={() => setStep("mapping")}
+              isSubmitting={isSubmitting}
+            />
+          )}
 
-        {step === "confirm" && preview && (
-          <ConfirmationStep
-            preview={preview}
-            importRowCount={importRowCount}
-            onConfirm={() => void handleConfirmImport()}
-            onBack={() => setStep("mapping")}
-            isSubmitting={isSubmitting}
-          />
-        )}
+          {step === "progress" && (
+            <ProgressStep
+              processed={progress.processed}
+              total={progress.total}
+              statusLabel={statusLabel}
+              error={error}
+              onViewPartial={() => result && setStep("summary")}
+            />
+          )}
 
-        {step === "progress" && (
-          <ProgressStep
-            processed={progress.processed}
-            total={progress.total}
-            statusLabel={statusLabel}
-            error={error}
-            onViewPartial={() => result && setStep("summary")}
-          />
-        )}
-
-        {step === "summary" && result && (
-          <SummaryStep
-            result={result}
-            transformedRows={transformedRows}
-            onComplete={() => {
-              onImportComplete(result);
-              reset();
-              onClose();
-            }}
-            onImportAnother={reset}
-          />
-        )}
+          {step === "summary" && result && (
+            <SummaryStep
+              result={result}
+              transformedRows={transformedRows}
+              onComplete={() => {
+                onImportComplete(result);
+                reset();
+                onClose();
+              }}
+              onImportAnother={reset}
+            />
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

@@ -1,11 +1,21 @@
 import { IMPORT_CONFIG } from "@/lib/import-engine/config";
+import { isEmptyPlaceholder, normalizeRawValue } from "@/lib/import-engine/utils/emptyPlaceholder";
+
+const MULTI_PHONE_SPLIT = /[/,;|&]|(?:\s+or\s+)|(?:\s+and\s+)/i;
 
 function stripToDigits(value: string): string {
   return value.replace(/\D/g, "");
 }
 
-/** Normalise phone to E.164; returns null when invalid */
-export function normalisePhone(
+function phoneCandidates(value: string): string[] {
+  const parts = value
+    .split(MULTI_PHONE_SPLIT)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return parts.length > 0 ? parts : [value.trim()];
+}
+
+function normaliseSinglePhone(
   value: string,
   countryCode: string = IMPORT_CONFIG.phoneCountryCode,
 ): string | null {
@@ -29,8 +39,31 @@ export function normalisePhone(
   return `+${normalised}`;
 }
 
+/** Normalise phone to E.164; returns null when invalid */
+export function normalisePhone(
+  value: string,
+  countryCode: string = IMPORT_CONFIG.phoneCountryCode,
+): string | null {
+  if (isEmptyPlaceholder(value)) return null;
+
+  for (const candidate of phoneCandidates(value)) {
+    if (isEmptyPlaceholder(candidate)) continue;
+    const normalised = normaliseSinglePhone(candidate, countryCode);
+    if (normalised) return normalised;
+  }
+  return null;
+}
+
 export function phoneDigitsForHash(value: string): string {
   const normalised = normalisePhone(value);
-  if (!normalised) return stripToDigits(value);
+  if (!normalised) return stripToDigits(value.split(/[/,;|&]/)[0] ?? value);
   return normalised.replace(/\D/g, "");
+}
+
+/** Normalise a raw spreadsheet phone for dedupe and import; null when empty or invalid. */
+export function resolveImportPhone(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const normalized = normalizeRawValue(raw);
+  if (!normalized) return null;
+  return normalisePhone(normalized);
 }

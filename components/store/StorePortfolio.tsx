@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { usePortfolioAlerts } from "@/hooks/usePortfolioAlerts";
 import { useStoreManagerPortfolio } from "@/hooks/useStoreManagerPortfolio";
 import { StorePerformanceCard } from "@/components/admin/overview/StorePerformanceCard";
 import { PeriodSwitcher, type PeriodValue } from "@/components/shared/PeriodSwitcher";
+import { BusinessOwnerStoreNotifications } from "@/components/dashboard/BusinessOwnerStoreNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import { storeDetailPath } from "@/lib/utils/store-dashboard-url";
 import type { Content } from "@/content/en";
@@ -69,7 +69,6 @@ export function StorePortfolio({
     initialData: initialPortfolio,
     initialParams,
   });
-  const { data: alertsData } = usePortfolioAlerts();
 
   const periodOptions = buildPeriodSwitcherOptions(store.period);
 
@@ -116,18 +115,7 @@ export function StorePortfolio({
         />
       </div>
 
-      {(alertsData?.data?.length ?? 0) > 0 ? (
-        <div className="rounded-card border border-status-warning/30 bg-status-warning/10 p-4">
-          <p className="text-sm font-medium text-text-primary">Portfolio alerts</p>
-          <ul className="mt-2 space-y-1 text-sm text-text-secondary">
-            {alertsData!.data.map((alert) => (
-              <li key={`${alert.storeId}-${alert.type}`}>
-                {alert.storeName}: {alert.message}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+      <BusinessOwnerStoreNotifications />
 
       {loading ? (
         <div className={STORE_CAROUSEL_CLASS} aria-live="polite">

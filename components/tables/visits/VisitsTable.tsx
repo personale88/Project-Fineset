@@ -44,6 +44,8 @@ export function VisitsTable({
   onSearchChange,
   onPageChange,
   onImportCsv,
+  onOpenImport,
+  importLabel,
   showImport = false,
   isImportingCsv,
   importStatusMessage,
@@ -107,6 +109,8 @@ export function VisitsTable({
         isSearching={isSearching}
         onSearchChange={onSearchChange}
         onImport={onImportCsv}
+        onOpenImport={onOpenImport}
+        importLabel={importLabel}
         showImport={showImport}
         importDisabled={false}
         isImporting={isImportingCsv}

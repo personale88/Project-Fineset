@@ -19,7 +19,7 @@ export default async function StaffLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requirePortalSession("STAFF");
+  const session = await requirePortalSession("STAFF");
 
   return (
     <PortalShell
@@ -29,7 +29,7 @@ export default async function StaffLayout({
     >
       <RealtimeSyncProvider>
         {children}
-        <RoleOnboardingModalGate role="STAFF" />
+        <RoleOnboardingModalGate role="STAFF" userName={session.name} />
       </RealtimeSyncProvider>
     </PortalShell>
   );

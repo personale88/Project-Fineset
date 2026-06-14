@@ -3,47 +3,105 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import type { ImportPreview } from "@/lib/import-engine/types";
+import { content } from "@/content/en";
+import { ImportAutoFixPanel } from "@/components/import/shared/ImportAutoFixPanel";
+import { ImportIssuePanel, ImportStatCard } from "@/components/import/shared/ImportIssuePanel";
+import type { ImportPreview, ImportTransformOptions } from "@/lib/import-engine/types";
 
 interface ConfirmationStepProps {
   preview: ImportPreview;
   importRowCount: number;
+  transformOptions: ImportTransformOptions;
+  onTransformOptionsChange: (options: ImportTransformOptions) => void;
+  isRefreshing?: boolean;
   onConfirm: () => void;
   onBack: () => void;
   isSubmitting?: boolean;
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-card border border-border bg-surface-card p-4">
-      <p className="text-xs uppercase tracking-wide text-text-muted">{label}</p>
-      <p className="mt-1 font-display text-2xl font-semibold text-text-primary">{value}</p>
-    </div>
-  );
-}
-
 export function ConfirmationStep({
   preview,
   importRowCount,
+  transformOptions,
+  onTransformOptionsChange,
+  isRefreshing = false,
   onConfirm,
   onBack,
   isSubmitting = false,
 }: ConfirmationStepProps) {
+  const copy = content.import.confirm;
   const [confirmed, setConfirmed] = useState(false);
   const blocked = preview.missingRequiredColumns.length > 0;
 
+  const issueLabels = {
+    howToFix: copy.howToFix,
+    willNotImport: copy.willNotImport,
+    willImport: copy.willImport,
+    rowCount: copy.rowCount,
+  };
+
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2">
-        <StatCard label="Total rows" value={preview.totalRows} />
-        <StatCard label="Valid rows" value={preview.validRows} />
-        <StatCard label="Error rows" value={preview.errorRows} />
-        <StatCard label="Warning rows" value={preview.warningRows} />
-        <StatCard label="New customers" value={preview.newCustomers} />
-        <StatCard label="Repeat customers" value={preview.repeatCustomers} />
-        <StatCard label="Ambiguous" value={preview.ambiguousCustomers} />
-        <StatCard label="Skipped" value={preview.skippedRows} />
+      <div className="rounded-card border border-border bg-surface-muted/30 px-4 py-3">
+        <h3 className="font-medium text-text-primary">{copy.severityTitle}</h3>
+        <p className="mt-1 text-sm leading-relaxed text-text-secondary">{copy.severityIntro}</p>
+        <p className="mt-3 text-sm text-text-secondary">
+          {copy.importCountNote.replace("{count}", importRowCount.toLocaleString())}
+        </p>
       </div>
+
+      <ImportAutoFixPanel
+        options={transformOptions}
+        onChange={onTransformOptionsChange}
+        isRefreshing={isRefreshing}
+      />
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <ImportStatCard label="Total rows" value={preview.totalRows} />
+        <ImportStatCard
+          label="Valid rows"
+          value={preview.validRows}
+          hint={copy.statValidHint}
+          tone="success"
+        />
+        <ImportStatCard
+          label="Error rows"
+          value={preview.errorRows}
+          hint={copy.statErrorHint}
+          tone="error"
+        />
+        <ImportStatCard
+          label="Warning rows"
+          value={preview.warningRows}
+          hint={copy.statWarningHint}
+          tone="warning"
+        />
+        <ImportStatCard label="New customers" value={preview.newCustomers} />
+        <ImportStatCard label="Repeat customers" value={preview.repeatCustomers} />
+        <ImportStatCard label="Ambiguous" value={preview.ambiguousCustomers} />
+        <ImportStatCard label="Skipped" value={preview.skippedRows} />
+      </div>
+
+      <ImportIssuePanel
+        title={copy.errorSeverityTitle}
+        description={copy.errorSeverityBody.replace("{count}", preview.errorRows.toLocaleString())}
+        issues={preview.errorSummaries}
+        emptyMessage={copy.noBlockingIssues}
+        variant="error"
+        labels={issueLabels}
+      />
+
+      <ImportIssuePanel
+        title={copy.warningSeverityTitle}
+        description={copy.warningSeverityBody.replace(
+          "{count}",
+          preview.warningRows.toLocaleString(),
+        )}
+        issues={preview.warningSummaries}
+        emptyMessage={copy.noReviewIssues}
+        variant="warning"
+        labels={issueLabels}
+      />
 
       <div className="rounded-card border border-border">
         <div className="border-b border-border px-4 py-3">
@@ -69,21 +127,6 @@ export function ConfirmationStep({
         </div>
       </div>
 
-      {preview.sampleErrors.length > 0 && (
-        <details className="rounded-card border border-border px-4 py-3">
-          <summary className="cursor-pointer font-medium text-text-primary">
-            Preview errors ({preview.errorRows})
-          </summary>
-          <ul className="mt-3 space-y-2 text-sm text-text-secondary">
-            {preview.sampleErrors.map((error, index) => (
-              <li key={`${error.code}-${index}`}>
-                {error.column}: {error.message}
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
-
       {preview.ambiguousCustomers > 0 && (
         <div className="rounded-card border border-status-warning/30 bg-status-warning/5 px-4 py-3 text-sm text-status-warning">
           {preview.ambiguousCustomers} row(s) have conflicting phone/email matches and will be
@@ -104,21 +147,27 @@ export function ConfirmationStep({
           className="mt-1 h-4 w-4 rounded border-border"
           checked={confirmed}
           onChange={(event) => setConfirmed(event.target.checked)}
-          disabled={blocked}
+          disabled={blocked || isRefreshing}
         />
         <Label htmlFor="import-confirm" className="text-sm leading-relaxed">
-          I have reviewed the mapping and want to import {importRowCount} row(s)
+          I have reviewed the mapping and want to import {importRowCount.toLocaleString()} row(s)
+          {preview.errorRows > 0
+            ? ` (${preview.errorRows.toLocaleString()} error row(s) will be skipped)`
+            : ""}
+          {preview.warningRows > 0
+            ? ` (${preview.warningRows.toLocaleString()} with warnings)`
+            : ""}
         </Label>
       </div>
 
       <div className="flex gap-2">
-        <Button type="button" variant="ghost" onClick={onBack}>
+        <Button type="button" variant="ghost" onClick={onBack} disabled={isRefreshing}>
           Go back
         </Button>
         <Button
           type="button"
           className="ml-auto"
-          disabled={!confirmed || blocked || isSubmitting}
+          disabled={!confirmed || blocked || isSubmitting || isRefreshing}
           onClick={onConfirm}
         >
           {isSubmitting ? "Starting import…" : "Start import"}

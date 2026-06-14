@@ -1,16 +1,30 @@
-import { CallAnswerStatus, CustomerType, PurchaseStatus, SourceChannel } from "@prisma/client";
+import {
+  CallAnswerStatus,
+  CustomerType,
+  PurchaseStatus,
+  SourceChannel,
+  type VisitType,
+} from "@prisma/client";
 import { IMPORT_CONFIG, chunkSizeForRowCount } from "@/lib/import-engine/config";
 import { getSchemaConfig } from "@/lib/import-engine/schema-configs";
 import type { ImportPayload, ImportResult, TransformedRow } from "@/lib/import-engine/types";
 import { rowsForImport } from "@/lib/import-engine/core/validator";
 import { prisma } from "@/lib/db/prisma";
+import {
+  resolveImportCustomerName,
+  resolveImportCustomerPhone,
+  resolveImportStaffId,
+} from "@/lib/services/import-engine/import-row-resolvers";
 import { prepareCustomerPii } from "@/lib/services/pii";
 import { createVisit } from "@/lib/services/visits";
+import type { CreateVisitInput } from "@/lib/validations/visit.schema";
 
 interface RunImportParams extends ImportPayload {
   storeId: string;
   importedByAuthId: string;
   fileName?: string;
+  /** When agent name is not mapped, attribute calls to this staff member. */
+  importingStaffId?: string | null;
 }
 
 function asString(value: unknown): string | undefined {
@@ -29,6 +43,38 @@ function asDate(value: unknown): Date | undefined {
 
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function asBoolean(value: unknown): boolean | undefined {
+  return typeof value === "boolean" ? value : undefined;
+}
+
+function asSourceChannel(value: unknown): SourceChannel {
+  const channel = asString(value);
+  if (channel && Object.values(SourceChannel).includes(channel as SourceChannel)) {
+    return channel as SourceChannel;
+  }
+  return SourceChannel.OTHER;
+}
+
+function resolveCustomerType(row: TransformedRow): CustomerType {
+  const mapped = asString(row.transformedData.customerType);
+  if (mapped === "VIP") return CustomerType.VIP;
+  if (mapped === "REPEAT" || row.customerType === "repeat") return CustomerType.REPEAT;
+  return CustomerType.NEW;
+}
+
+function resolvePurchaseStatus(row: TransformedRow): CreateVisitInput["purchaseStatus"] {
+  const mapped = asString(row.transformedData.purchaseStatus);
+  if (mapped === "PURCHASED") return "PURCHASED";
+  if (mapped === "NOT_PURCHASED") return "NOT_PURCHASED";
+  const amount = asNumber(row.transformedData.transactionAmount);
+  return amount && amount > 0 ? "PURCHASED" : "NOT_PURCHASED";
+}
+
+function optionalField<T>(value: unknown): T | undefined {
+  if (value === null || value === undefined) return undefined;
+  return value as T;
 }
 
 function mapCallAnswered(value: unknown): CallAnswerStatus {
@@ -92,56 +138,104 @@ async function upsertCustomerFromRow(
   };
 }
 
+async function resolveFallbackStaffId(storeId: string): Promise<string | null> {
+  const staff = await prisma.staff.findFirst({
+    where: { storeId, isActive: true },
+    orderBy: { name: "asc" },
+    select: { id: true },
+  });
+  return staff?.id ?? null;
+}
+
 async function importVisitRow(
   row: TransformedRow,
   storeId: string,
   batchId: string,
+  fallbackStaffId: string | null,
 ): Promise<void> {
-  const staffId = asString(row.transformedData.staffId);
-  const customerName = asString(row.customerData.name);
-  const customerPhone = asString(row.customerData.phone);
-  if (!staffId || !customerName || !customerPhone) {
-    throw new Error("Visit row missing staff, customer name, or phone");
+  const staffId = resolveImportStaffId(row, fallbackStaffId);
+  const customerName = resolveImportCustomerName(row);
+  const customerPhone = resolveImportCustomerPhone(row);
+
+  if (!staffId) {
+    throw new Error(
+      "No staff member is available in this store. Add at least one active staff member, then retry the import.",
+    );
   }
 
-  const visitDate = asDate(row.transformedData.visitDate) ?? new Date();
-  const transactionAmount = asNumber(row.transformedData.transactionAmount);
-  const productsExploredRaw = asStringArray(row.transformedData.productsExplored);
-  const serviceNote =
-    productsExploredRaw.length > 0 ? `Products: ${productsExploredRaw.join(", ")}` : null;
-  const staffNotes = [asString(row.transformedData.staffNotes), serviceNote]
+  const visitType = asString(row.transformedData.visitType);
+  const staffNotes = [
+    asString(row.transformedData.staffNotes),
+    !asString(row.transformedData.staffId)
+      ? "Imported without a matched staff name in the spreadsheet."
+      : null,
+    !asString(row.customerData.phone)
+      ? "Imported without a customer phone number in the spreadsheet."
+      : null,
+  ]
     .filter(Boolean)
-    .join(" · ");
-  const purchaseStatus: PurchaseStatus =
-    transactionAmount && transactionAmount > 0
-      ? PurchaseStatus.PURCHASED
-      : PurchaseStatus.NOT_PURCHASED;
+    .join(" ");
 
   const visit = await createVisit({
     storeId,
     staffId,
     customerName,
     customerPhone,
-    customerType: row.customerType === "repeat" ? CustomerType.REPEAT : CustomerType.NEW,
-    visitType: "WALK_IN",
-    sourceChannel: SourceChannel.OTHER,
-    purchaseStatus,
-    productsExplored: [],
-    productsPurchased: [],
-    schemesPitched: [],
-    followUpNeeded: false,
+    customerType: resolveCustomerType(row),
+    visitType: (visitType === "APPOINTMENT" ? "APPOINTMENT" : "WALK_IN") as VisitType,
+    sourceChannel: asSourceChannel(row.transformedData.sourceChannel),
+    purchaseStatus: resolvePurchaseStatus(row),
+    visitDate: asDate(row.transformedData.visitDate),
+    inTime: asDate(row.transformedData.inTime),
+    outTime: asDate(row.transformedData.outTime),
+    area: asString(row.transformedData.area),
+    address: asString(row.transformedData.address),
+    profession: asString(row.transformedData.profession),
+    gender: optionalField<CreateVisitInput["gender"]>(row.transformedData.gender),
+    ageGroup: optionalField<CreateVisitInput["ageGroup"]>(row.transformedData.ageGroup),
+    dateOfBirth: asDate(row.transformedData.dateOfBirth),
+    anniversary: asDate(row.transformedData.anniversary),
+    productsExplored: asStringArray(
+      row.transformedData.productsExplored,
+    ) as CreateVisitInput["productsExplored"],
+    productsPurchased: asStringArray(
+      row.transformedData.productsPurchased,
+    ) as CreateVisitInput["productsPurchased"],
+    transactionAmount: asNumber(row.transformedData.transactionAmount),
+    intentTier: optionalField<CreateVisitInput["intentTier"]>(row.transformedData.intentTier),
+    reasonNoPurchase: optionalField<CreateVisitInput["reasonNoPurchase"]>(
+      row.transformedData.reasonNoPurchase,
+    ),
+    competitorMention: asString(row.transformedData.competitorMention),
+    purchaseOccasion: optionalField<CreateVisitInput["purchaseOccasion"]>(
+      row.transformedData.purchaseOccasion,
+    ),
+    metalKtPref: optionalField<CreateVisitInput["metalKtPref"]>(row.transformedData.metalKtPref),
+    budgetStated: optionalField<CreateVisitInput["budgetStated"]>(row.transformedData.budgetStated),
+    schemesPitched: asStringArray(
+      row.transformedData.schemesPitched,
+    ) as CreateVisitInput["schemesPitched"],
+    enrollmentOutcome: optionalField<CreateVisitInput["enrollmentOutcome"]>(
+      row.transformedData.enrollmentOutcome,
+    ),
+    monthlyCommitment: asNumber(row.transformedData.monthlyCommitment),
+    reasonNoEnrollment: optionalField<CreateVisitInput["reasonNoEnrollment"]>(
+      row.transformedData.reasonNoEnrollment,
+    ),
+    schemeCompetitorMention: asString(row.transformedData.schemeCompetitorMention),
+    followUpNeeded: asBoolean(row.transformedData.followUpNeeded) ?? false,
+    followUpDate: asDate(row.transformedData.followUpDate),
     staffNotes: staffNotes || undefined,
-    transactionAmount,
-    visitDate,
     marketingOptIn: false,
   });
 
+  const durationMins = asNumber(row.transformedData.durationMins);
   await prisma.visit.update({
     where: { id: visit.id },
     data: {
-      visitDate,
       importBatchId: batchId,
       importedAt: new Date(),
+      ...(durationMins != null ? { durationMins } : {}),
     },
   });
 }
@@ -150,13 +244,19 @@ async function importCallLogRow(
   row: TransformedRow,
   storeId: string,
   batchId: string,
+  fallbackStaffId: string | null,
 ): Promise<void> {
-  const staffId = asString(row.transformedData.staffId);
-  const customerPhone = asString(row.customerData.phone);
-  const customerName = asString(row.customerData.name) ?? "Customer";
-  if (!staffId || !customerPhone) {
-    throw new Error("Call row missing staff or customer phone");
+  const staffId = resolveImportStaffId(row, fallbackStaffId);
+  const customerPhone = resolveImportCustomerPhone(row);
+  const customerName = resolveImportCustomerName(row);
+  if (!staffId) {
+    throw new Error(
+      "No staff member is available in this store. Add at least one active staff member, then retry the import.",
+    );
   }
+
+  row.customerData.phone = customerPhone;
+  row.customerData.name = customerName;
 
   const { customerId } = await upsertCustomerFromRow(row, storeId);
   const callDate = asDate(row.transformedData.createdAt) ?? new Date();
@@ -214,6 +314,8 @@ export async function runImport(params: RunImportParams): Promise<ImportResult> 
   const importRows = rowsForImport(params.rows);
   const chunkSize = chunkSizeForRowCount(importRows.length);
   const errors: ImportResult["errors"] = [];
+  const fallbackStaffId =
+    params.importingStaffId ?? (await resolveFallbackStaffId(params.storeId));
 
   let successCount = 0;
   let newCustomersCreated = 0;
@@ -224,9 +326,9 @@ export async function runImport(params: RunImportParams): Promise<ImportResult> 
     for (const row of chunk) {
       try {
         if (params.featureKey === "visit_log") {
-          await importVisitRow(row, params.storeId, params.batchId);
+          await importVisitRow(row, params.storeId, params.batchId, fallbackStaffId);
         } else if (params.featureKey === "call_log") {
-          await importCallLogRow(row, params.storeId, params.batchId);
+          await importCallLogRow(row, params.storeId, params.batchId, fallbackStaffId);
         } else {
           throw new Error(`Unsupported feature: ${params.featureKey}`);
         }

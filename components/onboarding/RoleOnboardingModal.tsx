@@ -14,11 +14,12 @@ const STORAGE_KEY = "fineset-onboarding-seen";
 
 interface RoleOnboardingModalProps {
   role: string;
+  userName?: string;
 }
 
 const copyByRole: Record<string, { title: string; body: string }> = {
   STAFF: {
-    title: "Welcome, floor staff",
+    title: "Welcome",
     body: "Log visits, work your call list, and record field sales from this portal.",
   },
   STORE_MANAGER: {
@@ -35,7 +36,7 @@ const copyByRole: Record<string, { title: string; body: string }> = {
   },
 };
 
-export function RoleOnboardingModal({ role }: RoleOnboardingModalProps) {
+export function RoleOnboardingModal({ role, userName }: RoleOnboardingModalProps) {
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
 
@@ -56,6 +57,10 @@ export function RoleOnboardingModal({ role }: RoleOnboardingModalProps) {
     title: "Welcome",
     body: "Use the dashboard to get started.",
   };
+  const title =
+    role === "STAFF" && userName?.trim()
+      ? `Welcome, ${userName.trim()}`
+      : copy.title;
 
   if (!mounted || !open) {
     return null;
@@ -65,7 +70,7 @@ export function RoleOnboardingModal({ role }: RoleOnboardingModalProps) {
     <Dialog open onOpenChange={(next) => !next && dismiss()}>
       <DialogContent>
           <DialogHeader>
-            <DialogTitle>{copy.title}</DialogTitle>
+            <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{copy.body}</DialogDescription>
           </DialogHeader>
         <Button type="button" onClick={dismiss}>

@@ -5,7 +5,10 @@ export type ColumnType =
   | "boolean"
   | "phone"
   | "email"
-  | "lookup";
+  | "lookup"
+  | "enum"
+  | "list"
+  | "time";
 
 export interface ColumnConfig {
   /** Label shown in mapping UI */
@@ -28,6 +31,10 @@ export interface ColumnConfig {
   dateFormats?: string[];
   /** Extra header aliases for auto-mapping */
   synonyms?: string[];
+  /** For type:'enum' | type:'list' — allowed stored values */
+  enumValues?: readonly string[];
+  /** For type:'enum' | type:'list' — enum value → display label */
+  enumLabels?: Record<string, string>;
   /** Used when column is missing from file */
   defaultValue?: unknown;
 }
@@ -48,6 +55,13 @@ export interface FeatureSchemaConfig {
   columns: ColumnConfig[];
 }
 
+export interface ParsedSheet {
+  name: string;
+  headers: string[];
+  rows: Record<string, string>[];
+  emptyRowCount: number;
+}
+
 export interface ParsedFile {
   headers: string[];
   /** Raw strings, untyped */
@@ -58,6 +72,10 @@ export interface ParsedFile {
   encoding: string;
   /** File-level warnings (encoding issues, etc.) */
   warnings: string[];
+  /** Per-sheet data for multi-tab Excel selection UI */
+  sheetData?: ParsedSheet[];
+  /** Empty tab names omitted from sheetData */
+  emptySheetNames?: string[];
 }
 
 export type ConfidenceLevel = "HIGH" | "MEDIUM" | "LOW" | "UNMAPPED";
@@ -112,6 +130,16 @@ export interface TransformedRow {
 }
 
 /** Pre-import summary (shown in confirmation modal) */
+export interface ImportIssueSummary {
+  id: string;
+  column: string;
+  message: string;
+  count: number;
+  severity: "blocking" | "review";
+  fixHint: string;
+  willImport: boolean;
+}
+
 export interface ImportPreview {
   totalRows: number;
   validRows: number;
@@ -124,6 +152,10 @@ export interface ImportPreview {
   columnMappings: ColumnMappingResult[];
   /** First 10 errors for preview */
   sampleErrors: RowError[];
+  /** Grouped blocking issues with fix guidance */
+  errorSummaries: ImportIssueSummary[];
+  /** Grouped non-blocking issues with fix guidance */
+  warningSummaries: ImportIssueSummary[];
   unmappedUploadedColumns: string[];
   missingRequiredColumns: string[];
 }
@@ -173,6 +205,16 @@ export interface DedupeResult {
 }
 
 export type ImportWizardStep = "upload" | "mapping" | "confirm" | "progress" | "summary";
+
+/** Options for auto-fixing spreadsheet values during transform */
+export interface ImportTransformOptions {
+  /** Import rows when phone cannot be parsed; store phone as empty */
+  importInvalidPhoneAsEmpty: boolean;
+}
+
+export const DEFAULT_IMPORT_TRANSFORM_OPTIONS: ImportTransformOptions = {
+  importInvalidPhoneAsEmpty: true,
+};
 
 /** Client-side dedup runs against store-scoped customer records via API */
 export interface CustomerDedupeRecord {

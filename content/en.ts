@@ -19,6 +19,52 @@ export const content = {
     viewAll: "View all",
     signOut: "Sign out",
   },
+  dashboardNotifications: {
+    title: "Reminders & follow-ups",
+    empty: "You're all caught up — no pending calls or follow-ups.",
+    overdueFollowUps: {
+      title: "Overdue follow-ups",
+      description: "{count} follow-up(s) past due",
+      descriptionStore: "{count} overdue follow-up(s) across your store",
+    },
+    dueTodayFollowUps: {
+      title: "Follow-ups due today",
+      description: "{count} follow-up(s) scheduled for today",
+    },
+    followUpCalls: {
+      title: "Follow-up call queue",
+      description: "{count} customer(s) waiting for a follow-up call",
+    },
+    notAnsweredCalls: {
+      title: "Not answered calls",
+      description: "{count} customer(s) did not answer — call again",
+    },
+    birthdays: {
+      title: "Birthday reminders",
+      description: "{count} customer birthday(s) this month",
+    },
+    anniversaries: {
+      title: "Anniversary reminders",
+      description: "{count} customer anniversary(ies) this month",
+    },
+    businessOwner: {
+      title: "Store reminders & calls",
+      subtitle: "Pending follow-ups, calls, and occasion reminders across your stores",
+      empty: "All stores are caught up — no pending calls or reminders.",
+      emptyStore: "No pending calls or reminders at this store.",
+      storeIdLabel: "Store ID",
+      staffHeading: "Staff with pending items",
+      viewCalls: "View store calls",
+      viewStore: "Open store dashboard",
+      staffLine: "{name} — {details}",
+      staffDetail: {
+        overdueFollowUps: "{count} overdue",
+        dueTodayFollowUps: "{count} due today",
+        followUpCalls: "{count} follow-up calls",
+        notAnsweredCalls: "{count} not answered",
+      },
+    },
+  },
   auth: {
     login: {
       title: "Sign in to MyStore",
@@ -512,6 +558,7 @@ export const content = {
       call: "Call",
       noPhone: "No phone on file",
       logManualCall: "Log manual call",
+      importSpreadsheet: "Import spreadsheet",
       due: "Due",
       loadError: "Could not load customers. Sign out and sign in again, then retry.",
       loadErrorUnauthorized:
@@ -1007,6 +1054,7 @@ export const content = {
       },
       detailTitle: "Visit Details",
       importCsv: "Import CSV",
+      importSpreadsheet: "Import spreadsheet",
       importingCsv: "Importing...",
       importHint:
         "Upload a CSV with visit fields. Data is validated and saved to your store database.",
@@ -1438,6 +1486,75 @@ export const content = {
     fieldSales: "No field sales match these filters",
     staff: "No staff members found",
     stores: "No stores found",
+  },
+  import: {
+    upload: {
+      sheetsTitle: "Choose sheets to import",
+      sheetsHint:
+        "This workbook has multiple tabs. Select which ones to include — rows from each tab are combined into one import.",
+      sheetRows: "{count} rows",
+      selectAll: "Select all",
+      deselectAll: "Deselect all",
+      continue: "Continue with selected sheets",
+      noSheetsSelected: "Select at least one sheet to continue.",
+    },
+    mapping: {
+      summary: "{autoMapped} of {total} columns mapped automatically · {needsReview} need review",
+      tableHint:
+        "Check that each spreadsheet column maps to the right store field. The preview shows real values from the first rows of your file.",
+      columns: {
+        uploadedHeader: "Column in your file",
+        preview: "Preview from file",
+        previewHint: "First 3 values",
+        mappedTo: "Maps to store field",
+        confidence: "Match quality",
+        action: "How mapped",
+      },
+      previewEmpty: "Empty in file",
+      previewPrefix: "e.g.",
+      actionAuto: "Auto",
+      actionManual: "You chose",
+      callLogDefaults:
+        "Call date and agent name are optional — if missing, we use today’s date and the staff member running the import.",
+    },
+    confirm: {
+      severityTitle: "Understanding row status",
+      severityIntro:
+        "Every row is checked before import. Some issues block a row entirely; others import with missing or corrected fields.",
+      errorSeverityTitle: "Error rows — will not import",
+      errorSeverityBody:
+        "{count} row(s) have blocking problems (e.g. invalid phone). Fix them in your spreadsheet and re-upload, or proceed without these rows.",
+      warningSeverityTitle: "Warning rows — will import with gaps",
+      warningSeverityBody:
+        "{count} row(s) will import, but some fields could not be matched or parsed and will be left empty (e.g. staff name not found).",
+      validSeverityTitle: "Valid rows — ready to import",
+      validSeverityBody: "{count} row(s) passed all checks with no issues.",
+      importCountNote: "Starting import will add {count} row(s): valid + warning rows.",
+      blockingIssues: "Blocking issues ({count} rows affected)",
+      reviewIssues: "Items to review ({count} rows affected)",
+      howToFix: "How to fix",
+      willNotImport: "Will not import",
+      willImport: "Will still import",
+      rowCount: "{count} rows",
+      noBlockingIssues: "No blocking issues — all rows except blanks are importable.",
+      noReviewIssues: "No warnings — every importable row is fully valid.",
+      statErrorHint: "Skipped on import",
+      statWarningHint: "Import with empty fields",
+      statValidHint: "No issues found",
+      autoFixTitle: "Convert & fix data",
+      autoFixIntro:
+        "Adjust how values are converted before import. The preview updates when you change an option.",
+      autoFixAlwaysOnTitle: "Always applied",
+      autoFixAlwaysOn: [
+        "Blank placeholders (-, N/A, - - - -) are treated as empty",
+        "Duration text (1HR 2 MINS) is converted to minutes",
+        "Multiple phones (986…/944…) uses the first valid number",
+      ],
+      autoFixInvalidPhoneLabel: "Import rows with invalid or missing phone numbers",
+      autoFixInvalidPhoneHint:
+        "Keeps the visit/customer row; phone is stored empty instead of blocking the import.",
+      autoFixRefreshing: "Updating preview…",
+    },
   },
   portal: {
     allStores: "All stores",

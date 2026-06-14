@@ -21,6 +21,8 @@ export interface VisitsTableProps {
   onSearchChange: (value: string) => void;
   onPageChange: (page: number) => void;
   onImportCsv: (file: File) => void;
+  onOpenImport?: () => void;
+  importLabel?: string;
   showImport?: boolean;
   isImportingCsv: boolean;
   importStatusMessage?: string;

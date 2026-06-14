@@ -255,7 +255,7 @@ export function buildStaticDevSession(email: string, role: UserRole): AppSession
         role: "STAFF",
         staffId: "dev-staff-emp001",
         storeId: "dev-store-alpha",
-        name: "Staff Member A",
+        name: "Vamsi",
         employeeId: "EMP001",
       };
     case "STORE_MANAGER":

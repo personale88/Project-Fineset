@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { handleRouteError } from "@/lib/api/route-handler";
 import { resolvePortalStoreIdForSession } from "@/lib/auth/resolve-manager-store-id";
+import { requireStaffCallsContext } from "@/lib/auth/resolve-staff";
 import {
   badRequest,
   getServerSession,
@@ -24,6 +25,8 @@ export async function POST(req: Request) {
     const resolved = await resolvePortalStoreIdForSession(session, body.data.storeId);
     if (resolved instanceof NextResponse) return resolved;
 
+    const staffContext = await requireStaffCallsContext(session, resolved);
+
     const payload = body.data as unknown as ImportPayload & {
       storeId: string;
       fileName?: string;
@@ -34,6 +37,7 @@ export async function POST(req: Request) {
       storeId: resolved,
       importedByAuthId: session!.userId,
       fileName: body.data.fileName,
+      importingStaffId: staffContext?.staffId ?? null,
     });
 
     return NextResponse.json(result);

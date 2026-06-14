@@ -6,6 +6,10 @@ import type {
   TransformedRow,
 } from "@/lib/import-engine/types";
 import { missingRequiredColumns } from "@/lib/import-engine/core/columnMatcher";
+import {
+  collectErrorSummaries,
+  collectWarningSummaries,
+} from "@/lib/import-engine/core/issueSummaries";
 
 export function buildImportPreview(
   transformedRows: TransformedRow[],
@@ -30,6 +34,8 @@ export function buildImportPreview(
 
   const sampleErrors = collectSampleErrors(transformedRows, 10);
   const missingRequired = missingRequiredColumns(mappings, schema);
+  const errorSummaries = collectErrorSummaries(transformedRows);
+  const warningSummaries = collectWarningSummaries(transformedRows);
 
   return {
     totalRows,
@@ -42,6 +48,8 @@ export function buildImportPreview(
     ambiguousCustomers,
     columnMappings: mappings,
     sampleErrors,
+    errorSummaries,
+    warningSummaries,
     unmappedUploadedColumns,
     missingRequiredColumns: missingRequired,
   };

@@ -1,7 +1,7 @@
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { IMPORT_CONFIG } from "@/lib/import-engine/config";
-import type { ParsedFile } from "@/lib/import-engine/types";
+import type { ParsedFile, ParsedSheet } from "@/lib/import-engine/types";
 import { ImportEngineError } from "@/lib/import-engine/types";
 
 const ACCEPTED_EXTENSIONS = [".csv", ".xlsx", ".xls"];
@@ -106,44 +106,202 @@ async function parseCsvFile(file: File): Promise<ParsedFile> {
   };
 }
 
-async function parseExcelFile(file: File): Promise<ParsedFile> {
-  const buffer = await file.arrayBuffer();
-  const workbook = XLSX.read(buffer, { type: "array", cellDates: false });
-  const sheetNames = workbook.SheetNames;
+function unionHeaders(existing: string[], incoming: string[]): string[] {
+  const seen = new Set(existing);
+  const merged = [...existing];
+  for (const header of incoming) {
+    if (!seen.has(header)) {
+      seen.add(header);
+      merged.push(header);
+    }
+  }
+  return merged;
+}
+
+function alignRowToHeaders(
+  row: Record<string, string>,
+  headers: string[],
+): Record<string, string> {
+  const aligned: Record<string, string> = {};
+  for (const header of headers) {
+    aligned[header] = row[header] ?? "";
+  }
+  return aligned;
+}
+
+function parseSheetToRows(sheet: XLSX.WorkSheet): {
+  headers: string[];
+  rows: Record<string, string>[];
+  emptyRowCount: number;
+} | null {
+  const matrix = flattenMergedCells(sheet);
+  if (matrix.length === 0) return null;
+
+  const headers = matrix[0].map(normaliseHeader).filter(Boolean);
+  if (headers.length === 0) return null;
+
+  const { rows, emptyRowCount } = buildRowsFromMatrix(headers, matrix.slice(1));
+  if (rows.length === 0 && emptyRowCount === 0) return null;
+
+  return { headers, rows, emptyRowCount };
+}
+
+export function mergeExcelSheets(
+  sheetData: ParsedSheet[],
+  selectedSheetNames: string[],
+  fileName: string,
+  fileSize: number,
+  emptySheetNames: string[] = [],
+): ParsedFile {
+  const selectedNames = new Set(selectedSheetNames);
+  const selectedSheets = sheetData.filter((sheet) => selectedNames.has(sheet.name));
+
+  if (selectedSheets.length === 0) {
+    throw new ImportEngineError("Select at least one sheet to import", "PARSE_FAILED");
+  }
+
+  let headers: string[] = [];
+  let rows: Record<string, string>[] = [];
+  let emptyRowCount = 0;
+  const importedSheets: string[] = [];
+  const mismatchedHeaderSheets: string[] = [];
+
+  for (const sheet of selectedSheets) {
+    if (headers.length === 0) {
+      headers = sheet.headers;
+    } else {
+      const incomingSet = new Set(sheet.headers);
+      const canonicalSet = new Set(headers);
+      const sameHeaders =
+        headers.length === sheet.headers.length &&
+        headers.every((header) => incomingSet.has(header)) &&
+        sheet.headers.every((header) => canonicalSet.has(header));
+
+      if (!sameHeaders) {
+        mismatchedHeaderSheets.push(sheet.name);
+        const nextHeaders = unionHeaders(headers, sheet.headers);
+        if (nextHeaders.length !== headers.length) {
+          rows = rows.map((row) => alignRowToHeaders(row, nextHeaders));
+          headers = nextHeaders;
+        }
+      }
+    }
+
+    for (const row of sheet.rows) {
+      rows.push(alignRowToHeaders(row, headers));
+    }
+    emptyRowCount += sheet.emptyRowCount;
+    importedSheets.push(sheet.name);
+  }
+
   const warnings: string[] = [];
 
-  if (sheetNames.length > 1) {
+  if (importedSheets.length > 1) {
     warnings.push(
-      `Multiple sheets found (${sheetNames.join(", ")}). Using first sheet: "${sheetNames[0]}".`,
+      `Imported ${rows.length.toLocaleString()} row(s) from ${importedSheets.length} sheets: ${importedSheets.join(", ")}.`,
     );
   }
 
-  const sheet = workbook.Sheets[sheetNames[0]];
-  if (!sheet) {
-    throw new ImportEngineError("Excel file has no readable sheet", "PARSE_FAILED");
+  if (emptySheetNames.length > 0) {
+    warnings.push(`Skipped empty sheet(s): ${emptySheetNames.join(", ")}.`);
   }
 
-  const matrix = flattenMergedCells(sheet);
-  if (matrix.length === 0) {
-    throw new ImportEngineError("Excel sheet is empty", "PARSE_FAILED");
+  if (mismatchedHeaderSheets.length > 0) {
+    warnings.push(
+      `Sheet(s) with different columns were merged: ${mismatchedHeaderSheets.join(", ")}.`,
+    );
   }
-
-  const headers = matrix[0].map(normaliseHeader).filter(Boolean);
-  const { rows, emptyRowCount } = buildRowsFromMatrix(headers, matrix.slice(1));
 
   if (emptyRowCount > 0) {
     warnings.push(`${emptyRowCount} empty row(s) were skipped.`);
+  }
+
+  if (rows.length > IMPORT_CONFIG.maxRowCount) {
+    throw new ImportEngineError(
+      `Selected sheets exceed ${IMPORT_CONFIG.maxRowCount.toLocaleString()} row limit (${rows.length.toLocaleString()} rows).`,
+      "ROW_LIMIT_EXCEEDED",
+    );
   }
 
   return {
     headers,
     rows,
     totalRows: rows.length,
-    fileName: file.name,
-    fileSize: file.size,
+    fileName,
+    fileSize,
     encoding: "binary",
     warnings,
   };
+}
+
+async function parseExcelFile(file: File): Promise<ParsedFile> {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: "array", cellDates: false });
+  const sheetNames = workbook.SheetNames;
+
+  if (sheetNames.length === 0) {
+    throw new ImportEngineError("Excel file has no readable sheet", "PARSE_FAILED");
+  }
+
+  const sheetData: ParsedSheet[] = [];
+  const emptySheetNames: string[] = [];
+
+  for (const sheetName of sheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) {
+      emptySheetNames.push(sheetName);
+      continue;
+    }
+
+    const parsed = parseSheetToRows(sheet);
+    if (!parsed) {
+      emptySheetNames.push(sheetName);
+      continue;
+    }
+
+    sheetData.push({
+      name: sheetName,
+      headers: parsed.headers,
+      rows: parsed.rows,
+      emptyRowCount: parsed.emptyRowCount,
+    });
+  }
+
+  if (sheetData.length === 0) {
+    throw new ImportEngineError("Excel file has no readable data", "PARSE_FAILED");
+  }
+
+  if (sheetData.length > 1) {
+    const merged = mergeExcelSheets(
+      sheetData,
+      sheetData.map((sheet) => sheet.name),
+      file.name,
+      file.size,
+      emptySheetNames,
+    );
+    return {
+      ...merged,
+      sheetData,
+      emptySheetNames,
+    };
+  }
+
+  const merged = mergeExcelSheets(
+    sheetData,
+    [sheetData[0].name],
+    file.name,
+    file.size,
+    emptySheetNames,
+  );
+
+  if (merged.totalRows > IMPORT_CONFIG.maxRowCount) {
+    throw new ImportEngineError(
+      `File exceeds ${IMPORT_CONFIG.maxRowCount.toLocaleString()} row limit.`,
+      "ROW_LIMIT_EXCEEDED",
+    );
+  }
+
+  return merged;
 }
 
 export async function parseFile(file: File): Promise<ParsedFile> {
@@ -166,7 +324,7 @@ export async function parseFile(file: File): Promise<ParsedFile> {
   const parsed =
     extension === ".csv" ? await parseCsvFile(file) : await parseExcelFile(file);
 
-  if (parsed.totalRows > IMPORT_CONFIG.maxRowCount) {
+  if (!parsed.sheetData && parsed.totalRows > IMPORT_CONFIG.maxRowCount) {
     throw new ImportEngineError(
       `File exceeds ${IMPORT_CONFIG.maxRowCount.toLocaleString()} row limit.`,
       "ROW_LIMIT_EXCEEDED",
