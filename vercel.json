@@ -3,7 +3,8 @@
   "buildCommand": "prisma generate && next build",
   "git": {
     "deploymentEnabled": {
-      "main": false
+      "main": false,
+      "staging": false
     }
   }
 }

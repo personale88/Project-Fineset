@@ -97,4 +97,4 @@ The red **Vercel** Git check on commits may still appear (Hobby + org Git integr
 
 ## Production note
 
-If `main` stops deploying via Vercel Git integration, add a similar workflow for `main` with `--environment=production` and `vercel build --prod` / `vercel deploy --prebuilt --prod`, or upgrade to Vercel Pro.
+Production uses [`.github/workflows/vercel-production.yml`](../.github/workflows/vercel-production.yml) on `main`/`master` with `--environment=production` and `vercel build --prod` / `vercel deploy --prebuilt --prod`. [`vercel.json`](../vercel.json) disables Vercel Git auto-deploy for `main` and `staging` so GitHub Actions is the single deploy path on Hobby.
