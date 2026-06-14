@@ -25,9 +25,13 @@ test.describe("Public routes", () => {
     await expect(page).toHaveURL("/");
   });
 
-  test("legacy store dashboard redirects to business owner dashboard", async ({ page }) => {
+  test("legacy store dashboard redirects unauthenticated users to login with remapped callback", async ({
+    page,
+  }) => {
     await page.goto("/store/dashboard/visits");
-    await expect(page).toHaveURL("/business-owner/dashboard/visits");
+    await expect(page).not.toHaveURL(/\/store\/dashboard\/visits/);
+    await expect(page).toHaveURL(/callbackUrl=%2Fbusiness-owner%2Fdashboard%2Fvisits/);
+    await expect(page.getByRole("button", { name: /sign in/i })).toBeVisible();
   });
 });
 

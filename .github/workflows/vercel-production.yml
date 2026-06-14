@@ -1,4 +1,4 @@
-name: Vercel Staging Deployment
+name: Vercel Production Deployment
 
 env:
   VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
@@ -6,11 +6,11 @@ env:
 
 on:
   push:
-    branches: [staging]
+    branches: [main, master]
   workflow_dispatch:
 
 jobs:
-  deploy-staging:
+  deploy-production:
     runs-on: ubuntu-latest
     steps:
       - name: Require Vercel secrets
@@ -18,12 +18,8 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           if [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ] || [ -z "$VERCEL_TOKEN" ]; then
-            echo "::error::Missing GitHub secrets. Add VERCEL_TOKEN, VERCEL_ORG_ID, and VERCEL_PROJECT_ID."
-<<<<<<< HEAD
-            echo "See docs/VERCEL_STAGING_DEPLOY.md"
-=======
->>>>>>> 6586dac123604466503d9ff9ecde60c12fa4710c
-            exit 1
+            echo "Skipping production deploy: VERCEL_TOKEN, VERCEL_ORG_ID, or VERCEL_PROJECT_ID is not configured."
+            exit 0
           fi
 
       - uses: actions/checkout@v4
@@ -39,11 +35,11 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      - name: Pull Vercel preview environment
-        run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Pull Vercel production environment
+        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
 
       - name: Build project artifacts
-        run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
 
-      - name: Deploy to Vercel (staging preview)
-        run: vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy to Vercel (production)
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}

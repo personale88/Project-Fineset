@@ -29,10 +29,15 @@ export async function proxy(request: NextRequest) {
       role = user?.app_metadata?.role as UserRole | undefined;
     }
 
-    const destination = new URL(
-      `${resolveLegacyDashboardRedirect(pathname, role)}${search}`,
-      request.url,
-    );
+    const remappedPath = resolveLegacyDashboardRedirect(pathname, role);
+
+    if (!role) {
+      const loginUrl = new URL("/", request.url);
+      loginUrl.searchParams.set("callbackUrl", remappedPath);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    const destination = new URL(`${remappedPath}${search}`, request.url);
     return NextResponse.redirect(destination);
   }
 

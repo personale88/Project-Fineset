@@ -93,8 +93,6 @@ async function main(): Promise<void> {
     city: "Bengaluru",
     state: "Karnataka",
     pincode: "560001",
-    businessOwnerName: "Store Alpha Owner",
-    businessOwnerEmail: "manager@store-alpha.local",
   });
 
   const staffA = await seedStaff({
