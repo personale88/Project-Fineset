@@ -25,6 +25,7 @@ export async function seedStaffCallsFixtures(): Promise<StaffCallsSeedResult> {
   await prisma.customer.deleteMany();
   await prisma.appUser.deleteMany();
   await prisma.staff.deleteMany();
+  await prisma.importHistory.deleteMany();
   await prisma.store.deleteMany();
 
   const now = new Date();
