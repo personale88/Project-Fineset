@@ -21,6 +21,7 @@ import type { ManualStaffCallInput } from "@/lib/validations/staff-calls.schema"
 interface UseStaffCallsOptions {
   initialData?: StaffCallListResponse;
   initialParams?: GetStaffCallsParams;
+  enabled?: boolean;
 }
 
 function staffCallFilterParams(params: GetStaffCallsParams): GetStaffCallsParams {
@@ -48,6 +49,7 @@ export function useStaffCalls(params: GetStaffCallsParams, options?: UseStaffCal
     queryKey: ["staff-calls", params],
     queryFn: () => getStaffCalls(params),
     initialData: useInitialData ? options.initialData : undefined,
+    enabled: options?.enabled ?? true,
     ...LIVE_QUERY_OPTIONS,
     ...queryOptionsForHydration(Boolean(useInitialData)),
   });

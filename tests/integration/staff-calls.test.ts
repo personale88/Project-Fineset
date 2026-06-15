@@ -19,6 +19,14 @@ import {
 } from "@/app/api/staff/calls/[visitId]/route";
 import type { StaffSession } from "@/types";
 
+vi.mock("@/lib/rate-limit", () => ({
+  getRequestIdentifier: vi.fn(async () => "integration-test"),
+  checkPhoneRevealRateLimit: vi.fn(async () => ({
+    success: true,
+    retryAfterSeconds: 0,
+  })),
+}));
+
 const hasDb = Boolean(process.env.DATABASE_URL);
 
 function request(url: string, init?: ConstructorParameters<typeof NextRequest>[1]): NextRequest {
@@ -287,7 +295,11 @@ describe.skipIf(!hasDb)("staff calls integration", () => {
       request(`/api/staff/calls/${fixtures.visitExternalId}?masterSource=EXTERNAL`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answered: "ANSWERED", scheduleFollowUp: false }),
+        body: JSON.stringify({
+          answered: "ANSWERED",
+          feedback: "Customer confirmed interest",
+          scheduleFollowUp: false,
+        }),
       }),
       { params: Promise.resolve({ visitId: fixtures.visitExternalId }) },
     );

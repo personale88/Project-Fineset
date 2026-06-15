@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useIsClient } from "@/hooks/useIsClient";
 
 const STORAGE_KEY = "fineset-onboarding-seen";
 
@@ -36,17 +37,14 @@ const copyByRole: Record<string, { title: string; body: string }> = {
   },
 };
 
-export function RoleOnboardingModal({ role, userName }: RoleOnboardingModalProps) {
-  const [mounted, setMounted] = useState(false);
-  const [open, setOpen] = useState(false);
+function readOnboardingOpen(role: string): boolean {
+  if (typeof window === "undefined") return false;
+  return !window.localStorage.getItem(`${STORAGE_KEY}:${role}`);
+}
 
-  useEffect(() => {
-    setMounted(true);
-    const key = `${STORAGE_KEY}:${role}`;
-    if (!window.localStorage.getItem(key)) {
-      setOpen(true);
-    }
-  }, [role]);
+export function RoleOnboardingModal({ role, userName }: RoleOnboardingModalProps) {
+  const isClient = useIsClient();
+  const [open, setOpen] = useState(() => readOnboardingOpen(role));
 
   function dismiss() {
     window.localStorage.setItem(`${STORAGE_KEY}:${role}`, "1");
@@ -62,7 +60,7 @@ export function RoleOnboardingModal({ role, userName }: RoleOnboardingModalProps
       ? `Welcome, ${userName.trim()}`
       : copy.title;
 
-  if (!mounted || !open) {
+  if (!isClient || !open) {
     return null;
   }
 

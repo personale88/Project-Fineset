@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { apiFetch, buildQueryString } from "@/lib/api/client";
 import { maskPhone } from "@/lib/utils/formatters";
 import { useStoreDashboard } from "@/components/store/StoreDashboardProvider";
+import { useIsClient } from "@/hooks/useIsClient";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -24,17 +25,13 @@ interface CustomerSearchRow {
 }
 
 function GlobalSearchDialogInner({ storeId }: { storeId?: string | null }) {
-  const [mounted, setMounted] = useState(false);
+  const isClient = useIsClient();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, 300);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
+    if (!isClient) return;
 
     function onKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
@@ -45,7 +42,7 @@ function GlobalSearchDialogInner({ storeId }: { storeId?: string | null }) {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [mounted]);
+  }, [isClient]);
 
   const { data, isFetching } = useQuery({
     queryKey: ["global-search", storeId, debouncedQuery],
@@ -58,7 +55,7 @@ function GlobalSearchDialogInner({ storeId }: { storeId?: string | null }) {
           pageSize: 8,
         })}`,
       ),
-    enabled: mounted && open && debouncedQuery.trim().length >= 2,
+    enabled: isClient && open && debouncedQuery.trim().length >= 2,
   });
 
   const results = data?.data ?? [];
@@ -79,7 +76,7 @@ function GlobalSearchDialogInner({ storeId }: { storeId?: string | null }) {
         </kbd>
       </Button>
 
-      {mounted && open ? (
+      {isClient && open ? (
         <Dialog open onOpenChange={setOpen}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>

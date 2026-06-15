@@ -23,6 +23,8 @@ const ENROLLED_OUTCOMES: SchemeEnrollmentOutcome[] = [
 export interface StaffCallsDbQueryParams {
   staffId: string;
   storeId: string;
+  /** When true, list all staff records in the store (portal owner/manager view). */
+  storeScope?: boolean;
   master: StaffCallMasterFilter;
   segment: StaffCallSegment;
   valueTier: StaffCallValueTier;
@@ -114,24 +116,31 @@ export function buildFieldSaleAnniversaryWhere(
 export function buildVisitQueueWhere(
   queue: StaffCallQueue,
   staffId: string,
+  storeScope = false,
 ): Prisma.VisitWhereInput {
   if (queue === "ALL") return {};
   if (queue === "NOT_ANSWERED") return buildNotAnsweredWhere();
-  if (queue === "FOLLOW_UP") return { followUp: buildFollowUpOpenWhere(staffId) };
+  if (queue === "FOLLOW_UP") {
+    return storeScope
+      ? { followUp: { status: "OPEN" } }
+      : { followUp: buildFollowUpOpenWhere(staffId) };
+  }
   return {
     AND: [
       {
-        OR: [
-          { followUp: null },
-          {
-            followUp: {
-              isNot: {
-                status: "OPEN",
-                assignedStaffId: staffId,
+        OR: storeScope
+          ? [{ followUp: null }, { followUp: { is: { status: { not: "OPEN" } } } }]
+          : [
+              { followUp: null },
+              {
+                followUp: {
+                  isNot: {
+                    status: "OPEN",
+                    assignedStaffId: staffId,
+                  },
+                },
               },
-            },
-          },
-        ],
+            ],
       },
       {
         OR: [{ lastCallAnswered: null }, { lastCallAnswered: { not: "NOT_ANSWERED" } }],
@@ -143,24 +152,31 @@ export function buildVisitQueueWhere(
 function buildFieldSaleQueueWhere(
   queue: StaffCallQueue,
   staffId: string,
+  storeScope = false,
 ): Prisma.FieldSaleWhereInput {
   if (queue === "ALL") return {};
   if (queue === "NOT_ANSWERED") return buildNotAnsweredWhere();
-  if (queue === "FOLLOW_UP") return { followUp: buildFieldSaleFollowUpOpenWhere(staffId) };
+  if (queue === "FOLLOW_UP") {
+    return storeScope
+      ? { followUp: { status: "OPEN" } }
+      : { followUp: buildFieldSaleFollowUpOpenWhere(staffId) };
+  }
   return {
     AND: [
       {
-        OR: [
-          { followUp: null },
-          {
-            followUp: {
-              isNot: {
-                status: "OPEN",
-                assignedStaffId: staffId,
+        OR: storeScope
+          ? [{ followUp: null }, { followUp: { is: { status: { not: "OPEN" } } } }]
+          : [
+              { followUp: null },
+              {
+                followUp: {
+                  isNot: {
+                    status: "OPEN",
+                    assignedStaffId: staffId,
+                  },
+                },
               },
-            },
-          },
-        ],
+            ],
       },
       {
         OR: [{ lastCallAnswered: null }, { lastCallAnswered: { not: "NOT_ANSWERED" } }],
@@ -178,11 +194,11 @@ function buildVisitSourceWhere(master: StaffCallMasterFilter): Prisma.VisitWhere
 export function buildVisitListWhere(params: StaffCallsDbQueryParams): Prisma.VisitWhereInput {
   const { start, end } = buildCallsPeriodRange(params.year, params.month);
   return {
-    staffId: params.staffId,
+    ...(params.storeScope ? {} : { staffId: params.staffId }),
     storeId: params.storeId,
     visitDate: { gte: start, lte: end },
     ...buildVisitSegmentWhere(params.segment),
-    ...buildVisitQueueWhere(params.queue, params.staffId),
+    ...buildVisitQueueWhere(params.queue, params.staffId, params.storeScope),
     ...buildVisitSourceWhere(params.master),
     ...buildVisitValueTierWhere(params.valueTier),
     ...buildVisitBirthdayWhere(params.birthday, params.month),
@@ -195,11 +211,11 @@ export function buildFieldSaleListWhere(
 ): Prisma.FieldSaleWhereInput {
   const { start, end } = buildCallsPeriodRange(params.year, params.month);
   return {
-    staffId: params.staffId,
+    ...(params.storeScope ? {} : { staffId: params.staffId }),
     storeId: params.storeId,
     activityDate: { gte: start, lte: end },
     ...buildFieldSaleSegmentWhere(params.segment),
-    ...buildFieldSaleQueueWhere(params.queue, params.staffId),
+    ...buildFieldSaleQueueWhere(params.queue, params.staffId, params.storeScope),
     ...buildFieldSaleValueTierWhere(params.valueTier),
     ...buildFieldSaleBirthdayWhere(params.birthday, params.month),
     ...buildFieldSaleAnniversaryWhere(params.anniversary, params.month),

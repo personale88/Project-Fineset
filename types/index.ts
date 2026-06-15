@@ -375,6 +375,7 @@ export interface VisitListItem {
   inTime: string | null;
   outTime: string | null;
   durationMins: number | null;
+  staffId: string;
   staffName: string;
   customerName: string;
   customerPhone: string;
@@ -409,6 +410,8 @@ export interface VisitListItem {
 export interface FollowUpListItem {
   id: string;
   visitId: string | null;
+  fieldSaleId: string | null;
+  assignedStaffId: string;
   customerName: string;
   customerPhone: string;
   assignedStaffName: string;
@@ -443,6 +446,8 @@ export interface StaffCallListItem {
   visitId: string | null;
   fieldSaleId: string | null;
   followUpId: string | null;
+  staffId: string;
+  staffName: string;
   displayName: string;
   visitDate: string;
   visitDateLabel: string;

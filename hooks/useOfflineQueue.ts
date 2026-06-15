@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import {
   countOfflineMutations,
   enqueueOfflineMutation,
@@ -11,9 +11,26 @@ import {
   registerOfflineSyncListeners,
 } from "@/lib/offline/sync-worker";
 
+function subscribeOnline(onStoreChange: () => void) {
+  window.addEventListener("online", onStoreChange);
+  window.addEventListener("offline", onStoreChange);
+  return () => {
+    window.removeEventListener("online", onStoreChange);
+    window.removeEventListener("offline", onStoreChange);
+  };
+}
+
+function getOnlineSnapshot() {
+  return navigator.onLine;
+}
+
 export function useOfflineQueue() {
   const [pendingCount, setPendingCount] = useState(0);
-  const [isOnline, setIsOnline] = useState(true);
+  const isOnline = useSyncExternalStore(
+    subscribeOnline,
+    getOnlineSnapshot,
+    () => true,
+  );
 
   const refreshCount = useCallback(async () => {
     const count = await countOfflineMutations();
@@ -21,22 +38,15 @@ export function useOfflineQueue() {
   }, []);
 
   useEffect(() => {
-    setIsOnline(navigator.onLine);
-    void refreshCount();
     const unregister = registerOfflineSyncListeners(() => {
       void refreshCount();
     });
 
-    const onOnline = () => setIsOnline(true);
-    const onOffline = () => setIsOnline(false);
-    window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
+    queueMicrotask(() => {
+      void refreshCount();
+    });
 
-    return () => {
-      unregister();
-      window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
-    };
+    return unregister;
   }, [refreshCount]);
 
   const queueMutation = useCallback(

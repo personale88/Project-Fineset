@@ -5,6 +5,7 @@
   "engines": {
     "node": ">=22.22.2"
   },
+  "packageManager": "npm@10.9.7",
   "scripts": {
     "predev": "node scripts/ensure-prisma-client.mjs",
     "predev:staging": "node scripts/ensure-prisma-client.mjs",

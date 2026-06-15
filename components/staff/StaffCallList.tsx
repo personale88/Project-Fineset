@@ -34,6 +34,7 @@ interface StaffCallListProps {
   initialParams?: GetStaffCallsParams;
   backHref?: string;
   showImport?: boolean;
+  canAssign?: boolean;
 }
 
 export function StaffCallList({
@@ -45,7 +46,9 @@ export function StaffCallList({
   initialParams,
   backHref = STAFF_DASHBOARD_PATH,
   showImport = false,
+  canAssign: canAssignProp,
 }: StaffCallListProps) {
+  const canAssign = canAssignProp ?? Boolean(storeId);
   const {
     filters,
     ui,
@@ -247,6 +250,9 @@ export function StaffCallList({
             item={item}
             labels={cardLabels}
             onCall={(callItem) => void handleOpenCall(callItem)}
+            canAssign={canAssign}
+            storeId={storeId}
+            onAssigned={() => void refetch()}
           />
         )}
         page={pagination.page}

@@ -73,6 +73,8 @@ export async function listFollowUps(
     return {
       id: f.id,
       visitId: f.visitId,
+      fieldSaleId: f.fieldSaleId,
+      assignedStaffId: f.assignedStaffId,
       customerName: decrypted.customerName,
       customerPhone: decrypted.customerPhone,
       assignedStaffName: staffMap.get(f.assignedStaffId) ?? "Unknown",

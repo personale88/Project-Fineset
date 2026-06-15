@@ -35,6 +35,8 @@ export interface VisitsTableProps {
   filterAllLabel?: string;
   showCustomerMerge?: boolean;
   storeId?: string;
+  canAssign?: boolean;
+  onAssigned?: () => void;
 }
 
 export interface VisitColumnLabels {

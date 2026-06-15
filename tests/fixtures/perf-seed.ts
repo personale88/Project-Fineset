@@ -17,6 +17,7 @@ export async function seedPerfFixtures(): Promise<PerfSeedResult> {
   await prisma.visit.deleteMany();
   await prisma.customer.deleteMany();
   await prisma.staff.deleteMany();
+  await prisma.importHistory.deleteMany();
   await prisma.store.deleteMany();
 
   const managerEmail = "perf-manager@test.local";

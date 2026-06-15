@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useStoreManagerPortfolio } from "@/hooks/useStoreManagerPortfolio";
 import { StorePerformanceCard } from "@/components/admin/overview/StorePerformanceCard";
@@ -39,23 +39,17 @@ export function StorePortfolio({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [period, setPeriodState] = useState<PeriodValue>(() => {
+  const period = useMemo<PeriodValue>(() => {
+    const fromUrl = searchParams.get("period");
+    if (isPeriodValue(fromUrl)) return fromUrl;
     if (initialPeriod && isPeriodValue(initialPeriod)) return initialPeriod;
     const fromInitial = initialParams?.period ?? null;
     if (isPeriodValue(fromInitial)) return fromInitial;
     return "today";
-  });
-
-  useEffect(() => {
-    const fromUrl = searchParams.get("period");
-    if (isPeriodValue(fromUrl) && fromUrl !== period) {
-      setPeriodState(fromUrl);
-    }
-  }, [period, searchParams]);
+  }, [initialParams?.period, initialPeriod, searchParams]);
 
   const setPeriod = useCallback(
     (value: PeriodValue) => {
-      setPeriodState(value);
       const next = new URLSearchParams(searchParams.toString());
       next.set("period", value);
       router.replace(`${pathname}?${next.toString()}`, { scroll: false });

@@ -270,7 +270,7 @@ export async function listVisits(
       skip: (params.page - 1) * params.pageSize,
       take: params.pageSize,
       include: {
-        staff: { select: { name: true } },
+        staff: { select: { id: true, name: true } },
         customer: {
           select: {
             area: true,
@@ -297,6 +297,7 @@ export async function listVisits(
       inTime: visit.inTime?.toISOString() ?? null,
       outTime: visit.outTime?.toISOString() ?? null,
       durationMins: visit.durationMins,
+      staffId: visit.staff.id,
       staffName: visit.staff.name,
       customerName: decrypted.customerName,
       customerPhone: decrypted.customerPhone,

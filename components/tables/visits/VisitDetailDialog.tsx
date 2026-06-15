@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { AssignStaffButton } from "@/components/shared/AssignStaffDialog";
 import type { VisitFormFields, VisitsCopy } from "./types";
 
 interface VisitDetailDialogProps {
@@ -24,6 +25,9 @@ interface VisitDetailDialogProps {
   yesLabel: string;
   noLabel: string;
   onClose: () => void;
+  canAssign?: boolean;
+  storeId?: string;
+  onAssigned?: () => void;
 }
 
 export function VisitDetailDialog({
@@ -34,6 +38,9 @@ export function VisitDetailDialog({
   yesLabel,
   noLabel,
   onClose,
+  canAssign = false,
+  storeId,
+  onAssigned,
 }: VisitDetailDialogProps) {
   return (
     <Dialog open={visit !== null} onOpenChange={(open) => !open && onClose()}>
@@ -191,6 +198,18 @@ export function VisitDetailDialog({
             </DetailSection>
           </div>
         )}
+        {visit && canAssign && storeId ? (
+          <div className="flex justify-end border-t border-border pt-4">
+            <AssignStaffButton
+              storeId={storeId}
+              target={{ visitId: visit.id }}
+              customerName={visit.customerName}
+              currentStaffId={visit.staffId}
+              currentStaffName={visit.staffName}
+              onAssigned={onAssigned}
+            />
+          </div>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

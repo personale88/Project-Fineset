@@ -13,6 +13,10 @@ import {
 import { listStaffCalls } from "@/lib/services/staff-calls";
 import { staffCallListQuerySchema, staffCallMasterFilterSchema } from "@/lib/validations/staff-calls.schema";
 
+function usesStoreCallScope(role: string): boolean {
+  return role === "BUSINESS_OWNER" || role === "STORE_MANAGER" || role === "MASTER_ADMIN";
+}
+
 export async function GET(req: Request) {
   const startedAt = Date.now();
   try {
@@ -31,6 +35,7 @@ export async function GET(req: Request) {
     const result = await listStaffCalls({
       staffId: staff.staffId,
       storeId: staff.storeId,
+      storeScope: usesStoreCallScope(session.role),
       master: query.data.master,
       segment: query.data.segment,
       valueTier: query.data.valueTier,

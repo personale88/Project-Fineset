@@ -4,19 +4,21 @@ import {
   extractCallQueueSignals,
 } from "@/lib/services/call-queue-utils";
 import { listOwnedStoresForBusinessOwner } from "@/lib/services/manager-stores";
-import type {
-  StoreNotificationStaffSummary,
-  StoreNotificationSummary,
-  StoreNotificationTotals,
+import {
+  staffMissedTotal,
+  type StaffMissedSummary,
 } from "@/lib/services/store-dashboard-notifications.types";
 import type { ManagerStoreOption } from "@/types";
+import type { CallAnswerStatus } from "@prisma/client";
 
-export type {
-  StoreNotificationStaffSummary,
-  StoreNotificationSummary,
-  StoreNotificationTotals,
-} from "@/lib/services/store-dashboard-notifications.types";
-export { storeNotificationCount } from "@/lib/services/store-dashboard-notifications.types";
+export type { StaffMissedSummary } from "@/lib/services/store-dashboard-notifications.types";
+export { staffMissedTotal } from "@/lib/services/store-dashboard-notifications.types";
+
+interface StaffMissedCounts {
+  missedCalls: number;
+  missedBirthdays: number;
+  missedAnniversaries: number;
+}
 
 function startOfDay(date: Date): Date {
   const next = new Date(date);
@@ -28,54 +30,50 @@ function isOverdueFollowUp(followUpDate: Date): boolean {
   return followUpDate < startOfDay(new Date());
 }
 
-function isDueTodayFollowUp(followUpDate: Date): boolean {
-  const today = new Date();
-  return (
-    followUpDate.getFullYear() === today.getFullYear() &&
-    followUpDate.getMonth() === today.getMonth() &&
-    followUpDate.getDate() === today.getDate()
-  );
+function isMissedOccasion(
+  occasionDate: Date | null | undefined,
+  referenceDate: Date,
+  lastCallAnswered: CallAnswerStatus | null | undefined,
+): boolean {
+  if (!occasionDate) return false;
+
+  const occasionMonth = occasionDate.getUTCMonth();
+  const occasionDay = occasionDate.getUTCDate();
+  if (occasionMonth !== referenceDate.getMonth()) return false;
+  if (occasionDay >= referenceDate.getDate()) return false;
+
+  return lastCallAnswered !== "ANSWERED";
 }
 
-function emptyStaffSummary(
-  staffId: string,
-  staffName: string,
-): StoreNotificationStaffSummary {
+function emptyCounts(): StaffMissedCounts {
   return {
-    staffId,
-    staffName,
-    overdueFollowUps: 0,
-    dueTodayFollowUps: 0,
-    followUpCalls: 0,
-    notAnsweredCalls: 0,
+    missedCalls: 0,
+    missedBirthdays: 0,
+    missedAnniversaries: 0,
   };
 }
 
-function ensureStaffBucket(
-  map: Map<string, StoreNotificationStaffSummary>,
+function ensureStaffCounts(
+  map: Map<string, StaffMissedCounts>,
   staffId: string,
-  staffName: string,
-): StoreNotificationStaffSummary {
+): StaffMissedCounts {
   const existing = map.get(staffId);
   if (existing) return existing;
-  const created = emptyStaffSummary(staffId, staffName);
+  const created = emptyCounts();
   map.set(staffId, created);
   return created;
 }
 
-async function buildStoreNotificationSummary(
+async function buildStaffMissedForStore(
   store: ManagerStoreOption,
   referenceDate = new Date(),
-): Promise<StoreNotificationSummary> {
+): Promise<StaffMissedSummary[]> {
   const year = referenceDate.getFullYear();
   const month = referenceDate.getMonth() + 1;
   const { start, end } = buildCallsPeriodRange(year, month);
-  const periodWhere = {
-    gte: start,
-    lte: end,
-  };
+  const periodWhere = { gte: start, lte: end };
 
-  const [staffMembers, openFollowUps, callVisits, visitBirthdays, visitAnniversaries, fieldBirthdays, fieldAnniversaries] =
+  const [staffMembers, openFollowUps, callVisits, occasionVisits, occasionFieldSales] =
     await Promise.all([
       prisma.staff.findMany({
         where: { storeId: store.id, isActive: true },
@@ -112,64 +110,62 @@ async function buildStoreNotificationSummary(
           },
         },
       }),
-      prisma.visit.count({
-        where: { storeId: store.id, visitDate: periodWhere, birthMonth: month },
-      }),
-      prisma.visit.count({
+      prisma.visit.findMany({
         where: {
           storeId: store.id,
           visitDate: periodWhere,
-          anniversaryMonth: month,
+          OR: [{ birthMonth: month }, { anniversaryMonth: month }],
+        },
+        select: {
+          staffId: true,
+          dateOfBirth: true,
+          anniversary: true,
+          birthMonth: true,
+          anniversaryMonth: true,
+          lastCallAnswered: true,
+          customer: {
+            select: {
+              dateOfBirth: true,
+              anniversary: true,
+            },
+          },
         },
       }),
-      prisma.fieldSale.count({
-        where: { storeId: store.id, activityDate: periodWhere, birthMonth: month },
-      }),
-      prisma.fieldSale.count({
+      prisma.fieldSale.findMany({
         where: {
           storeId: store.id,
           activityDate: periodWhere,
-          anniversaryMonth: month,
+          OR: [{ birthMonth: month }, { anniversaryMonth: month }],
+        },
+        select: {
+          staffId: true,
+          birthMonth: true,
+          anniversaryMonth: true,
+          lastCallAnswered: true,
+          customer: {
+            select: {
+              dateOfBirth: true,
+              anniversary: true,
+            },
+          },
         },
       }),
     ]);
 
   const staffNameById = new Map(staffMembers.map((member) => [member.id, member.name]));
-  const staffBuckets = new Map<string, StoreNotificationStaffSummary>();
+  const countsByStaff = new Map<string, StaffMissedCounts>();
 
   for (const member of staffMembers) {
-    ensureStaffBucket(staffBuckets, member.id, member.name);
+    ensureStaffCounts(countsByStaff, member.id);
   }
 
-  const totals: StoreNotificationTotals = {
-    overdueFollowUps: 0,
-    dueTodayFollowUps: 0,
-    followUpCalls: 0,
-    notAnsweredCalls: 0,
-    birthdays: visitBirthdays + fieldBirthdays,
-    anniversaries: visitAnniversaries + fieldAnniversaries,
-  };
-
   for (const followUp of openFollowUps) {
-    const staffName = staffNameById.get(followUp.assignedStaffId) ?? "Unknown staff";
-    const bucket = ensureStaffBucket(
-      staffBuckets,
-      followUp.assignedStaffId,
-      staffName,
-    );
-
-    if (isOverdueFollowUp(followUp.followUpDate)) {
-      totals.overdueFollowUps += 1;
-      bucket.overdueFollowUps += 1;
-    } else if (isDueTodayFollowUp(followUp.followUpDate)) {
-      totals.dueTodayFollowUps += 1;
-      bucket.dueTodayFollowUps += 1;
-    }
+    if (!isOverdueFollowUp(followUp.followUpDate)) continue;
+    ensureStaffCounts(countsByStaff, followUp.assignedStaffId).missedCalls += 1;
   }
 
   for (const visit of callVisits) {
-    const staffName = staffNameById.get(visit.staffId) ?? "Unknown staff";
-    const bucket = ensureStaffBucket(staffBuckets, visit.staffId, staffName);
+    const bucket = ensureStaffCounts(countsByStaff, visit.staffId);
     const signals = extractCallQueueSignals({
       staffId: visit.staffId,
       followUp: visit.followUp,
@@ -177,76 +173,93 @@ async function buildStoreNotificationSummary(
     });
 
     if (signals.lastCallAnswered === "NOT_ANSWERED") {
-      totals.notAnsweredCalls += 1;
-      bucket.notAnsweredCalls += 1;
+      bucket.missedCalls += 1;
     }
 
     if (
       visit.followUp?.status === "OPEN" &&
       visit.followUp.assignedStaffId === visit.staffId
     ) {
-      totals.followUpCalls += 1;
-      bucket.followUpCalls += 1;
+      bucket.missedCalls += 1;
     }
   }
 
-  const staff = Array.from(staffBuckets.values())
-    .filter(
-      (member) =>
-        member.overdueFollowUps > 0 ||
-        member.dueTodayFollowUps > 0 ||
-        member.followUpCalls > 0 ||
-        member.notAnsweredCalls > 0,
-    )
-    .sort((a, b) => {
-      const aScore =
-        a.overdueFollowUps * 4 +
-        a.notAnsweredCalls * 3 +
-        a.followUpCalls * 2 +
-        a.dueTodayFollowUps;
-      const bScore =
-        b.overdueFollowUps * 4 +
-        b.notAnsweredCalls * 3 +
-        b.followUpCalls * 2 +
-        b.dueTodayFollowUps;
-      return bScore - aScore || a.staffName.localeCompare(b.staffName);
-    });
+  const recordOccasion = (
+    staffId: string,
+    birthMonth: number | null,
+    anniversaryMonth: number | null,
+    dateOfBirth: Date | null | undefined,
+    anniversary: Date | null | undefined,
+    lastCallAnswered: CallAnswerStatus | null | undefined,
+  ) => {
+    const bucket = ensureStaffCounts(countsByStaff, staffId);
 
-  return {
-    storeId: store.id,
-    storeName: store.name,
-    city: store.city,
-    state: store.state,
-    totals,
-    staff,
+    if (
+      birthMonth === month &&
+      isMissedOccasion(dateOfBirth ?? null, referenceDate, lastCallAnswered)
+    ) {
+      bucket.missedBirthdays += 1;
+    }
+
+    if (
+      anniversaryMonth === month &&
+      isMissedOccasion(anniversary ?? null, referenceDate, lastCallAnswered)
+    ) {
+      bucket.missedAnniversaries += 1;
+    }
   };
-}
 
-function hasStoreNotifications(summary: StoreNotificationSummary): boolean {
-  const { totals } = summary;
-  return (
-    totals.overdueFollowUps > 0 ||
-    totals.dueTodayFollowUps > 0 ||
-    totals.followUpCalls > 0 ||
-    totals.notAnsweredCalls > 0 ||
-    totals.birthdays > 0 ||
-    totals.anniversaries > 0
-  );
+  for (const visit of occasionVisits) {
+    recordOccasion(
+      visit.staffId,
+      visit.birthMonth,
+      visit.anniversaryMonth,
+      visit.dateOfBirth ?? visit.customer?.dateOfBirth,
+      visit.anniversary ?? visit.customer?.anniversary,
+      visit.lastCallAnswered,
+    );
+  }
+
+  for (const fieldSale of occasionFieldSales) {
+    recordOccasion(
+      fieldSale.staffId,
+      fieldSale.birthMonth,
+      fieldSale.anniversaryMonth,
+      fieldSale.customer?.dateOfBirth,
+      fieldSale.customer?.anniversary,
+      fieldSale.lastCallAnswered,
+    );
+  }
+
+  return Array.from(countsByStaff.entries())
+    .map(([staffId, counts]) => ({
+      storeId: store.id,
+      storeName: store.name,
+      storeCity: store.city,
+      storeState: store.state,
+      staffId,
+      staffName: staffNameById.get(staffId) ?? "Unknown staff",
+      missedCalls: counts.missedCalls,
+      missedBirthdays: counts.missedBirthdays,
+      missedAnniversaries: counts.missedAnniversaries,
+    }))
+    .filter((entry) => staffMissedTotal(entry) > 0);
 }
 
 export async function getBusinessOwnerStoreNotifications(
   email: string,
   primaryStoreId: string,
-): Promise<StoreNotificationSummary[]> {
+): Promise<StaffMissedSummary[]> {
   const stores = await listOwnedStoresForBusinessOwner(email, primaryStoreId);
-  const summaries = await Promise.all(
-    stores.map((store) => buildStoreNotificationSummary(store)),
-  );
+  const items = (
+    await Promise.all(stores.map((store) => buildStaffMissedForStore(store)))
+  ).flat();
 
-  return summaries.sort((a, b) => {
-    const aHas = hasStoreNotifications(a);
-    const bHas = hasStoreNotifications(b);
-    if (aHas !== bHas) return aHas ? -1 : 1;
-    return a.storeName.localeCompare(b.storeName);
+  return items.sort((a, b) => {
+    const totalDiff = staffMissedTotal(b) - staffMissedTotal(a);
+    if (totalDiff !== 0) return totalDiff;
+    return (
+      a.storeName.localeCompare(b.storeName) || a.staffName.localeCompare(b.staffName)
+    );
   });
 }

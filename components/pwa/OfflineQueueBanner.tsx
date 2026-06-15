@@ -1,18 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useOfflineQueue } from "@/hooks/useOfflineQueue";
+import { useIsClient } from "@/hooks/useIsClient";
 import { Button } from "@/components/ui/button";
 
 export function OfflineQueueBanner() {
-  const [mounted, setMounted] = useState(false);
+  const isClient = useIsClient();
   const { pendingCount, isOnline, syncNow } = useOfflineQueue();
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted || (pendingCount === 0 && isOnline)) {
+  if (!isClient || (pendingCount === 0 && isOnline)) {
     return null;
   }
 

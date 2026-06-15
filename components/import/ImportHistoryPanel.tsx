@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -129,21 +129,17 @@ export function ImportHistoryPanel({
     queryKey: ["import-history", storeId, featureKey],
     queryFn: () => getImportHistory({ storeId, featureKey }),
   });
-  const [openRecordId, setOpenRecordId] = useState<string | null>(null);
+  const [openRecordId, setOpenRecordId] = useState<string | null | undefined>(undefined);
 
   const records = data?.data ?? [];
-
-  useEffect(() => {
-    if (records.length > 0 && openRecordId === null) {
-      setOpenRecordId(records[0].id);
-    }
-  }, [openRecordId, records]);
+  const activeOpenId =
+    openRecordId === undefined ? (records[0]?.id ?? null) : openRecordId;
 
   async function handleRollback(record: ImportHistoryRecord) {
     if (!window.confirm(`Undo import of "${record.fileName || record.batchId}"?`)) return;
     await rollbackImportBatch(record.batchId);
     await queryClient.invalidateQueries({ queryKey: ["import-history", storeId] });
-    setOpenRecordId(null);
+    setOpenRecordId(undefined);
   }
 
   const subtitle = isLoading
@@ -164,9 +160,13 @@ export function ImportHistoryPanel({
             <ImportHistoryAccordionItem
               key={record.id}
               record={record}
-              isOpen={openRecordId === record.id}
+              isOpen={activeOpenId === record.id}
               onToggle={() =>
-                setOpenRecordId((current) => (current === record.id ? null : record.id))
+                setOpenRecordId((current) => {
+                  const resolved =
+                    current === undefined ? (records[0]?.id ?? null) : current;
+                  return resolved === record.id ? null : record.id;
+                })
               }
               onRollback={(item) => void handleRollback(item)}
             />
