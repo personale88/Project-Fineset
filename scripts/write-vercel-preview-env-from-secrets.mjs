@@ -22,10 +22,10 @@ const MAP = [
 function main() {
   const databaseUrl = process.env.STAGING_DATABASE_URL?.trim();
   if (!databaseUrl) {
-    console.log(
-      "STAGING_DATABASE_URL not set — skip preview env injection. Add GitHub secrets per docs/VERCEL_STAGING_DEPLOY.md",
+    console.error(
+      "::error::STAGING_DATABASE_URL not set. Add STAGING_* GitHub secrets (see docs/VERCEL_STAGING_DEPLOY.md).",
     );
-    return;
+    process.exit(1);
   }
 
   for (const [vercelKey, secretKey] of MAP) {

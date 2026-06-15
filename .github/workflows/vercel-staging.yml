@@ -23,6 +23,17 @@ jobs:
             exit 1
           fi
 
+      - name: Require staging env secrets
+        env:
+          STAGING_DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+          STAGING_GEMINI_API_KEY: ${{ secrets.STAGING_GEMINI_API_KEY }}
+        run: |
+          if [ -z "$STAGING_DATABASE_URL" ] || [ -z "$STAGING_GEMINI_API_KEY" ]; then
+            echo "::error::Missing staging GitHub secrets. Add STAGING_DATABASE_URL, STAGING_DIRECT_URL, STAGING_NEXT_PUBLIC_SUPABASE_URL, STAGING_NEXT_PUBLIC_SUPABASE_ANON_KEY, STAGING_SUPABASE_SERVICE_ROLE_KEY, STAGING_ENCRYPTION_KEY, and STAGING_GEMINI_API_KEY."
+            echo "See docs/VERCEL_STAGING_DEPLOY.md"
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4

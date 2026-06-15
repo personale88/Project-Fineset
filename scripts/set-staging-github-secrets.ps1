@@ -56,7 +56,8 @@ foreach ($key in $map.Keys) {
 }
 
 Write-Host ""
-Write-Host "Done. Next steps:"
-Write-Host "  1. GitHub -> Actions -> Sync Staging Preview Env -> Run workflow"
-Write-Host "  2. GitHub -> Actions -> Vercel Staging Deployment -> Re-run"
-Write-Host "  3. Open https://fineset.staging.tribly.ai/api/auth/config-check"
+Write-Host "Done. Re-run deploy:"
+Write-Host "  GitHub -> Actions -> Vercel Staging Deployment -> Re-run"
+Write-Host "  (or: git push origin staging)"
+Write-Host ""
+Write-Host "Verify: https://fineset.staging.tribly.ai/api/auth/config-check"
