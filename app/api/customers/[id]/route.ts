@@ -16,7 +16,6 @@ const patchCustomerSchema = z.object({
   phone: z.string().min(10).max(15).optional(),
   area: z.string().max(200).nullable().optional(),
   address: z.string().max(500).nullable().optional(),
-  marketingOptIn: z.boolean().optional(),
 });
 
 interface RouteParams {

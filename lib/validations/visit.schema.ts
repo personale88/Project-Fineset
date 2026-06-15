@@ -113,7 +113,6 @@ export const createVisitSchema = z
     followUpNeeded: z.boolean().default(false),
     followUpDate: z.coerce.date().optional(),
     staffNotes: z.string().max(500).optional(),
-    marketingOptIn: z.boolean().default(false),
   })
   .superRefine((data, ctx) => {
     if (!data.purchaseStatus) {

@@ -60,7 +60,6 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
     anniversary,
     followUpNeeded,
     followUpDate,
-    marketingOptIn,
     purchaseStatus,
     enrollmentOutcome,
     visitDate: visitDateInput,
@@ -97,7 +96,6 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
         anniversary,
         ghsEnrolled: schemeFlags.ghsPolicy,
         activeScheme: schemeFlags.activeScheme,
-        marketingOptIn: marketingOptIn ?? false,
         storeId,
       },
       update: {
@@ -112,7 +110,6 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
         ageGroup,
         dateOfBirth,
         anniversary,
-        ...(marketingOptIn !== undefined ? { marketingOptIn } : {}),
         ...(schemeFlags.ghsPolicy ? { ghsEnrolled: true } : {}),
         ...(schemeFlags.activeScheme ? { activeScheme: schemeFlags.activeScheme } : {}),
       },

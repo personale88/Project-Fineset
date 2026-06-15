@@ -10,7 +10,6 @@ export async function updateCustomerProfile(
     phone?: string;
     area?: string | null;
     address?: string | null;
-    marketingOptIn?: boolean;
   },
 ) {
   const customer = await prisma.customer.findFirst({
@@ -21,7 +20,6 @@ export async function updateCustomerProfile(
   const data: Record<string, unknown> = {};
   if (input.area !== undefined) data.area = input.area;
   if (input.address !== undefined) data.address = input.address;
-  if (input.marketingOptIn !== undefined) data.marketingOptIn = input.marketingOptIn;
 
   if (input.name || input.phone) {
     const decrypted = decryptCustomerFields(customer);

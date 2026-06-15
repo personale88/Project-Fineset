@@ -376,9 +376,6 @@ export const content = {
         label: "Staff Notes",
         placeholder: "Additional notes (max 500 characters)",
       },
-      marketingOptIn: {
-        label: "Customer opted in to marketing communications",
-      },
     },
     actions: {
       submit: "Submit Visit",

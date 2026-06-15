@@ -856,7 +856,6 @@ export async function recordManualStaffCall(
       followUpNeeded: false,
       staffNotes,
       visitDate: new Date(),
-      marketingOptIn: false,
     });
 
     visitId = visit.id;

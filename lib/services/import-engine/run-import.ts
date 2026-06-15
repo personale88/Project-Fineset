@@ -226,7 +226,6 @@ async function importVisitRow(
     followUpNeeded: asBoolean(row.transformedData.followUpNeeded) ?? false,
     followUpDate: asDate(row.transformedData.followUpDate),
     staffNotes: staffNotes || undefined,
-    marketingOptIn: false,
   });
 
   const durationMins = asNumber(row.transformedData.durationMins);
@@ -287,7 +286,6 @@ async function importCallLogRow(
       schemesPitched: [],
       followUpNeeded: false,
       visitDate: callDate,
-      marketingOptIn: false,
     });
   }
 

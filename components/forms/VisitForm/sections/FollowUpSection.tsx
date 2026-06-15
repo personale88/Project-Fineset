@@ -64,19 +64,6 @@ export function FollowUpSection({
 
       <FormField
         control={control}
-        name="marketingOptIn"
-        render={({ field }) => (
-          <FormItem className="flex items-center justify-between gap-4 rounded-input border border-border px-4 py-3 sm:max-w-md">
-            <FormLabel className="mt-0">{fields.marketingOptIn.label}</FormLabel>
-            <FormControl>
-              <Switch checked={field.value} onCheckedChange={field.onChange} />
-            </FormControl>
-          </FormItem>
-        )}
-      />
-
-      <FormField
-        control={control}
         name="staffNotes"
         render={({ field }) => (
           <FormItem>

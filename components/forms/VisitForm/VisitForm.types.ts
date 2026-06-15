@@ -105,7 +105,6 @@ export function getDefaultVisitValues(
     followUpNeeded: draft?.followUpNeeded ?? false,
     followUpDate: undefined,
     staffNotes: undefined,
-    marketingOptIn: false,
   };
 }
 

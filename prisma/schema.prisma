@@ -136,7 +136,6 @@ model Customer {
   anniversary  DateTime?
   activeScheme String?
   ghsEnrolled  Boolean  @default(false)
-  marketingOptIn Boolean @default(false)
   storeId      String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
