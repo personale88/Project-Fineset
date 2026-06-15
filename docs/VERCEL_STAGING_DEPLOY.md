@@ -52,7 +52,34 @@ GitHub → **tribly-tech/Project-Fineset** → **Settings** → **Secrets and va
 | `VERCEL_ORG_ID` | `orgId` from step 2 |
 | `VERCEL_PROJECT_ID` | `projectId` from step 2 |
 
-Environment variables for the app stay on **Vercel** (Preview environment). `vercel pull` downloads them during the workflow — do not duplicate DB URLs in GitHub unless you add a separate migrate workflow for staging.
+### 3b. Staging app env (Preview / GitHub secrets)
+
+Staging uses the **jewelry-analytics** Supabase project (`qkfldqzowkcucfdulozc`), not production.
+
+**Easiest path** — upload from your laptop (reads `.env.staging.local` + `GEMINI_API_KEY` from `.env.local.db`):
+
+```powershell
+gh auth login
+.\scripts\set-staging-github-secrets.ps1
+```
+
+Then GitHub → **Actions** → **Sync Staging Preview Env** → **Run workflow** (pushes vars to Vercel Preview on the tribly-tech project).
+
+On every `staging` push, [`.github/workflows/vercel-staging.yml`](../.github/workflows/vercel-staging.yml) also injects these secrets at build time.
+
+| GitHub secret | Copy from |
+|---------------|-----------|
+| `STAGING_DATABASE_URL` | `.env.staging.local` → `DATABASE_URL` |
+| `STAGING_DIRECT_URL` | `.env.staging.local` → `DIRECT_URL` |
+| `STAGING_NEXT_PUBLIC_SUPABASE_URL` | `.env.staging.local` |
+| `STAGING_NEXT_PUBLIC_SUPABASE_ANON_KEY` | `.env.staging.local` |
+| `STAGING_SUPABASE_SERVICE_ROLE_KEY` | `.env.staging.local` |
+| `STAGING_ENCRYPTION_KEY` | `.env.staging.local` |
+| `STAGING_GEMINI_API_KEY` | `.env.local.db` → `GEMINI_API_KEY` |
+
+`NEXT_PUBLIC_APP_URL` is set automatically to `https://fineset.staging.tribly.ai`.
+
+**Manual alternative** — Vercel → **project-fineset** (tribly-tech team) → **Settings** → **Environment Variables** → scope **Preview** only. Paste the same keys/values.
 
 ### 4. Optional — stable staging URL
 
@@ -92,6 +119,30 @@ The red **Vercel** Git check on commits may still appear (Hobby + org Git integr
 | Build fails: missing env vars | Vercel → Project → Settings → Environment Variables → ensure **Preview** has the same vars as Production |
 | Wrong project deployed | Re-run `vercel link`, update `VERCEL_PROJECT_ID` secret |
 | Login fails on staging URL | Add staging URL to Supabase Auth redirect URLs |
+| Staging URL returns **401 Authentication Required** | Vercel → project-fineset → **Deployment Protection** → allow team access or disable for Preview |
+| AI Analytics shows "server rules" not Gemini | Add `GEMINI_API_KEY` to **Preview** env (not Production) |
+
+---
+
+## Preview environment variables (staging Supabase + Gemini)
+
+Scope **Preview** only on the **tribly-tech** `project-fineset` project (the domain `fineset.staging.tribly.ai` is not on a personal Hobby project).
+
+Minimum vars: `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ENCRYPTION_KEY`, `NEXT_PUBLIC_APP_URL` (`https://fineset.staging.tribly.ai`), `GEMINI_API_KEY`.
+
+From a machine linked to the tribly-tech Vercel team:
+
+```powershell
+npx vercel login
+npx vercel link --project project-fineset
+node scripts/sync-staging-vercel-preview-env.mjs
+```
+
+Supabase Auth URLs for jewelry-analytics (`qkfldqzowkcucfdulozc`):
+
+```powershell
+node scripts/configure-staging-supabase-auth.mjs
+```
 
 ---
 
