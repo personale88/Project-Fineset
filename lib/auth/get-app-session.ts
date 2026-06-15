@@ -38,7 +38,17 @@ async function resolveAppSession(): Promise<AppSession | null> {
     return null;
   }
 
-  const supabase = await createClient();
+  let supabase;
+  try {
+    supabase = await createClient();
+  } catch (error) {
+    console.error(
+      "[getAppSession] Supabase client unavailable",
+      error instanceof Error ? error.message : error,
+    );
+    return null;
+  }
+
   let user;
   let error;
   try {
