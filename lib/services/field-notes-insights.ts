@@ -1,3 +1,5 @@
+import { geminiGenerateContent } from "@/lib/gemini/generate-content";
+
 const THEME_PATTERNS: Array<{ key: string; label: string; pattern: RegExp }> = [
   { key: "budget", label: "Budget / affordability", pattern: /\b(budget|afford|expensive|cost|price)\b/i },
   { key: "trust", label: "Trust / credibility", pattern: /\b(trust|credib|reputation|brand)\b/i },
@@ -79,23 +81,8 @@ async function fetchGeminiFieldSummary(
     ...snippets.map((s, i) => `${i + 1}. ${s}`),
   ].join("\n");
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 256, temperature: 0.3 },
-      }),
-    },
-  );
-
-  if (!response.ok) return null;
-
-  const json = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  const text = json.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-  return text || null;
+  return geminiGenerateContent(apiKey, prompt, {
+    maxOutputTokens: 256,
+    temperature: 0.3,
+  });
 }

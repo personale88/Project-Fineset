@@ -1,3 +1,4 @@
+import { geminiGenerateContent } from "@/lib/gemini/generate-content";
 import { analyticsAskIntentSchema } from "@/lib/validations/admin-business-analytics-ask.schema";
 import type { ParsedAnalyticsAskIntent } from "@/lib/validations/admin-business-analytics-ask.schema";
 import type { AnalyticsAskReport } from "@/types/admin-business-analytics-ask";
@@ -32,7 +33,11 @@ Return a single JSON object matching this shape:
 }
 No markdown. No explanation.`;
 
-  const text = await geminiGenerate(apiKey, `${system}\n\nUser question:\n${prompt}`);
+  const text = await geminiGenerateContent(
+    apiKey,
+    `${system}\n\nUser question:\n${prompt}`,
+    { maxOutputTokens: 1024, temperature: 0.2 },
+  );
   if (!text) return null;
 
   try {
@@ -80,9 +85,10 @@ Given the user question and computed metrics JSON, respond with JSON only:
 }
 Be specific with numbers from the data. No markdown.`;
 
-  const text = await geminiGenerate(
+  const text = await geminiGenerateContent(
     apiKey,
     `${instruction}\n\nUser question: ${prompt}\nInterpreted: ${interpretedQuery}\nData:\n${JSON.stringify(payload)}`,
+    { maxOutputTokens: 1024, temperature: 0.2 },
   );
   if (!text) return null;
 
@@ -102,23 +108,3 @@ Be specific with numbers from the data. No markdown.`;
   }
 }
 
-async function geminiGenerate(apiKey: string, prompt: string): Promise<string | null> {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 1024, temperature: 0.2 },
-      }),
-    },
-  );
-
-  if (!response.ok) return null;
-
-  const json = (await response.json()) as {
-    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-  };
-  return json.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? null;
-}
