@@ -3,10 +3,19 @@
 import { Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { AssignStaffButton } from "@/components/shared/AssignStaffDialog";
 import { cn } from "@/lib/utils";
 import { formatDate } from "@/lib/utils/formatters";
 import { badgeClass, getCallOutcomeKey } from "./call-badge-utils";
 import type { StaffCallListItem } from "@/types";
+import type { AssignCustomerTarget } from "@/components/shared/AssignStaffDialog";
+
+function assignTargetFromCallItem(item: StaffCallListItem): AssignCustomerTarget {
+  if (item.visitId) return { visitId: item.visitId };
+  if (item.fieldSaleId) return { fieldSaleId: item.fieldSaleId };
+  if (item.followUpId) return { followUpId: item.followUpId };
+  return { visitId: item.recordId };
+}
 
 interface StaffCallCardLabels {
   valueTierLabels: Record<string, string>;
@@ -25,9 +34,19 @@ interface StaffCallCardProps {
   item: StaffCallListItem;
   labels: StaffCallCardLabels;
   onCall: (item: StaffCallListItem) => void;
+  canAssign?: boolean;
+  storeId?: string;
+  onAssigned?: () => void;
 }
 
-export function StaffCallCard({ item, labels, onCall }: StaffCallCardProps) {
+export function StaffCallCard({
+  item,
+  labels,
+  onCall,
+  canAssign = false,
+  storeId,
+  onAssigned,
+}: StaffCallCardProps) {
   const callOutcomeKey = getCallOutcomeKey(item.lastCallStatus);
   const isFollowUp = item.queue === "FOLLOW_UP";
 
@@ -52,6 +71,18 @@ export function StaffCallCard({ item, labels, onCall }: StaffCallCardProps) {
                 {labels.queueStatusLabels.FOLLOW_UP}
               </Badge>
             )}
+            {canAssign && storeId ? (
+              <AssignStaffButton
+                storeId={storeId}
+                target={assignTargetFromCallItem(item)}
+                customerName={item.displayName}
+                currentStaffId={item.staffId}
+                currentStaffName={item.staffName}
+                onAssigned={onAssigned}
+                size="icon"
+                variant="outline"
+              />
+            ) : null}
             <Button
               type="button"
               size="icon"
@@ -70,6 +101,9 @@ export function StaffCallCard({ item, labels, onCall }: StaffCallCardProps) {
           <Badge variant="secondary">
             {labels.masterSourceLabels[item.masterSource]}
           </Badge>
+          {item.staffName ? (
+            <Badge variant="outline">{item.staffName}</Badge>
+          ) : null}
           <Badge variant="outline" className={cn(badgeClass("value", item.valueTier))}>
             {labels.valueTierLabels[item.valueTier]}
           </Badge>

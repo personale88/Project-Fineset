@@ -58,6 +58,8 @@ export function VisitsTable({
   filterAllLabel = "All",
   showCustomerMerge = false,
   storeId,
+  canAssign = false,
+  onAssigned,
 }: VisitsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [selectedVisit, setSelectedVisit] = useState<VisitListItem | null>(null);
@@ -220,6 +222,12 @@ export function VisitsTable({
         yesLabel={yesLabel}
         noLabel={noLabel}
         onClose={() => setSelectedVisit(null)}
+        canAssign={canAssign}
+        storeId={storeId}
+        onAssigned={() => {
+          onAssigned?.();
+          setSelectedVisit(null);
+        }}
       />
     </div>
   );

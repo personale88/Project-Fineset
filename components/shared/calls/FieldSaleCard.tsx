@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { AssignStaffButton } from "@/components/shared/AssignStaffDialog";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 import { formatLabel } from "./call-badge-utils";
 import type { FieldSaleListItem } from "@/types";
@@ -15,9 +16,17 @@ interface FieldSaleCardProps {
   item: FieldSaleListItem;
   labels: FieldSaleCardLabels;
   showStoreName?: boolean;
+  canAssign?: boolean;
+  onAssigned?: () => void;
 }
 
-export function FieldSaleCard({ item, labels, showStoreName = false }: FieldSaleCardProps) {
+export function FieldSaleCard({
+  item,
+  labels,
+  showStoreName = false,
+  canAssign = false,
+  onAssigned,
+}: FieldSaleCardProps) {
   return (
     <article className="rounded-card border border-border bg-surface-card p-4 shadow-card">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -32,6 +41,19 @@ export function FieldSaleCard({ item, labels, showStoreName = false }: FieldSale
         <div className="text-right text-xs text-text-muted">
           <p>{item.activityDateLabel}</p>
           {item.locationLabel && <p>{item.locationLabel}</p>}
+          {canAssign ? (
+            <div className="mt-2 flex justify-end">
+              <AssignStaffButton
+                storeId={item.storeId}
+                target={{ fieldSaleId: item.id }}
+                customerName={item.customerName}
+                currentStaffId={item.staffId}
+                currentStaffName={item.staffName}
+                onAssigned={onAssigned}
+                size="sm"
+              />
+            </div>
+          ) : null}
         </div>
       </div>
 

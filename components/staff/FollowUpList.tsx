@@ -7,17 +7,39 @@ import { useFollowUps } from "@/hooks/useFollowUps";
 import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { formatDate } from "@/lib/utils/formatters";
 import { QueryLoadState } from "@/components/shared/QueryLoadState";
+import { AssignStaffButton } from "@/components/shared/AssignStaffDialog";
 import { Badge } from "@/components/ui/badge";
+import type { FollowUpListItem } from "@/types";
 
-export function FollowUpList() {
-  const { data, isLoading, isError, refetch } = useFollowUps({ overdue: true });
+function followUpAssignTarget(item: FollowUpListItem) {
+  if (item.visitId) return { visitId: item.visitId };
+  if (item.fieldSaleId) return { fieldSaleId: item.fieldSaleId };
+  return { followUpId: item.id };
+}
+
+interface FollowUpListProps {
+  storeId?: string;
+  canAssign?: boolean;
+  backHref?: string;
+}
+
+export function FollowUpList({
+  storeId,
+  canAssign: canAssignProp,
+  backHref = STAFF_DASHBOARD_PATH,
+}: FollowUpListProps) {
+  const canAssign = canAssignProp ?? Boolean(storeId);
+  const { data, isLoading, isError, refetch } = useFollowUps({
+    overdue: true,
+    storeId,
+  });
   const copy = content.staff.followUps;
 
   return (
     <div className="space-y-4">
       <div className="space-y-3">
         <Link
-          href={STAFF_DASHBOARD_PATH}
+          href={backHref}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary transition-colors hover:text-brand-gold"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -49,8 +71,24 @@ export function FollowUpList() {
                   <div>
                     <p className="font-medium text-text-primary">{item.customerName}</p>
                     <p className="text-sm text-text-secondary">{item.customerPhone}</p>
+                    <p className="mt-1 text-xs text-text-muted">
+                      {copy.assignedLabel}: {item.assignedStaffName}
+                    </p>
                   </div>
-                  <Badge variant="outline">{item.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{item.status}</Badge>
+                    {canAssign && storeId ? (
+                      <AssignStaffButton
+                        storeId={storeId}
+                        target={followUpAssignTarget(item)}
+                        customerName={item.customerName}
+                        currentStaffId={item.assignedStaffId}
+                        currentStaffName={item.assignedStaffName}
+                        onAssigned={() => void refetch()}
+                        size="sm"
+                      />
+                    ) : null}
+                  </div>
                 </div>
                 <p className="mt-2 text-sm text-text-muted">
                   {copy.dueLabel}: {formatDate(item.followUpDate)}

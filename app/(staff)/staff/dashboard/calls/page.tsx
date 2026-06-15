@@ -16,6 +16,7 @@ export default async function StaffCallsPage({ searchParams }: StaffCallsPagePro
     <StaffCallList
       copy={content.staff}
       emptyMessage={content.empty.staffCalls}
+      canAssign={false}
       initialCallsParams={urlFilters}
       initialData={initial?.data}
       initialParams={initial?.params}

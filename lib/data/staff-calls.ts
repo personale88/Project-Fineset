@@ -82,10 +82,12 @@ export const fetchInitialStoreManagerCalls = cache(
 async function listStaffCallsForContext(
   staff: { staffId: string; storeId: string },
   merged: GetStaffCallsParams,
+  storeScope = false,
 ) {
   return listStaffCalls({
     staffId: staff.staffId,
     storeId: staff.storeId,
+    storeScope,
     master: merged.master ?? "ALL",
     segment: merged.segment ?? "ALL",
     valueTier: merged.valueTier ?? "ALL",
@@ -112,7 +114,7 @@ export const fetchInitialAdminCalls = cache(
 
     const params = defaultStaffCallsParams();
     const merged: GetStaffCallsParams = { ...params, ...overrides, storeId };
-    const data = await listStaffCallsForContext(staff, merged);
+    const data = await listStaffCallsForContext(staff, merged, true);
 
     return { params: merged, data };
   },
@@ -132,7 +134,7 @@ export const fetchInitialStorePortalCalls = cache(
 
     const params = defaultStaffCallsParams();
     const merged: GetStaffCallsParams = { ...params, ...overrides, storeId };
-    const data = await listStaffCallsForContext(staff, merged);
+    const data = await listStaffCallsForContext(staff, merged, true);
 
     return { params: merged, data };
   },

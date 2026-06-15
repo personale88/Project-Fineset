@@ -291,13 +291,25 @@ async function importCallLogRow(
     });
   }
 
+  const answered = mapCallAnswered(row.transformedData.answered);
+
   await prisma.staffCallLog.create({
     data: {
       visitId: visit.id,
       staffId,
-      answered: mapCallAnswered(row.transformedData.answered),
+      answered,
       feedback: feedbackParts.length > 0 ? feedbackParts.join(" · ") : undefined,
       createdAt: callDate,
+      importBatchId: batchId,
+      importedAt: new Date(),
+    },
+  });
+
+  await prisma.visit.update({
+    where: { id: visit.id },
+    data: {
+      lastCallAnswered: answered,
+      lastCallAt: callDate,
       importBatchId: batchId,
       importedAt: new Date(),
     },

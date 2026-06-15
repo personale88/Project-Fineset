@@ -31,20 +31,39 @@ function visitSourceSql(master: StaffCallMasterFilter): Prisma.Sql {
   return Prisma.sql`TRUE`;
 }
 
-function visitQueueSql(queue: StaffCallsDbQueryParams["queue"], staffId: string): Prisma.Sql {
+function visitQueueSql(
+  queue: StaffCallsDbQueryParams["queue"],
+  staffId: string,
+  storeScope = false,
+): Prisma.Sql {
   if (queue === "ALL") return Prisma.sql`TRUE`;
   if (queue === "NOT_ANSWERED") {
     return Prisma.sql`v."lastCallAnswered" = 'NOT_ANSWERED'::"CallAnswerStatus"`;
   }
   if (queue === "FOLLOW_UP") {
-    return Prisma.sql`EXISTS (
+    return storeScope
+      ? Prisma.sql`EXISTS (
+          SELECT 1 FROM "FollowUp" f
+          WHERE f."visitId" = v.id
+            AND f.status = 'OPEN'::"FollowUpStatus"
+        )`
+      : Prisma.sql`EXISTS (
+          SELECT 1 FROM "FollowUp" f
+          WHERE f."visitId" = v.id
+            AND f.status = 'OPEN'::"FollowUpStatus"
+            AND f."assignedStaffId" = ${staffId}
+        )`;
+  }
+  return storeScope
+    ? Prisma.sql`(
+    NOT EXISTS (
       SELECT 1 FROM "FollowUp" f
       WHERE f."visitId" = v.id
         AND f.status = 'OPEN'::"FollowUpStatus"
-        AND f."assignedStaffId" = ${staffId}
-    )`;
-  }
-  return Prisma.sql`(
+    )
+    AND (v."lastCallAnswered" IS NULL OR v."lastCallAnswered" <> 'NOT_ANSWERED'::"CallAnswerStatus")
+  )`
+    : Prisma.sql`(
     NOT EXISTS (
       SELECT 1 FROM "FollowUp" f
       WHERE f."visitId" = v.id
@@ -55,20 +74,39 @@ function visitQueueSql(queue: StaffCallsDbQueryParams["queue"], staffId: string)
   )`;
 }
 
-function fieldSaleQueueSql(queue: StaffCallsDbQueryParams["queue"], staffId: string): Prisma.Sql {
+function fieldSaleQueueSql(
+  queue: StaffCallsDbQueryParams["queue"],
+  staffId: string,
+  storeScope = false,
+): Prisma.Sql {
   if (queue === "ALL") return Prisma.sql`TRUE`;
   if (queue === "NOT_ANSWERED") {
     return Prisma.sql`fs."lastCallAnswered" = 'NOT_ANSWERED'::"CallAnswerStatus"`;
   }
   if (queue === "FOLLOW_UP") {
-    return Prisma.sql`EXISTS (
+    return storeScope
+      ? Prisma.sql`EXISTS (
+          SELECT 1 FROM "FollowUp" f
+          WHERE f."fieldSaleId" = fs.id
+            AND f.status = 'OPEN'::"FollowUpStatus"
+        )`
+      : Prisma.sql`EXISTS (
+          SELECT 1 FROM "FollowUp" f
+          WHERE f."fieldSaleId" = fs.id
+            AND f.status = 'OPEN'::"FollowUpStatus"
+            AND f."assignedStaffId" = ${staffId}
+        )`;
+  }
+  return storeScope
+    ? Prisma.sql`(
+    NOT EXISTS (
       SELECT 1 FROM "FollowUp" f
       WHERE f."fieldSaleId" = fs.id
         AND f.status = 'OPEN'::"FollowUpStatus"
-        AND f."assignedStaffId" = ${staffId}
-    )`;
-  }
-  return Prisma.sql`(
+    )
+    AND (fs."lastCallAnswered" IS NULL OR fs."lastCallAnswered" <> 'NOT_ANSWERED'::"CallAnswerStatus")
+  )`
+    : Prisma.sql`(
     NOT EXISTS (
       SELECT 1 FROM "FollowUp" f
       WHERE f."fieldSaleId" = fs.id
@@ -141,16 +179,19 @@ function anniversarySql(
 
 function buildVisitSelectSql(params: StaffCallsDbQueryParams): Prisma.Sql {
   const { start, end } = buildCallsPeriodRange(params.year, params.month);
+  const staffFilter = params.storeScope
+    ? Prisma.sql`TRUE`
+    : Prisma.sql`v."staffId" = ${params.staffId}`;
   return Prisma.sql`
     SELECT v.id, 'VISIT'::text AS source, v."visitDate" AS activity_at
     FROM "Visit" v
-    WHERE v."staffId" = ${params.staffId}
+    WHERE ${staffFilter}
       AND v."storeId" = ${params.storeId}
       AND v."visitDate" >= ${start}
       AND v."visitDate" <= ${end}
       AND ${visitSourceSql(params.master)}
       AND ${visitSegmentSql(params.segment)}
-      AND ${visitQueueSql(params.queue, params.staffId)}
+      AND ${visitQueueSql(params.queue, params.staffId, params.storeScope)}
       AND ${valueTierSql("v", params.valueTier)}
       AND ${birthdaySql("v", params.birthday, params.month)}
       AND ${anniversarySql("v", params.anniversary, params.month)}
@@ -159,15 +200,18 @@ function buildVisitSelectSql(params: StaffCallsDbQueryParams): Prisma.Sql {
 
 function buildFieldSaleSelectSql(params: StaffCallsDbQueryParams): Prisma.Sql {
   const { start, end } = buildCallsPeriodRange(params.year, params.month);
+  const staffFilter = params.storeScope
+    ? Prisma.sql`TRUE`
+    : Prisma.sql`fs."staffId" = ${params.staffId}`;
   return Prisma.sql`
     SELECT fs.id, 'FIELD_SALE'::text AS source, fs."activityDate" AS activity_at
     FROM "FieldSale" fs
-    WHERE fs."staffId" = ${params.staffId}
+    WHERE ${staffFilter}
       AND fs."storeId" = ${params.storeId}
       AND fs."activityDate" >= ${start}
       AND fs."activityDate" <= ${end}
       AND ${fieldSaleSegmentSql(params.segment)}
-      AND ${fieldSaleQueueSql(params.queue, params.staffId)}
+      AND ${fieldSaleQueueSql(params.queue, params.staffId, params.storeScope)}
       AND ${valueTierSql("fs", params.valueTier)}
       AND ${birthdaySql("fs", params.birthday, params.month)}
       AND ${anniversarySql("fs", params.anniversary, params.month)}

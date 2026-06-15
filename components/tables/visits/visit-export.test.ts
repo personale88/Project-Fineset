@@ -64,6 +64,7 @@ const visit = {
   inTime: null,
   outTime: null,
   durationMins: null,
+  staffId: "staff-1",
   staffName: "Alex",
   customerName: "Jane Doe",
   customerPhone: "9876543210",

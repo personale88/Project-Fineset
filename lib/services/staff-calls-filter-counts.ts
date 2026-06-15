@@ -33,6 +33,7 @@ const ENROLLED_OUTCOMES: SchemeEnrollmentOutcome[] = [
 ];
 
 const staffCallVisitCountSelect = {
+  staffId: true,
   visitDate: true,
   sourceChannel: true,
   customerType: true,
@@ -52,6 +53,7 @@ const staffCallVisitCountSelect = {
 } satisfies Prisma.VisitSelect;
 
 const staffCallFieldSaleCountSelect = {
+  staffId: true,
   activityDate: true,
   customerType: true,
   enrollmentOutcome: true,
@@ -92,13 +94,15 @@ export async function fetchStaffCallYearRecords(
   staffId: string,
   storeId: string,
   year: number,
+  storeScope = false,
 ): Promise<StaffCallYearRecords> {
   const { start, end } = yearBounds(year);
+  const staffFilter = storeScope ? {} : { staffId };
 
   const [visits, fieldSales] = await Promise.all([
     prisma.visit.findMany({
       where: {
-        staffId,
+        ...staffFilter,
         storeId,
         visitDate: { gte: start, lte: end },
       },
@@ -106,7 +110,7 @@ export async function fetchStaffCallYearRecords(
     }),
     prisma.fieldSale.findMany({
       where: {
-        staffId,
+        ...staffFilter,
         storeId,
         activityDate: { gte: start, lte: end },
       },
@@ -202,10 +206,12 @@ function visitMatchesFilters(
   ) {
     return false;
   }
-  if (
+  if (params.storeScope && params.queue === "FOLLOW_UP") {
+    if (visit.followUp?.status !== "OPEN") return false;
+  } else if (
     !matchesCallQueue(
       {
-        staffId: params.staffId,
+        staffId: params.storeScope ? visit.staffId : params.staffId,
         followUp: visit.followUp,
         lastCallAnswered: visit.lastCallAnswered,
         callLogs: [],
@@ -239,10 +245,12 @@ function fieldSaleMatchesFilters(
   ) {
     return false;
   }
-  if (
+  if (params.storeScope && params.queue === "FOLLOW_UP") {
+    if (fieldSale.followUp?.status !== "OPEN") return false;
+  } else if (
     !matchesCallQueue(
       {
-        staffId: params.staffId,
+        staffId: params.storeScope ? fieldSale.staffId : params.staffId,
         followUp: fieldSale.followUp,
         lastCallAnswered: fieldSale.lastCallAnswered,
         callLogs: [],
@@ -297,6 +305,7 @@ export function countStaffCallFiltersFromRecords(
   params: {
     staffId: string;
     storeId: string;
+    storeScope?: boolean;
     master: StaffCallMasterFilter;
     segment: StaffCallSegment;
     valueTier: StaffCallValueTier;
@@ -310,6 +319,7 @@ export function countStaffCallFiltersFromRecords(
   const base: StaffCallsDbQueryParams = {
     staffId: params.staffId,
     storeId: params.storeId,
+    storeScope: params.storeScope,
     master: params.master,
     segment: params.segment,
     valueTier: params.valueTier,

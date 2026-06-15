@@ -15,6 +15,7 @@ const visitDate = new Date(year, month - 1, 15);
 
 function visit(overrides: Partial<StaffCallVisitCountRow> = {}): StaffCallVisitCountRow {
   return {
+    staffId,
     visitDate,
     sourceChannel: "ORGANIC_WALK_IN",
     customerType: "NEW",
@@ -34,6 +35,7 @@ function fieldSale(
   overrides: Partial<StaffCallFieldSaleCountRow> = {},
 ): StaffCallFieldSaleCountRow {
   return {
+    staffId,
     activityDate: visitDate,
     customerType: "NEW",
     enrollmentOutcome: null,

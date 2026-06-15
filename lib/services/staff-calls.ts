@@ -48,6 +48,7 @@ import type {
 interface ListStaffCallsParams {
   staffId: string;
   storeId: string;
+  storeScope?: boolean;
   master: StaffCallMasterFilter;
   segment: StaffCallSegment;
   valueTier: StaffCallValueTier;
@@ -67,8 +68,9 @@ interface RecordStaffCallOutcomeParams extends StaffCallOutcomeInput {
   storeId: string;
 }
 
-const visitListSelect = (staffId: string): Prisma.VisitSelect => ({
+const visitListSelect = (staffId: string, storeScope = false): Prisma.VisitSelect => ({
   id: true,
+  staffId: true,
   visitDate: true,
   sourceChannel: true,
   customerName: true,
@@ -87,6 +89,12 @@ const visitListSelect = (staffId: string): Prisma.VisitSelect => ({
   lastCallAnswered: true,
   lastCallAt: true,
   callValueTier: true,
+  staff: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
   customer: {
     select: {
       dateOfBirth: true,
@@ -103,7 +111,7 @@ const visitListSelect = (staffId: string): Prisma.VisitSelect => ({
     },
   },
   callLogs: {
-    where: { staffId },
+    ...(storeScope ? {} : { where: { staffId } }),
     orderBy: { createdAt: "desc" },
     take: 1,
     select: {
@@ -114,8 +122,9 @@ const visitListSelect = (staffId: string): Prisma.VisitSelect => ({
   },
 });
 
-const fieldSaleListSelect = (staffId: string): Prisma.FieldSaleSelect => ({
+const fieldSaleListSelect = (staffId: string, storeScope = false): Prisma.FieldSaleSelect => ({
   id: true,
+  staffId: true,
   activityDate: true,
   customerName: true,
   customerPhone: true,
@@ -129,6 +138,12 @@ const fieldSaleListSelect = (staffId: string): Prisma.FieldSaleSelect => ({
   lastCallAnswered: true,
   lastCallAt: true,
   callValueTier: true,
+  staff: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
   customer: {
     select: {
       dateOfBirth: true,
@@ -145,7 +160,7 @@ const fieldSaleListSelect = (staffId: string): Prisma.FieldSaleSelect => ({
     },
   },
   callLogs: {
-    where: { staffId },
+    ...(storeScope ? {} : { where: { staffId } }),
     orderBy: { createdAt: "desc" },
     take: 1,
     select: {
@@ -207,13 +222,18 @@ function buildFieldSaleSummary(fieldSale: {
   return parts.join(" · ");
 }
 
-function toVisitRecord(visit: VisitRow, staffId: string): FilterableCallRecord {
+function toVisitRecord(
+  visit: VisitRow,
+  staffId: string,
+  storeScope = false,
+): FilterableCallRecord {
   const decrypted = decryptVisitPii(visit);
   const valueTier = resolveStoredValueTier(visit.callValueTier, computeVisitValueTier(visit));
   const lastCall = visit.callLogs[0] ?? null;
   const lastCallAnswered = visit.lastCallAnswered ?? lastCall?.answered ?? null;
-  const hasOpenFollowUp =
-    visit.followUp?.status === "OPEN" && visit.followUp.assignedStaffId === staffId;
+  const hasOpenFollowUp = storeScope
+    ? visit.followUp?.status === "OPEN"
+    : visit.followUp?.status === "OPEN" && visit.followUp.assignedStaffId === staffId;
   const queue = deriveCallQueue({
     hasOpenFollowUp,
     lastCallAnswered,
@@ -236,6 +256,8 @@ function toVisitRecord(visit: VisitRow, staffId: string): FilterableCallRecord {
       visitId: visit.id,
       fieldSaleId: null,
       followUpId: visit.followUp?.id ?? null,
+      staffId: visit.staff.id,
+      staffName: visit.staff.name,
       displayName: decrypted.customerName,
       visitDate: visit.visitDate.toISOString(),
       visitDateLabel: formatDate(visit.visitDate),
@@ -252,7 +274,11 @@ function toVisitRecord(visit: VisitRow, staffId: string): FilterableCallRecord {
   };
 }
 
-function toFieldSaleRecord(fieldSale: FieldSaleRow, staffId: string): FilterableCallRecord {
+function toFieldSaleRecord(
+  fieldSale: FieldSaleRow,
+  staffId: string,
+  storeScope = false,
+): FilterableCallRecord {
   const decrypted = decryptVisitPii(fieldSale);
   const purchaseStatus = deriveFieldSalePurchaseStatus(fieldSale.enrollmentOutcome);
   const valueTier = resolveStoredValueTier(
@@ -261,8 +287,10 @@ function toFieldSaleRecord(fieldSale: FieldSaleRow, staffId: string): Filterable
   );
   const lastCall = fieldSale.callLogs[0] ?? null;
   const lastCallAnswered = fieldSale.lastCallAnswered ?? lastCall?.answered ?? null;
-  const hasOpenFollowUp =
-    fieldSale.followUp?.status === "OPEN" && fieldSale.followUp.assignedStaffId === staffId;
+  const hasOpenFollowUp = storeScope
+    ? fieldSale.followUp?.status === "OPEN"
+    : fieldSale.followUp?.status === "OPEN" &&
+      fieldSale.followUp.assignedStaffId === staffId;
   const queue = deriveCallQueue({
     hasOpenFollowUp,
     lastCallAnswered,
@@ -284,6 +312,8 @@ function toFieldSaleRecord(fieldSale: FieldSaleRow, staffId: string): Filterable
       visitId: null,
       fieldSaleId: fieldSale.id,
       followUpId: fieldSale.followUp?.id ?? null,
+      staffId: fieldSale.staff.id,
+      staffName: fieldSale.staff.name,
       displayName: decrypted.customerName,
       visitDate: fieldSale.activityDate.toISOString(),
       visitDateLabel: formatDate(fieldSale.activityDate),
@@ -304,6 +334,7 @@ function toDbQueryParams(params: ListStaffCallsParams): StaffCallsDbQueryParams 
   return {
     staffId: params.staffId,
     storeId: params.storeId,
+    storeScope: params.storeScope,
     master: params.master,
     segment: params.segment,
     valueTier: params.valueTier,
@@ -318,6 +349,7 @@ function toDbQueryParams(params: ListStaffCallsParams): StaffCallsDbQueryParams 
 async function hydrateStaffCallPage(
   refs: StaffCallPageRef[],
   staffId: string,
+  storeScope = false,
 ): Promise<StaffCallListItem[]> {
   if (refs.length === 0) return [];
 
@@ -328,23 +360,24 @@ async function hydrateStaffCallPage(
     visitIds.length > 0
       ? prisma.visit.findMany({
           where: { id: { in: visitIds } },
-          select: visitListSelect(staffId),
+          select: visitListSelect(staffId, storeScope),
         })
       : Promise.resolve([]),
     fieldSaleIds.length > 0
       ? prisma.fieldSale.findMany({
           where: { id: { in: fieldSaleIds } },
-          select: fieldSaleListSelect(staffId),
+          select: fieldSaleListSelect(staffId, storeScope),
         })
       : Promise.resolve([]),
   ]);
 
   const visitItems = new Map(
-    visits.map((visit) => [visit.id, toVisitRecord(visit, staffId).item] as const),
+    visits.map((visit) => [visit.id, toVisitRecord(visit, staffId, storeScope).item] as const),
   );
   const fieldSaleItems = new Map(
     fieldSales.map(
-      (fieldSale) => [fieldSale.id, toFieldSaleRecord(fieldSale, staffId).item] as const,
+      (fieldSale) =>
+        [fieldSale.id, toFieldSaleRecord(fieldSale, staffId, storeScope).item] as const,
     ),
   );
 
@@ -364,6 +397,7 @@ export async function listStaffCallFilters(
     params.staffId,
     params.storeId,
     params.year,
+    params.storeScope,
   );
   return countStaffCallFiltersFromRecords(yearRecords, params);
 }
@@ -377,7 +411,7 @@ export async function listStaffCalls(params: ListStaffCallsParams): Promise<Staf
     fetchMergedStaffCallPageIds(dbParams, skip, params.pageSize),
   ]);
 
-  const data = await hydrateStaffCallPage(pageRefs, params.staffId);
+  const data = await hydrateStaffCallPage(pageRefs, params.staffId, params.storeScope);
 
   return {
     data,

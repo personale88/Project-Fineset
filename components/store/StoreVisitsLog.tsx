@@ -286,6 +286,8 @@ export function StoreVisitsLog({
           filterAllLabel={store.visits.filters.columnAll}
           showCustomerMerge={showImport}
           storeId={storeId}
+          canAssign
+          onAssigned={() => void refetch()}
         />
       </QueryLoadState>
 

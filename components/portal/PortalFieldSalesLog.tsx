@@ -254,6 +254,8 @@ export function PortalFieldSalesLog({
                 key={item.id}
                 item={item}
                 showStoreName={showStoreFilter}
+                canAssign
+                onAssigned={() => void refetch()}
                 labels={{
                   staff: copy.columns.staff,
                   followUpDue: copy.followUpDue,
