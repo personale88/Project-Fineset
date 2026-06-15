@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSyncExternalStore } from "react";
 import { MapPin } from "lucide-react";
 import { StoreTableRowMenu, type StoreTableRow } from "@/components/admin/StoreTableRowMenu";
 import { getStoreCategoryLabel } from "@/lib/utils/store-category";
@@ -12,6 +13,15 @@ type AdminStoresContent = Content["admin"]["stores"];
 type AdminCategories = Content["admin"]["categories"];
 type ErrorsContent = Content["errors"];
 type CommonContent = Content["common"];
+
+function subscribeDayTick(onStoreChange: () => void) {
+  const id = window.setInterval(onStoreChange, 60_000);
+  return () => window.clearInterval(id);
+}
+
+function getNowMs() {
+  return Date.now();
+}
 
 function DetailItem({
   label,
@@ -59,12 +69,14 @@ export function StoreListCard({
   const displayValue = (value: string | null | undefined) =>
     value?.trim() ? value.trim() : "—";
 
+  const nowMs = useSyncExternalStore(subscribeDayTick, getNowMs, () => 0);
+
   const purgeCountdown =
     store.deletedAt && store.purgeAt
       ? Math.max(
           0,
           Math.ceil(
-            (new Date(store.purgeAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
+            (new Date(store.purgeAt).getTime() - nowMs) / (24 * 60 * 60 * 1000),
           ),
         )
       : null;

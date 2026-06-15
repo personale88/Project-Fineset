@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { UserRoundPen } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { content } from "@/content/en";
@@ -64,20 +64,16 @@ export function AssignStaffDialog({
     ...STAFF_FILTER_QUERY_OPTIONS,
   });
 
-  const activeStaff = useMemo(
-    () => staffMembers.filter((member) => member.isActive),
-    [staffMembers],
-  );
+  const activeStaff = staffMembers.filter((member) => member.isActive);
 
-  useEffect(() => {
-    if (!open) {
+  function handleOpenChange(nextOpen: boolean) {
+    if (nextOpen) {
+      setSelectedStaffId(currentStaffId ?? "");
+    } else {
       setSelectedStaffId("");
-      return;
     }
-    if (currentStaffId) {
-      setSelectedStaffId(currentStaffId);
-    }
-  }, [open, currentStaffId]);
+    onOpenChange(nextOpen);
+  }
 
   const description = copy.description
     .replace("{name}", customerName)
@@ -125,7 +121,7 @@ export function AssignStaffDialog({
     !assignMutation.isPending;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{copy.title}</DialogTitle>

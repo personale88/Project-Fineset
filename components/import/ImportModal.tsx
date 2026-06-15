@@ -163,7 +163,7 @@ export function ImportModal({
     [buildPreview],
   );
 
-  const handleConfirmImport = useCallback(async () => {
+  const handleConfirmImport = async () => {
     if (!schema || !preview) return;
     const batchId = crypto.randomUUID();
     const rowsToSend = rowsForImport(transformedRows);
@@ -189,15 +189,7 @@ export function ImportModal({
       setError(err instanceof Error ? err.message : "Import failed");
       setProgress((current) => ({ ...current, processed: current.total }));
     }
-  }, [
-    featureKey,
-    mappings,
-    parsedFile?.fileName,
-    preview,
-    schema,
-    storeId,
-    transformedRows,
-  ]);
+  };
 
   if (!schema) return null;
 
