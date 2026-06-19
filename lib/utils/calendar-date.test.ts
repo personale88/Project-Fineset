@@ -36,6 +36,12 @@ describe("calendar-date", () => {
     expect(start.getDate()).toBe(14);
   });
 
+  it("coerces ISO datetime strings to the local calendar day", () => {
+    const iso = "2026-06-13T05:35:33.493Z";
+    const start = startOfCalendarDay(iso);
+    expect(formatCalendarDate(start)).toBe(formatCalendarDate(new Date(iso)));
+  });
+
   it("compares calendar date strings", () => {
     expect(compareCalendarDateStrings("2026-06-13", "2026-06-14")).toBeLessThan(0);
   });

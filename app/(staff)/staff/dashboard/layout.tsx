@@ -33,8 +33,8 @@ export default async function StaffLayout({
       signOutLabel={content.common.signOut}
       headerActions={
         <>
-          <StaffNotificationBell />
           <GlobalSearchDialog storeId={staff?.storeId} />
+          <StaffNotificationBell />
         </>
       }
       bottomNav={<StaffBottomNav />}

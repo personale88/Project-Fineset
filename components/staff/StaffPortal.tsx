@@ -1,6 +1,5 @@
-import { DashboardNotifications } from "@/components/dashboard/DashboardNotifications";
-import { StaffPortalActionCards } from "@/components/staff/StaffPortalActionCards";
 import { StaffWorkQueue } from "@/components/staff/StaffWorkQueue";
+import { StaffPortalActionCards } from "@/components/staff/StaffPortalActionCards";
 import type { Content } from "@/content/en";
 
 type StaffContent = Content["staff"];
@@ -21,8 +20,6 @@ export function StaffPortal({ copy }: StaffPortalProps) {
       </header>
 
       <StaffWorkQueue />
-
-      <DashboardNotifications variant="staff" />
 
       <StaffPortalActionCards copy={copy} />
     </div>

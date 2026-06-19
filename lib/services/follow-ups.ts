@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { decryptVisitPii } from "@/lib/services/pii";
 import { broadcastSyncEvent } from "@/lib/sync/broadcaster";
-import { startOfCalendarDay } from "@/lib/utils/calendar-date";
+import { startOfCalendarDay, formatCalendarDate } from "@/lib/utils/calendar-date";
 import type { UpdateFollowUpInput } from "@/lib/validations/follow-ups.schema";
 import type { FollowUpListItem } from "@/types";
 import type { FollowUpStatus, Prisma } from "@prisma/client";
@@ -80,7 +80,7 @@ async function mapFollowUpToListItem(
     customerName: decrypted.customerName,
     customerPhone: decrypted.customerPhone,
     assignedStaffName: followUp.assignedStaff.name,
-    followUpDate: followUp.followUpDate.toISOString(),
+    followUpDate: formatCalendarDate(followUp.followUpDate),
     reason: followUp.reason,
     callOutcome: followUp.callOutcome,
     status: followUp.status,
@@ -170,7 +170,7 @@ export async function listFollowUps(
       customerName: decrypted.customerName,
       customerPhone: decrypted.customerPhone,
       assignedStaffName: staffMap.get(f.assignedStaffId) ?? "Unknown",
-      followUpDate: f.followUpDate.toISOString(),
+      followUpDate: formatCalendarDate(f.followUpDate),
       reason: f.reason,
       callOutcome: f.callOutcome,
       status: f.status,

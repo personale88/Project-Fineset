@@ -591,7 +591,7 @@ export const content = {
         },
       },
       remindersGuide:
-        "Use Reminders below for quick actions. Follow-up tasks have due dates; call queues are customers to dial from your call list.",
+        "Your work queue shows what needs you today. Switch to Browse all to explore each category in full.",
     },
     logVisit: {
       title: "Log a customer visit",
@@ -617,11 +617,27 @@ export const content = {
     },
     workQueue: {
       title: "Your work queue",
-      subtitle: "Prioritized for today — tasks first, then calls.",
+      subtitle: "Tasks and calls that need you today.",
+      compactSubtitle: "Prioritized for today — tasks first, then calls.",
+      browseSubtitle: "Browse each category to see everything in that bucket.",
       empty: "You're all caught up for today.",
       previewHint: "Showing {shown} of {total} items.",
       viewTasks: "All follow-up tasks",
       viewCalls: "Full call list",
+      modes: {
+        label: "View",
+        compact: "Compact",
+        browse: "Browse all",
+      },
+      sections: {
+        overdue_task: "Overdue tasks",
+        due_today_task: "Due today",
+        not_answered: "Did not answer",
+        follow_up_call: "Follow-up calls",
+        birthday: "Birthdays this month",
+        anniversary: "Anniversaries this month",
+      },
+      emptySection: "Nothing in this category.",
     },
     bottomNav: {
       label: "Staff navigation",

@@ -102,16 +102,16 @@ export function PortalShell({
         Skip to main content
       </a>
       <header className="sticky top-0 z-20 border-b border-border bg-surface-card">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-page-x py-4 sm:px-page-md">
-          <div className="flex items-center gap-6">
-            <Link href={homeHref} className="flex items-center gap-2.5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-page-x py-4 sm:gap-4 sm:px-page-md">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-6">
+            <Link href={homeHref} className="flex shrink-0 items-center gap-2.5">
               <Logo size={28} linked={false} />
               <span className="font-display text-lg font-semibold text-brand-gold">
                 {title}
               </span>
             </Link>
             {navItems.length > 0 && (
-              <nav className="hidden gap-4 sm:flex" aria-label="Main navigation">
+              <nav className="hidden shrink-0 gap-4 sm:flex" aria-label="Main navigation">
                 {navItems.map((item) => (
                   <Link
                     key={item.href}
@@ -130,7 +130,7 @@ export function PortalShell({
               </nav>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {headerActions}
             <Button
               variant="outline"

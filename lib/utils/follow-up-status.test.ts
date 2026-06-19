@@ -17,4 +17,10 @@ describe("follow-up-status dates", () => {
     expect(isDueTodayFollowUpDate(today)).toBe(true);
     expect(isOverdueFollowUpDate(today)).toBe(false);
   });
+
+  it("accepts legacy ISO datetime strings from API payloads", () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    expect(isOverdueFollowUpDate(yesterday.toISOString())).toBe(true);
+  });
 });

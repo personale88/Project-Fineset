@@ -48,6 +48,8 @@ import type { LucideIcon } from "lucide-react";
 interface DashboardNotificationsProps {
   variant: "staff" | "store_manager";
   storeId?: string;
+  /** Embedded inside StaffWorkQueue browse mode — no standalone header/footer chrome. */
+  presentation?: "standalone" | "embedded";
 }
 
 type NotificationFilter =
@@ -57,6 +59,69 @@ type NotificationFilter =
   | "not_answered_calls"
   | "birthdays"
   | "anniversaries";
+
+type CategoryPriority = "critical" | "high" | "medium" | "low";
+
+const CATEGORY_PRIORITY: Record<NotificationFilter, CategoryPriority> = {
+  overdue_follow_ups: "critical",
+  due_today_follow_ups: "high",
+  follow_up_calls: "medium",
+  not_answered_calls: "high",
+  birthdays: "low",
+  anniversaries: "low",
+};
+
+const CATEGORY_CARD_STYLES: Record<
+  CategoryPriority,
+  { iconWrap: string; icon: string; count: string; countActive: string }
+> = {
+  critical: {
+    iconWrap: "bg-status-error/12 ring-1 ring-status-error/20",
+    icon: "text-status-error",
+    count: "bg-status-error/12 text-status-error ring-1 ring-status-error/20",
+    countActive: "bg-status-error/15 text-status-error",
+  },
+  high: {
+    iconWrap: "bg-status-warning/12 ring-1 ring-status-warning/20",
+    icon: "text-status-warning",
+    count: "bg-status-warning/12 text-status-warning ring-1 ring-status-warning/20",
+    countActive: "bg-status-warning/15 text-status-warning",
+  },
+  medium: {
+    iconWrap: "bg-brand-gold/12 ring-1 ring-brand-gold/20",
+    icon: "text-brand-gold",
+    count: "bg-brand-gold/12 text-brand-gold ring-1 ring-brand-gold/20",
+    countActive: "bg-brand-gold/15 text-brand-gold",
+  },
+  low: {
+    iconWrap: "bg-surface-secondary ring-1 ring-border",
+    icon: "text-brand-gold/80",
+    count: "bg-surface-secondary text-text-secondary ring-1 ring-border",
+    countActive: "bg-brand-gold/10 text-brand-gold",
+  },
+};
+
+function categoryDescription(
+  key: NotificationFilter,
+  count: number,
+  copy: (typeof content)["dashboardNotifications"],
+): string {
+  const countLabel = String(count);
+  switch (key) {
+    case "overdue_follow_ups":
+      return copy.overdueFollowUps.description.replace("{count}", countLabel);
+    case "due_today_follow_ups":
+      return copy.dueTodayFollowUps.description.replace("{count}", countLabel);
+    case "follow_up_calls":
+      return copy.followUpCalls.description.replace("{count}", countLabel);
+    case "not_answered_calls":
+      return copy.notAnsweredCalls.description.replace("{count}", countLabel);
+    case "birthdays":
+      return copy.birthdays.description.replace("{count}", countLabel);
+    case "anniversaries":
+      return copy.anniversaries.description.replace("{count}", countLabel);
+  }
+}
 
 type CategoryKind = "follow_ups" | "calls";
 
@@ -98,7 +163,9 @@ function callsHref(
 export function DashboardNotifications({
   variant,
   storeId,
+  presentation = "standalone",
 }: DashboardNotificationsProps) {
+  const embedded = presentation === "embedded";
   const copy = content.dashboardNotifications;
   const filterCopy = copy.filters;
   const callParams = useMemo(
@@ -331,40 +398,52 @@ export function DashboardNotifications({
       {
         key: "overdue_follow_ups" as const,
         label: copy.overdueFollowUps.title,
+        description: categoryDescription("overdue_follow_ups", overdueFollowUps.length, copy),
         icon: ListTodo,
         count: overdueFollowUps.length,
         urgent: true,
+        priority: CATEGORY_PRIORITY.overdue_follow_ups,
       },
       {
         key: "due_today_follow_ups" as const,
         label: copy.dueTodayFollowUps.title,
+        description: categoryDescription("due_today_follow_ups", dueTodayFollowUps.length, copy),
         icon: ListTodo,
         count: dueTodayFollowUps.length,
+        priority: CATEGORY_PRIORITY.due_today_follow_ups,
       },
       {
         key: "follow_up_calls" as const,
         label: copy.followUpCalls.title,
+        description: categoryDescription("follow_up_calls", followUpCallCount, copy),
         icon: PhoneCall,
         count: followUpCallCount,
+        priority: CATEGORY_PRIORITY.follow_up_calls,
       },
       {
         key: "not_answered_calls" as const,
         label: copy.notAnsweredCalls.title,
+        description: categoryDescription("not_answered_calls", notAnsweredCount, copy),
         icon: PhoneMissed,
         count: notAnsweredCount,
         urgent: true,
+        priority: CATEGORY_PRIORITY.not_answered_calls,
       },
       {
         key: "birthdays" as const,
         label: copy.birthdays.title,
+        description: categoryDescription("birthdays", birthdayCount, copy),
         icon: Cake,
         count: birthdayCount,
+        priority: CATEGORY_PRIORITY.birthdays,
       },
       {
         key: "anniversaries" as const,
         label: copy.anniversaries.title,
+        description: categoryDescription("anniversaries", anniversaryCount, copy),
         icon: Heart,
         count: anniversaryCount,
+        priority: CATEGORY_PRIORITY.anniversaries,
       },
     ];
   }, [copy, dueTodayFollowUps.length, filterCounts, overdueFollowUps.length]);
@@ -437,11 +516,108 @@ export function DashboardNotifications({
     return null;
   }, [followUpsError, followUpsQueryError, filtersError, filtersQueryError]);
 
+  function renderCategoryGrid(className: string) {
+    if (countsLoading) {
+      return (
+        <div className={className}>
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} className="h-[5.5rem] rounded-card" />
+          ))}
+        </div>
+      );
+    }
+
+    return (
+      <div className={className} role="tablist" aria-label={copy.title}>
+        {filterOptions.map((option) => {
+          const isActive = activeFilter === option.key;
+          const Icon = option.icon;
+          const styles = CATEGORY_CARD_STYLES[option.priority];
+          const isEmpty = option.count === 0;
+
+          return (
+            <button
+              key={option.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActiveFilter(isActive ? null : option.key)}
+              className={cn(
+                "flex w-full items-start gap-3 rounded-card border p-3.5 text-left transition-all",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/50",
+                isActive
+                  ? "border-brand-gold bg-brand-gold/[0.06] shadow-sm ring-1 ring-brand-gold/25"
+                  : isEmpty
+                    ? "border-border bg-surface-secondary/40 hover:bg-surface-secondary/70"
+                    : "border-border bg-surface-card hover:border-brand-gold/30 hover:bg-brand-gold/[0.03]",
+              )}
+            >
+              <span
+                className={cn(
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+                  isActive ? "bg-brand-gold/15 ring-1 ring-brand-gold/25" : styles.iconWrap,
+                  isEmpty && !isActive && "opacity-60",
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-[1.125rem] w-[1.125rem]",
+                    isActive ? "text-brand-gold" : styles.icon,
+                  )}
+                  aria-hidden
+                />
+              </span>
+
+              <span className="min-w-0 flex-1 pt-0.5">
+                <span
+                  className={cn(
+                    "block text-sm font-semibold leading-snug",
+                    isActive ? "text-text-primary" : isEmpty ? "text-text-muted" : "text-text-primary",
+                  )}
+                >
+                  {option.label}
+                </span>
+                <span
+                  className={cn(
+                    "mt-1 block text-xs leading-relaxed",
+                    isActive ? "text-text-secondary" : isEmpty ? "text-text-muted" : "text-text-muted",
+                  )}
+                >
+                  {option.description}
+                </span>
+              </span>
+
+              <span
+                className={cn(
+                  "flex h-10 min-w-[2.5rem] shrink-0 items-center justify-center rounded-full px-2.5 font-numeric text-xl font-bold tabular-nums leading-none",
+                  isActive
+                    ? styles.countActive
+                    : isEmpty
+                      ? "bg-surface-secondary text-text-muted ring-1 ring-border"
+                      : styles.count,
+                )}
+              >
+                {option.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const Wrapper = embedded ? "div" : "section";
+
   return (
-    <section
-      className="min-w-0 overflow-hidden rounded-card border border-border bg-surface-card shadow-card"
-      aria-label={copy.title}
+    <Wrapper
+      className={
+        embedded
+          ? "min-w-0"
+          : "min-w-0 overflow-hidden rounded-card border border-border bg-surface-card shadow-card"
+      }
+      aria-label={embedded ? undefined : copy.title}
     >
+      {!embedded ? (
       <div className="border-b border-border bg-gradient-to-br from-brand-gold/[0.07] via-transparent to-transparent px-4 py-5 sm:px-5">
         <div className="flex items-start gap-3">
           <div
@@ -467,90 +643,18 @@ export function DashboardNotifications({
           </div>
         </div>
 
-        {countsLoading ? (
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, index) => (
-              <Skeleton key={index} className="h-[4.25rem] rounded-card" />
-            ))}
-          </div>
-        ) : (
-          <div
-            className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"
-            role="tablist"
-            aria-label={copy.title}
-          >
-            {filterOptions.map((option) => {
-              const isActive = activeFilter === option.key;
-              const Icon = option.icon;
-              return (
-                <button
-                  key={option.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() =>
-                    setActiveFilter(isActive ? null : option.key)
-                  }
-                  className={cn(
-                    "flex min-h-[4.25rem] flex-col items-center justify-center gap-1.5 rounded-card border px-2 py-2.5 text-center transition-all",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/50",
-                    isActive
-                      ? "border-brand-gold bg-brand-gold text-white shadow-sm"
-                      : option.count === 0
-                        ? "border-border bg-surface-secondary/60 text-text-muted"
-                        : "border-border bg-surface-card text-text-secondary hover:border-brand-gold/35 hover:bg-brand-gold/[0.04]",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "flex h-8 w-8 items-center justify-center rounded-full",
-                      isActive
-                        ? "bg-white/20"
-                        : option.urgent
-                          ? "bg-status-warning/15"
-                          : "bg-brand-gold/10",
-                    )}
-                  >
-                    <Icon
-                      className={cn(
-                        "h-4 w-4",
-                        isActive
-                          ? "text-white"
-                          : option.urgent
-                            ? "text-status-warning"
-                            : "text-brand-gold",
-                      )}
-                      aria-hidden
-                    />
-                  </span>
-                  <span
-                    className={cn(
-                      "line-clamp-2 text-xs font-semibold leading-tight",
-                      isActive ? "text-white" : "text-text-primary",
-                    )}
-                  >
-                    {option.label}
-                  </span>
-                  <span
-                    className={cn(
-                      "inline-flex min-w-[1.5rem] items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums leading-none",
-                      isActive
-                        ? "bg-white/25 text-white"
-                        : option.urgent
-                          ? "bg-status-warning/12 text-status-warning"
-                          : option.count > 0
-                            ? "bg-brand-gold/10 text-brand-gold"
-                            : "bg-surface-secondary text-text-muted",
-                    )}
-                  >
-                    {option.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+        {renderCategoryGrid("mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3")}
       </div>
+      ) : (
+        <>
+          {loadErrorMessage ? (
+            <p className="px-4 py-3 text-sm text-status-error sm:px-5" role="alert">
+              {loadErrorMessage}
+            </p>
+          ) : null}
+          {renderCategoryGrid("grid gap-3 px-4 py-4 sm:grid-cols-2 sm:px-5 lg:grid-cols-3")}
+        </>
+      )}
 
       {activeFilter !== null ? (
         listLoading ? (
@@ -632,11 +736,12 @@ export function DashboardNotifications({
         onSubmit={handleSubmitCallOutcome}
       />
 
-      {activeFilter === null && !countsLoading ? (
+      {activeFilter === null && !countsLoading && !embedded ? (
         <p className="px-4 py-6 text-sm text-text-secondary sm:px-5">
           {filterCopy.selectPrompt}
         </p>
       ) : null}
-    </section>
+    </Wrapper>
   );
 }
+
