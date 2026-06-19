@@ -1,42 +1,28 @@
 import { NextResponse } from "next/server";
 import { handleRouteError } from "@/lib/api/route-handler";
-import {
-  clearDevSessionCookie,
-  getDevSessionFromCookies,
-  isDevAuthBypassEnabled,
-} from "@/lib/auth/dev-bypass";
 import { logAuthEvent } from "@/lib/auth/audit";
-import { createClient } from "@/lib/supabase/server";
+import {
+  clearSessionCookie,
+  getSessionTokenFromCookies,
+} from "@/lib/auth/session-cookie";
+import { deleteSessionByToken } from "@/lib/auth/session-store";
+import { getAppSession } from "@/lib/auth/get-app-session";
 
 export async function POST() {
   try {
-    if (isDevAuthBypassEnabled()) {
-      const devSession = await getDevSessionFromCookies();
-      await clearDevSessionCookie();
+    const token = await getSessionTokenFromCookies();
+    const session = await getAppSession();
 
-      if (devSession?.email) {
-        await logAuthEvent({
-          event: "LOGOUT",
-          email: devSession.email,
-          metadata: { devBypass: true },
-        });
-      }
-
-      return NextResponse.json({ success: true });
+    if (token) {
+      await deleteSessionByToken(token);
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    await clearSessionCookie();
 
-    await supabase.auth.signOut();
-
-    if (user?.email) {
+    if (session?.email) {
       await logAuthEvent({
         event: "LOGOUT",
-        authId: user.id,
-        email: user.email,
+        email: session.email,
       });
     }
 

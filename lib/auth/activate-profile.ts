@@ -5,46 +5,20 @@ import {
   resolveEffectiveRole,
   shouldPromoteToBusinessOwner,
 } from "@/lib/auth/resolve-effective-role";
-import { createAdminClient } from "@/lib/supabase/admin";
-import type { AppSession } from "@/types";
-
-export function buildAppMetadata(profile: AppUserWithRelations) {
-  return {
-    role: resolveEffectiveRole(profile.role, profile.staffId),
-    storeId: profile.storeId,
-    staffId: profile.staffId,
-    appUserId: profile.id,
-    name: profile.name,
-    storeName: profile.store?.name ?? null,
-    employeeId: profile.staff?.employeeId ?? null,
-    isActive: profile.isActive,
-  };
-}
-
-async function syncSupabaseMetadata(
-  authId: string,
-  profile: AppUserWithRelations,
-): Promise<void> {
-  try {
-    const supabase = createAdminClient();
-    await supabase.auth.admin.updateUserById(authId, {
-      app_metadata: buildAppMetadata(profile),
-    });
-  } catch (error) {
-    console.error("[activate-profile] metadata sync failed", authId, error);
-  }
-}
 
 /**
- * Mark AppUser active after successful auth callback or password login.
+ * Mark AppUser active after successful invite activation or password login.
  */
 export async function activateProfileForAuthUser(
-  authId: string,
+  authId: string | null,
   email: string,
-  options: { awaitMetadataSync?: boolean } = {},
 ): Promise<AppUserWithRelations | null> {
-  const profile = await prisma.appUser.findUnique({
-    where: { authId },
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const profile = await prisma.appUser.findFirst({
+    where: authId
+      ? { OR: [{ authId }, { email: normalizedEmail }] }
+      : { email: normalizedEmail },
     include: {
       store: { select: { name: true } },
       staff: {
@@ -60,8 +34,8 @@ export async function activateProfileForAuthUser(
   if (!profile) {
     void logAuthEvent({
       event: "UNAUTHORIZED_ACCESS",
-      authId,
-      email,
+      authId: authId ?? undefined,
+      email: normalizedEmail,
       metadata: { reason: "no_app_user_profile" },
     });
     return null;
@@ -76,7 +50,7 @@ export async function activateProfileForAuthUser(
       profile.role = "BUSINESS_OWNER";
     } catch (error) {
       console.warn(
-        "[activate-profile] BUSINESS_OWNER promotion skipped — run prisma migrate deploy",
+        "[activate-profile] BUSINESS_OWNER promotion skipped",
         profile.id,
         error,
       );
@@ -101,7 +75,7 @@ export async function activateProfileForAuthUser(
 
     void logAuthEvent({
       event: "USER_ACTIVATED",
-      authId,
+      authId: authId ?? undefined,
       email: profile.email,
     });
   } else {
@@ -115,44 +89,17 @@ export async function activateProfileForAuthUser(
       });
   }
 
-  const shouldAwaitSync = options.awaitMetadataSync || isFirstActivation;
-  if (shouldAwaitSync) {
-    await syncSupabaseMetadata(authId, profile);
-  } else {
-    void syncSupabaseMetadata(authId, profile);
-  }
-
   return profile;
 }
 
+/** No-op — kept for call-site compatibility during migration. */
 export async function syncAuthMetadataForSession(
-  authId: string,
-  session: AppSession,
+  _authId: string,
+  _session: unknown,
 ): Promise<void> {
-  try {
-    const profile = await prisma.appUser.findUnique({
-      where: { id: session.userId },
-      include: {
-        store: { select: { name: true } },
-        staff: {
-        select: {
-          employeeId: true,
-          storeId: true,
-          store: { select: { name: true } },
-        },
-      },
-      },
-    });
+  return;
+}
 
-    if (!profile) {
-      return;
-    }
-
-    const supabase = createAdminClient();
-    await supabase.auth.admin.updateUserById(authId, {
-      app_metadata: buildAppMetadata(profile),
-    });
-  } catch (error) {
-    console.error("[activate-profile] session metadata sync failed", authId, error);
-  }
+export function buildAppMetadata(_profile: AppUserWithRelations) {
+  return {};
 }

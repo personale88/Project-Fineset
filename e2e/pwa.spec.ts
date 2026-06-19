@@ -7,13 +7,10 @@ import {
   waitForServiceWorkerControl,
 } from "./helpers/pwa";
 
-const e2eEmail = process.env.E2E_USER_EMAIL;
-const e2ePassword = process.env.E2E_USER_PASSWORD;
+const e2eEmail = process.env.E2E_USER_EMAIL ?? process.env.MASTER_ADMIN_EMAIL;
+const e2ePassword = process.env.E2E_USER_PASSWORD ?? process.env.MASTER_ADMIN_PASSWORD;
 const hasE2eCredentials = Boolean(e2eEmail && e2ePassword);
-const hasLiveSupabase =
-  Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()) &&
-  !process.env.NEXT_PUBLIC_SUPABASE_URL!.includes("placeholder.supabase.co");
-const canRunLiveAuthTests = hasE2eCredentials && hasLiveSupabase;
+const canRunLiveAuthTests = hasE2eCredentials;
 
 test.describe("PWA manifest and service worker", () => {
   test("B1 manifest is valid standalone PWA", async ({ request }) => {
@@ -86,7 +83,7 @@ test.describe("PWA standalone launch", () => {
 
   test.skip(
     !canRunLiveAuthTests,
-    "Set E2E_USER_EMAIL, E2E_USER_PASSWORD, and a real Supabase URL",
+    "Set E2E_USER_EMAIL and E2E_USER_PASSWORD",
   );
 
   test("B6 authenticated standalone launch reaches dashboard", async ({ page }) => {

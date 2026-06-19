@@ -1,16 +1,21 @@
 "use server";
 
-import { buildPasswordResetRedirectUrl } from "@/lib/auth/build-password-reset-redirect-url";
-import { parsePasswordResetClientError } from "@/lib/auth/parse-password-reset-error";
 import { logAuthEvent } from "@/lib/auth/audit";
-import { createClient } from "@/lib/supabase/server";
-import { checkLoginRateLimit, getRequestIdentifier } from "@/lib/rate-limit";
+import { createPasswordResetToken } from "@/lib/auth/action-tokens";
+import { sendPasswordResetEmail } from "@/lib/email/templates/auth-emails";
+import { isSmtpConfigured } from "@/lib/email/env";
+import { SmtpNotConfiguredError } from "@/lib/email/errors";
+import { prisma } from "@/lib/db/prisma";
+import {
+  checkLoginRateLimit,
+  getRequestIdentifier,
+} from "@/lib/rate-limit";
 
 export type PasswordResetRequestResult =
   | { ok: true }
   | {
       ok: false;
-      code: "invalid_email" | "rate_limited" | "redirect_not_allowed" | "failed";
+      code: "invalid_email" | "rate_limited" | "email_not_configured" | "failed";
     };
 
 export async function requestPasswordResetAction(
@@ -27,26 +32,34 @@ export async function requestPasswordResetAction(
     return { ok: false, code: "rate_limited" };
   }
 
+  if (!isSmtpConfigured()) {
+    console.warn("[password-reset] SMTP not configured");
+    return { ok: false, code: "email_not_configured" };
+  }
+
   try {
-    const supabase = await createClient();
-    const redirectTo = buildPasswordResetRedirectUrl();
-    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-      redirectTo,
+    const appUser = await prisma.appUser.findUnique({
+      where: { email: normalizedEmail },
+      select: { id: true, isActive: true },
     });
 
-    if (error) {
-      console.error("[password-reset]", error.message);
-      return { ok: false, code: parsePasswordResetClientError(error) };
+    if (appUser?.isActive) {
+      const token = await createPasswordResetToken(appUser.id);
+      await sendPasswordResetEmail(normalizedEmail, token);
     }
 
     void logAuthEvent({
       event: "PASSWORD_RESET_REQUESTED",
       email: normalizedEmail,
+      metadata: { sent: Boolean(appUser?.isActive) },
     });
 
     return { ok: true };
   } catch (error) {
     console.error("[password-reset]", error);
+    if (error instanceof SmtpNotConfiguredError) {
+      return { ok: false, code: "email_not_configured" };
+    }
     return { ok: false, code: "failed" };
   }
 }

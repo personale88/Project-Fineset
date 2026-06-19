@@ -67,13 +67,13 @@ export function ColumnMappingRow({
       <td className="min-w-[12rem] px-3 py-3 align-top text-sm">
         {editable ? (
           <Select
-            value={mapping.matchedColumn?.supabaseColumn ?? "__skip__"}
+            value={mapping.matchedColumn?.dbColumn ?? "__skip__"}
             onValueChange={(value) => {
               if (value === "__skip__") {
                 onChange(mapping.uploadedHeader, null);
                 return;
               }
-              const column = schemaColumns.find((item) => item.supabaseColumn === value);
+              const column = schemaColumns.find((item) => item.dbColumn === value);
               onChange(mapping.uploadedHeader, column ?? null);
             }}
           >
@@ -83,7 +83,7 @@ export function ColumnMappingRow({
             <SelectContent className="z-[120] max-h-96">
               <SelectItem value="__skip__">— Skip this column —</SelectItem>
               {schemaColumns.map((column) => (
-                <SelectItem key={column.supabaseColumn} value={column.supabaseColumn}>
+                <SelectItem key={column.dbColumn} value={column.dbColumn}>
                   {column.frontendLabel}
                 </SelectItem>
               ))}

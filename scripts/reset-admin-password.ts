@@ -1,11 +1,13 @@
 /**
- * Reset MASTER_ADMIN password in Supabase Auth to match .env.local.
+ * Reset MASTER_ADMIN password in AppUser.
  *
  * Usage: npm run auth:reset-password
- * Requires: SUPABASE_SERVICE_ROLE_KEY, MASTER_ADMIN_EMAIL, MASTER_ADMIN_PASSWORD
  */
-import { createAdminClient } from "../lib/supabase/admin";
+import { PrismaClient } from "@prisma/client";
+import { hashCredential } from "../lib/auth/credentials";
 import { validatePassword } from "../lib/auth/password-policy";
+
+const prisma = new PrismaClient();
 
 async function main(): Promise<void> {
   const email = process.env.MASTER_ADMIN_EMAIL?.trim().toLowerCase();
@@ -22,29 +24,25 @@ async function main(): Promise<void> {
     throw new Error(passwordCheck.error ?? "Invalid password");
   }
 
-  const supabase = createAdminClient();
-  const { data: listData, error: listError } =
-    await supabase.auth.admin.listUsers();
-  if (listError) throw listError;
+  const passwordHash = await hashCredential(password);
 
-  const user = listData.users.find((u) => u.email?.toLowerCase() === email);
-  if (!user) {
-    throw new Error(
-      `No Supabase user for ${email}. Run npm run auth:bootstrap first.`,
-    );
+  const updated = await prisma.appUser.updateMany({
+    where: { email, role: "MASTER_ADMIN" },
+    data: { passwordHash, isActive: true },
+  });
+
+  if (updated.count === 0) {
+    throw new Error(`No MASTER_ADMIN AppUser found for ${email}. Run auth:bootstrap first.`);
   }
 
-  const { error: updateError } = await supabase.auth.admin.updateUserById(
-    user.id,
-    { password },
-  );
-  if (updateError) throw updateError;
-
   console.log(`Password updated for ${email}`);
-  console.log("Sign in on /login with MASTER_ADMIN_PASSWORD from .env.local");
 }
 
-main().catch((err: unknown) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .catch((err: unknown) => {
+    console.error(err);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

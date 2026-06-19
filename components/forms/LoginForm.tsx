@@ -2,10 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import { buildPasswordResetRedirectUrl } from "@/lib/auth/build-password-reset-redirect-url";
-import { parsePasswordResetClientError } from "@/lib/auth/parse-password-reset-error";
+import { requestPasswordResetAction } from "@/lib/auth/request-password-reset-action";
 import { signInAction } from "@/lib/auth/sign-in-action";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +17,7 @@ import {
 
 const RESET_EMAIL_COOLDOWN_SECONDS = 60;
 
-interface SupabaseLoginFormProps {
+interface LoginFormProps {
   title: string;
   subtitle: string;
   submitLabel: string;
@@ -40,26 +38,28 @@ interface SupabaseLoginFormProps {
   resetSuccessMessage: string;
 }
 
-export function SupabaseLoginForm({
-  title,
-  subtitle,
-  submitLabel,
-  errorInvalid,
-  errorInactive,
-  errorDeactivated,
-  errorGeneric,
-  errorWrongPortal,
-  errorSessionExpired,
-  forgotPasswordLabel,
-  forgotPasswordEmailRequired,
-  resetEmailSent,
-  resetEmailSentHint,
-  resetEmailCooldownLabel,
-  resetEmailError,
-  resetEmailRateLimited,
-  resetEmailRedirectError,
-  resetSuccessMessage,
-}: SupabaseLoginFormProps) {
+export function LoginForm(props: LoginFormProps) {
+  const {
+    title,
+    subtitle,
+    submitLabel,
+    errorInvalid,
+    errorInactive,
+    errorDeactivated,
+    errorGeneric,
+    errorWrongPortal,
+    errorSessionExpired,
+    forgotPasswordLabel,
+    forgotPasswordEmailRequired,
+    resetEmailSent,
+    resetEmailSentHint,
+    resetEmailCooldownLabel,
+    resetEmailError,
+    resetEmailRateLimited,
+    resetEmailRedirectError,
+    resetSuccessMessage,
+  } = props;
+
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -73,10 +73,7 @@ export function SupabaseLoginForm({
   const urlError = searchParams.get("error");
   const resetStatus = searchParams.get("reset");
 
-  const initialMessage =
-    resetStatus === "success"
-      ? resetSuccessMessage
-      : null;
+  const initialMessage = resetStatus === "success" ? resetSuccessMessage : null;
 
   const urlBootstrapError = useMemo(() => {
     if (!urlError) return null;
@@ -89,40 +86,30 @@ export function SupabaseLoginForm({
 
   useEffect(() => {
     if (!urlError) return;
-
     const url = new URL(window.location.href);
     if (!url.searchParams.has("error")) return;
     url.searchParams.delete("error");
-    const next = `${url.pathname}${url.search}`;
-    window.history.replaceState(null, "", next);
+    window.history.replaceState(null, "", `${url.pathname}${url.search}`);
   }, [urlError]);
 
   useEffect(() => {
     if (resetCooldownSeconds <= 0) return;
-
     const timer = window.setInterval(() => {
       setResetCooldownSeconds((current) => (current > 1 ? current - 1 : 0));
     }, 1000);
-
-    return () => {
-      window.clearInterval(timer);
-    };
+    return () => window.clearInterval(timer);
   }, [resetCooldownSeconds]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitGuardRef.current || isPending) {
-      return;
-    }
+    if (submitGuardRef.current || isPending) return;
 
     submitGuardRef.current = true;
     setError(null);
     setResetMessage(null);
 
     const formData = new FormData(event.currentTarget);
-    const email = String(formData.get("email") ?? "")
-      .trim()
-      .toLowerCase();
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const password = String(formData.get("password") ?? "");
 
     startTransition(async () => {
@@ -150,18 +137,10 @@ export function SupabaseLoginForm({
           return;
         }
 
-        // Full navigation keeps loading state until redirect completes.
         window.location.assign(result.redirectTo);
-      } catch (err) {
+      } catch {
         submitGuardRef.current = false;
-        const message = err instanceof Error ? err.message : String(err);
-        if (/failed to fetch|network|timeout/i.test(message)) {
-          setError(
-            "Cannot reach the server (network timeout). Check your connection and try again.",
-          );
-        } else {
-          setError(errorGeneric);
-        }
+        setError(errorGeneric);
       }
     });
   }
@@ -178,42 +157,31 @@ export function SupabaseLoginForm({
     setError(null);
     setResetMessage(null);
     setResetHint(null);
-
-    if (resetCooldownSeconds > 0) {
-      return;
-    }
+    if (resetCooldownSeconds > 0) return;
 
     startTransition(async () => {
-      try {
-        const supabase = createClient();
-        const redirectTo = buildPasswordResetRedirectUrl(window.location.origin);
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo,
-        });
+      const result = await requestPasswordResetAction(email);
 
-        if (error) {
-          switch (parsePasswordResetClientError(error)) {
-            case "invalid_email":
-              setError(forgotPasswordEmailRequired);
-              break;
-            case "rate_limited":
-              setError(resetEmailRateLimited);
-              break;
-            case "redirect_not_allowed":
-              setError(resetEmailRedirectError);
-              break;
-            default:
-              setError(resetEmailError);
-          }
-          return;
+      if (!result.ok) {
+        switch (result.code) {
+          case "invalid_email":
+            setError(forgotPasswordEmailRequired);
+            break;
+          case "rate_limited":
+            setError(resetEmailRateLimited);
+            break;
+          case "email_not_configured":
+            setError(resetEmailRedirectError);
+            break;
+          default:
+            setError(resetEmailError);
         }
-
-        setResetMessage(resetEmailSent);
-        setResetHint(resetEmailSentHint);
-        setResetCooldownSeconds(RESET_EMAIL_COOLDOWN_SECONDS);
-      } catch {
-        setError(resetEmailError);
+        return;
       }
+
+      setResetMessage(resetEmailSent);
+      setResetHint(resetEmailSentHint);
+      setResetCooldownSeconds(RESET_EMAIL_COOLDOWN_SECONDS);
     });
   }
 

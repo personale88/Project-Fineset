@@ -108,7 +108,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           message:
-            "Database connection failed. Fix Vercel DATABASE_URL and DIRECT_URL (correct Supabase password, % encoded as %25), then redeploy.",
+            "Database connection failed. Fix DATABASE_URL and DIRECT_URL (password URL-encoded if it contains @), then restart the app.",
         },
         { status: 503 },
       );

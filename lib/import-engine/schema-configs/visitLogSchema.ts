@@ -161,14 +161,14 @@ const DECLINE_REASON_LABELS: Record<string, string> = {
 export const visitLogSchema: FeatureSchemaConfig = {
   featureKey: "visit_log",
   featureLabel: "Visit Log",
-  supabaseTable: "visits",
+  dbTable: "visits",
   customerTable: "customers",
   customerIdColumn: "customerId",
   dedupeKeys: ["phone"],
   columns: [
     {
       frontendLabel: "Customer Name",
-      supabaseColumn: "name",
+      dbColumn: "name",
       type: "string",
       required: true,
       isCustomerField: true,
@@ -185,7 +185,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Customer Phone",
-      supabaseColumn: "phone",
+      dbColumn: "phone",
       type: "phone",
       required: true,
       isCustomerField: true,
@@ -206,7 +206,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Customer Email",
-      supabaseColumn: "email",
+      dbColumn: "email",
       type: "email",
       required: false,
       isCustomerField: true,
@@ -214,7 +214,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Visit Date",
-      supabaseColumn: "visitDate",
+      dbColumn: "visitDate",
       type: "date",
       required: true,
       dateFormats: ["dd/MM/yyyy", "MM-dd-yyyy", "yyyy-MM-dd", "d MMM yyyy"],
@@ -230,28 +230,28 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "In Time",
-      supabaseColumn: "inTime",
+      dbColumn: "inTime",
       type: "time",
       required: false,
       synonyms: ["in time", "check in", "entry time", "arrival time", "time in"],
     },
     {
       frontendLabel: "Out Time",
-      supabaseColumn: "outTime",
+      dbColumn: "outTime",
       type: "time",
       required: false,
       synonyms: ["out time", "check out", "exit time", "departure time", "time out"],
     },
     {
       frontendLabel: "Duration (mins)",
-      supabaseColumn: "durationMins",
+      dbColumn: "durationMins",
       type: "number",
       required: false,
       synonyms: ["duration", "visit duration", "total duration", "time spent", "minutes"],
     },
     {
       frontendLabel: "Staff Name",
-      supabaseColumn: "staffId",
+      dbColumn: "staffId",
       type: "lookup",
       required: true,
       lookupTable: "staff",
@@ -271,7 +271,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Customer Type",
-      supabaseColumn: "customerType",
+      dbColumn: "customerType",
       type: "enum",
       required: false,
       enumValues: CUSTOMER_TYPE_VALUES,
@@ -280,7 +280,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Visit Type",
-      supabaseColumn: "visitType",
+      dbColumn: "visitType",
       type: "enum",
       required: false,
       enumValues: VISIT_TYPE_VALUES,
@@ -289,7 +289,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Source / Channel",
-      supabaseColumn: "sourceChannel",
+      dbColumn: "sourceChannel",
       type: "enum",
       required: false,
       enumValues: SOURCE_CHANNEL_VALUES,
@@ -298,28 +298,28 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Area / Locality",
-      supabaseColumn: "area",
+      dbColumn: "area",
       type: "string",
       required: false,
       synonyms: ["area", "locality", "neighbourhood", "location", "territory"],
     },
     {
       frontendLabel: "Address",
-      supabaseColumn: "address",
+      dbColumn: "address",
       type: "string",
       required: false,
       synonyms: ["address", "full address", "street address", "residence"],
     },
     {
       frontendLabel: "Profession",
-      supabaseColumn: "profession",
+      dbColumn: "profession",
       type: "string",
       required: false,
       synonyms: ["profession", "occupation", "job", "work"],
     },
     {
       frontendLabel: "Gender",
-      supabaseColumn: "gender",
+      dbColumn: "gender",
       type: "enum",
       required: false,
       enumValues: GENDER_VALUES,
@@ -328,7 +328,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Age Group",
-      supabaseColumn: "ageGroup",
+      dbColumn: "ageGroup",
       type: "enum",
       required: false,
       enumValues: AGE_GROUP_VALUES,
@@ -337,7 +337,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Date of Birth",
-      supabaseColumn: "dateOfBirth",
+      dbColumn: "dateOfBirth",
       type: "date",
       required: false,
       dateFormats: ["dd/MM/yyyy", "MM-dd-yyyy", "yyyy-MM-dd"],
@@ -345,7 +345,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Anniversary",
-      supabaseColumn: "anniversary",
+      dbColumn: "anniversary",
       type: "date",
       required: false,
       dateFormats: ["dd/MM/yyyy", "MM-dd-yyyy", "yyyy-MM-dd"],
@@ -353,7 +353,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Purchase Status",
-      supabaseColumn: "purchaseStatus",
+      dbColumn: "purchaseStatus",
       type: "enum",
       required: false,
       enumValues: PURCHASE_STATUS_VALUES,
@@ -362,7 +362,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Products Explored",
-      supabaseColumn: "productsExplored",
+      dbColumn: "productsExplored",
       type: "list",
       required: false,
       enumValues: PRODUCT_CATEGORY_VALUES,
@@ -381,7 +381,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Products Purchased",
-      supabaseColumn: "productsPurchased",
+      dbColumn: "productsPurchased",
       type: "list",
       required: false,
       enumValues: PRODUCT_CATEGORY_VALUES,
@@ -396,7 +396,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Revenue",
-      supabaseColumn: "transactionAmount",
+      dbColumn: "transactionAmount",
       type: "number",
       required: false,
       synonyms: [
@@ -414,7 +414,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Intent Tier",
-      supabaseColumn: "intentTier",
+      dbColumn: "intentTier",
       type: "enum",
       required: false,
       enumValues: INTENT_TIER_VALUES,
@@ -423,7 +423,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Reason No Purchase",
-      supabaseColumn: "reasonNoPurchase",
+      dbColumn: "reasonNoPurchase",
       type: "enum",
       required: false,
       enumValues: NO_PURCHASE_REASON_VALUES,
@@ -432,14 +432,14 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Competitor Mention",
-      supabaseColumn: "competitorMention",
+      dbColumn: "competitorMention",
       type: "string",
       required: false,
       synonyms: ["competitor mention", "competitor", "competition", "other jeweller"],
     },
     {
       frontendLabel: "Purchase Occasion",
-      supabaseColumn: "purchaseOccasion",
+      dbColumn: "purchaseOccasion",
       type: "enum",
       required: false,
       enumValues: PURCHASE_OCCASION_VALUES,
@@ -448,7 +448,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Metal / KT Preference",
-      supabaseColumn: "metalKtPref",
+      dbColumn: "metalKtPref",
       type: "enum",
       required: false,
       enumValues: METAL_KT_VALUES,
@@ -457,7 +457,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Budget Stated",
-      supabaseColumn: "budgetStated",
+      dbColumn: "budgetStated",
       type: "enum",
       required: false,
       enumValues: BUDGET_RANGE_VALUES,
@@ -466,7 +466,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Schemes Pitched",
-      supabaseColumn: "schemesPitched",
+      dbColumn: "schemesPitched",
       type: "list",
       required: false,
       enumValues: SCHEME_PRODUCT_VALUES,
@@ -475,7 +475,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Enrollment Outcome",
-      supabaseColumn: "enrollmentOutcome",
+      dbColumn: "enrollmentOutcome",
       type: "enum",
       required: false,
       enumValues: ENROLLMENT_OUTCOME_VALUES,
@@ -484,14 +484,14 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Monthly Commitment",
-      supabaseColumn: "monthlyCommitment",
+      dbColumn: "monthlyCommitment",
       type: "number",
       required: false,
       synonyms: ["monthly commitment", "commitment amount", "monthly amount", "emi"],
     },
     {
       frontendLabel: "Reason No Enrollment",
-      supabaseColumn: "reasonNoEnrollment",
+      dbColumn: "reasonNoEnrollment",
       type: "enum",
       required: false,
       enumValues: DECLINE_REASON_VALUES,
@@ -500,35 +500,35 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Scheme Competitor Mention",
-      supabaseColumn: "schemeCompetitorMention",
+      dbColumn: "schemeCompetitorMention",
       type: "string",
       required: false,
       synonyms: ["scheme competitor", "competitor scheme", "alternative scheme"],
     },
     {
       frontendLabel: "Scheme Enrolled",
-      supabaseColumn: "schemeEnrolled",
+      dbColumn: "schemeEnrolled",
       type: "boolean",
       required: false,
       synonyms: ["scheme enrolled", "enrolled in scheme"],
     },
     {
       frontendLabel: "GHS Policy",
-      supabaseColumn: "ghsPolicy",
+      dbColumn: "ghsPolicy",
       type: "boolean",
       required: false,
       synonyms: ["ghs policy", "ghs enrolled", "gold harvest scheme"],
     },
     {
       frontendLabel: "Follow-up Needed",
-      supabaseColumn: "followUpNeeded",
+      dbColumn: "followUpNeeded",
       type: "boolean",
       required: false,
       synonyms: ["follow up needed", "follow-up needed", "needs follow up", "callback needed"],
     },
     {
       frontendLabel: "Follow-up Date",
-      supabaseColumn: "followUpDate",
+      dbColumn: "followUpDate",
       type: "date",
       required: false,
       dateFormats: ["dd/MM/yyyy", "MM-dd-yyyy", "yyyy-MM-dd"],
@@ -536,7 +536,7 @@ export const visitLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Staff Notes",
-      supabaseColumn: "staffNotes",
+      dbColumn: "staffNotes",
       type: "string",
       required: false,
       synonyms: ["notes", "note", "remarks", "comments", "staff notes", "observations"],

@@ -37,8 +37,7 @@ jobs:
         env:
           SKIP_ENV_VALIDATION: true
           ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder
+          AUTH_SECRET: ci-build-auth-secret-not-for-production
           NEXT_PUBLIC_APP_URL: http://localhost:3000
 
   integration:
@@ -112,8 +111,7 @@ jobs:
         env:
           SKIP_ENV_VALIDATION: true
           ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder
+          AUTH_SECRET: ci-build-auth-secret-not-for-production
           NEXT_PUBLIC_APP_URL: http://localhost:3000
 
       - run: npm run test:e2e
@@ -121,16 +119,14 @@ jobs:
           CI: true
           SKIP_ENV_VALIDATION: true
           ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder
+          AUTH_SECRET: ci-build-auth-secret-not-for-production
           NEXT_PUBLIC_APP_URL: http://localhost:3000
       - run: npm run test:pwa
         env:
           CI: true
           SKIP_ENV_VALIDATION: true
           ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.e30.placeholder
+          AUTH_SECRET: ci-build-auth-secret-not-for-production
           NEXT_PUBLIC_APP_URL: http://localhost:3000
           E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
           E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}

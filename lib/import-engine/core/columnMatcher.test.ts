@@ -20,7 +20,7 @@ describe("matchColumns", () => {
       visitLogSchema,
     );
 
-    expect(mappings.find((m) => m.uploadedHeader === "Mobile No")?.matchedColumn?.supabaseColumn).toBe(
+    expect(mappings.find((m) => m.uploadedHeader === "Mobile No")?.matchedColumn?.dbColumn).toBe(
       "phone",
     );
     expect(mappings.find((m) => m.uploadedHeader === "Visit Date")?.confidenceLevel).toBe("HIGH");

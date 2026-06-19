@@ -36,7 +36,7 @@ flowchart TB
     AdminUI[Admin Portal]
   end
 
-  subgraph nextjs [Next.js 16 App - Vercel]
+  subgraph nextjs [Next.js 16 App - self-hosted]
     RSC[Server Components + lib/data]
     API[API Routes /app/api/*]
     SA[Server Actions - auth]
@@ -50,19 +50,20 @@ flowchart TB
   end
 
   subgraph external [Managed services]
-    SupaAuth[Supabase Auth]
-    PG[(PostgreSQL via Supabase)]
+    PG[(PostgreSQL)]
+    SMTP[SMTP server]
     Redis[(Upstash Redis - optional)]
   end
 
   StaffUI --> MW
   StoreUI --> MW
   AdminUI --> MW
-  MW --> SupaAuth
+  MW --> PG
   RSC --> services
   API --> services
-  SA --> SupaAuth
+  SA --> PG
   services --> PG
+  SA --> SMTP
   API --> Redis
   StaffUI -->|SSE| API
   API -->|broadcastSyncEvent| SSE[In-memory SSE broadcaster]
@@ -76,12 +77,13 @@ flowchart TB
 
 | Layer | Technology | Why we chose it |
 |-------|------------|-----------------|
-| Framework | **Next.js 16** (App Router) | Single repo for SSR dashboards + REST API; good Vercel deployment story |
+| Framework | **Next.js 16** (App Router) | Single repo for SSR dashboards + REST API |
 | Language | **TypeScript (strict)** | Shared types between API, services, and UI |
 | UI | **React 18**, **Tailwind**, **shadcn/Radix** | Fast dashboards, accessible primitives |
 | ORM | **Prisma 6** | Type-safe DB access, migrations, seed scripts |
-| Database | **PostgreSQL** on **Supabase** | Managed Postgres + connection pooler for serverless |
-| Auth | **Supabase Auth** (email/password + invite) | Passwords and sessions outsourced; we keep app roles in our DB |
+| Database | **PostgreSQL** | Relational store for all business data |
+| Auth | **Local session auth** (bcrypt + httpOnly cookie) | Passwords in `AppUser.passwordHash`; sessions in `UserSession` |
+| Email | **nodemailer** + SMTP | Invites and password reset links |
 | Client state | **TanStack React Query v5** | Caching, mutations, SSR `initialData` hydration |
 | Validation | **Zod** | Same schemas for API body/query and forms |
 | Forms | **react-hook-form** + `@hookform/resolvers` | Complex visit/field-sale forms |
@@ -100,9 +102,8 @@ app/                    # Routes (pages + API)
   (staff)/              # Staff portal pages
   (store)/              # Store manager portal
   (admin)/              # Master admin portal
-  (auth)/               # Login pages
+  (auth)/               # Login / reset-password pages
   api/                  # REST handlers → lib/services
-  auth/callback/        # Supabase OAuth/invite callback
 
 components/             # UI (forms, tables, charts, layout)
 hooks/                  # React Query hooks (useVisits, useAnalytics, …)
@@ -111,10 +112,10 @@ lib/
   data/                 # Server-only fetchInitial* for SSR
   api/                  # Browser fetch() wrappers to /api/*
   auth/                 # Session, invites, RBAC, sign-in action
+  email/                # SMTP transporter and auth email templates
   validations/          # Zod schemas
   sync/                 # SSE broadcaster + invalidation helpers
   crypto/               # PII encrypt/decrypt/hash
-  supabase/             # SSR/browser/admin Supabase clients
 prisma/
   schema.prisma         # Data model
   migrations/           # SQL migrations
@@ -131,10 +132,8 @@ proxy.ts                # Edge middleware (session refresh + portal RBAC)
 
 ### 5.1 Connection strategy
 
-- **`DATABASE_URL`** — Supabase **transaction pooler** (`:6543`, `pgbouncer=true`) for app runtime (API + RSC).
-- **`DIRECT_URL`** — Direct Postgres (`:5432`) for **Prisma migrations only**.
-
-**Why:** Serverless Next.js opens many short-lived connections; pooler avoids exhausting Postgres connections.
+- **`DATABASE_URL`** — PostgreSQL connection for app runtime (API + RSC).
+- **`DIRECT_URL`** — Same URL for migrations on self-hosted; can differ when using a pooler.
 
 ### 5.2 Core entities (simplified ER)
 
@@ -152,7 +151,7 @@ erDiagram
   Visit ||--o| FollowUp : may_have
   FieldSale ||--o| FollowUp : may_have
   Visit ||--o{ StaffCallLog : has
-  AppUser }o--|| SupabaseAuth : authId
+  AppUser ||--o{ UserSession : has
 ```
 
 ### 5.3 Important tables
@@ -161,7 +160,7 @@ erDiagram
 |-------|------|
 | **Store** | Tenant boundary; visits/customers scoped by `storeId` |
 | **Staff** | Operational identity (`employeeId`); used on visits even if login user changes |
-| **AppUser** | Login profile: `authId` (Supabase), `role`, `storeId`, `staffId`, `isActive` |
+| **AppUser** | Login profile: `passwordHash`, `role`, `storeId`, `staffId`, `isActive` |
 | **Customer** | `phoneHash` + `storeId` unique; name/phone encrypted |
 | **Visit** | Rich visit record + denormalized customer fields on visit row |
 | **FieldSale** | Off-premise sales/scheme pitching |
@@ -179,15 +178,15 @@ Examples: `PurchaseStatus`, `IntentTier`, `SchemeProduct` (GHS/GPP), `SchemeEnro
 ### 5.5 Migrations we applied
 
 1. `20260526120000_init` — full schema
-2. `20260527120000_supabase_auth` — `AppUser`, Supabase-linked auth
-3. `20260527130000_remove_legacy_auth_columns` — removed old NextAuth/password-on-user columns
+2. `20260527120000_supabase_auth` — `AppUser` (legacy Supabase link; `authId` now optional)
+3. `20260614120000_local_auth` — `passwordHash`, `UserSession`, reset/invite tokens
 
-**Step we took:** Moved from legacy app-stored passwords to **Supabase-only credentials**, with roles in `AppUser`.
+**Current model:** bcrypt passwords in `AppUser`, opaque session tokens in `UserSession` table, httpOnly cookie `fineset-session`.
 
 ### 5.6 Seed data
 
 `npm run db:seed` creates demo stores (Alpha/Beta), staff, customers, visits, field sales, follow-ups.  
-Then `auth:bootstrap` + `auth:bootstrap-dev` link Supabase users to `AppUser` rows.
+Then `auth:bootstrap` + `auth:bootstrap-dev` set password hashes on `AppUser` rows.
 
 ---
 
@@ -197,49 +196,35 @@ Then `auth:bootstrap` + `auth:bootstrap-dev` link Supabase users to `AppUser` ro
 
 | Concern | Where it lives | Why |
 |---------|----------------|-----|
-| Password, session cookie, JWT | **Supabase Auth** | Battle-tested auth; no bcrypt in our app for users |
+| Password hash | **`AppUser.passwordHash`** (bcrypt) | Credentials stay in our DB |
+| Session token | **`UserSession`** + httpOnly cookie | Server-side revocation on deactivate |
 | Role, store, staff link, active flag | **Prisma `AppUser`** | Business rules and multi-tenant assignment |
 | Visit attribution | **`Staff` table** | Metrics stay tied to `employeeId`, not auth user id |
 
 ### 6.2 Login flow (step by step)
 
-**Example: staff logs in at `/login`**
-
-1. Browser submits email/password to **server action** `signInAction` (`lib/auth/sign-in-action.ts`).
-2. Server calls `supabase.auth.signInWithPassword`.
-3. On success, `completeLoginForSupabaseUser` loads/activates `AppUser`, syncs JWT **app_metadata** (role, storeId, staffId).
-4. Server returns `{ ok: true, redirectTo: "/staff/dashboard" }` based on role.
-5. **Middleware** (`proxy.ts`) on every dashboard request:
-   - Refreshes Supabase session via `updateSession` (`lib/supabase/middleware.ts`).
-   - If no user → redirect to `/login?callbackUrl=...`.
-   - If `user.app_metadata.role` ≠ portal role → redirect with `wrong_portal` error.
-
-**Why server action for login:** One round trip; cookies set before redirect (faster than client-only Supabase login + extra fetch).
+1. Browser submits email/password to **server action** `signInAction`.
+2. Server verifies bcrypt hash via `authenticateWithPassword`.
+3. On success, creates `UserSession`, sets `fineset-session` cookie, returns role-based redirect.
+4. **Middleware** (`proxy.ts`) reads session cookie on dashboard requests; redirects unauthenticated users to login.
 
 ### 6.3 Session resolution on API/RSC
 
-`getAppSession()` (`lib/auth/get-app-session.ts`):
-
-1. Read Supabase user from cookies.
-2. **Fast path:** build `AppSession` from JWT `app_metadata` if complete.
-3. **Fallback:** load `AppUser` from Prisma, then async sync metadata for next request.
-
-**Why metadata-first:** Avoids Prisma hit on every request after first login; target &lt;2s dashboard load (p95).
+`getAppSession()` loads session token from cookie → `UserSession` row → `AppUser` profile.
 
 ### 6.4 Invite flow
 
-**Example: store manager invites a staff member**
+1. Admin/store manager invites user via API.
+2. `inviteUser()` creates `Staff` + `AppUser`, sends SMTP email with invite token link.
+3. User opens `/reset-password?token=...&invite=1`, sets password via `setPasswordAction`.
 
-1. `POST /api/store/users/invite` (or admin variant) with Zod-validated body.
-2. `inviteUser()` (`lib/auth/invite-user.ts`):
-   - Creates `Staff` row if role is STAFF.
-   - Calls `supabase.auth.admin.inviteUserByEmail` (needs `SUPABASE_SERVICE_ROLE_KEY`).
-   - Creates `AppUser` with `isActive: false` until they accept invite.
-3. User clicks email link → `/auth/callback` → sets password → activated.
+### 6.5 Password reset
 
-**Why invite:** Users choose their own password; admins never handle plaintext passwords.
+1. User submits email on login form → `requestPasswordResetAction` (always returns success to avoid enumeration).
+2. If user exists, creates `PasswordResetToken` and emails link via SMTP.
+3. User sets new password via `setPasswordAction`; all sessions revoked.
 
-### 6.5 RBAC in API routes
+### 6.6 RBAC in API routes
 
 ```typescript
 // Pattern used in app/api/visits/route.ts

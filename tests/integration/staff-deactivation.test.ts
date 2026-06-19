@@ -1,20 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { updateStaff } from "@/lib/services/staff";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { deleteAllSessionsForUser } from "@/lib/auth/session-store";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
-vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: vi.fn(() => ({
-    auth: {
-      admin: {
-        updateUserById: vi.fn(async () => ({ error: null })),
-        signOut: vi.fn(async () => ({ error: null })),
-      },
-    },
-  })),
-}));
+vi.mock("@/lib/auth/session-store", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth/session-store")>();
+  return {
+    ...actual,
+    deleteAllSessionsForUser: vi.fn(async () => undefined),
+  };
+});
 
 describe.skipIf(!hasDb)("staff deactivation integration", () => {
   let storeId: string;
@@ -44,7 +41,6 @@ describe.skipIf(!hasDb)("staff deactivation integration", () => {
 
     const appUser = await prisma.appUser.create({
       data: {
-        authId: `auth-deact-${Date.now()}`,
         email: `deact-${Date.now()}@test.local`,
         name: staff.name,
         role: "STAFF",
@@ -71,6 +67,6 @@ describe.skipIf(!hasDb)("staff deactivation integration", () => {
 
     expect(appUser?.isActive).toBe(false);
     expect(staff?.isActive).toBe(false);
-    expect(createAdminClient).toHaveBeenCalled();
+    expect(deleteAllSessionsForUser).toHaveBeenCalledWith(appUserId);
   });
 });

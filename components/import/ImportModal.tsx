@@ -102,9 +102,9 @@ export function ImportModal({
       setError(null);
       setIsSubmitting(true);
       try {
-        const phoneHeader = mappings.find((m) => m.matchedColumn?.supabaseColumn === "phone")
+        const phoneHeader = mappings.find((m) => m.matchedColumn?.dbColumn === "phone")
           ?.uploadedHeader;
-        const emailHeader = mappings.find((m) => m.matchedColumn?.supabaseColumn === "email")
+        const emailHeader = mappings.find((m) => m.matchedColumn?.dbColumn === "email")
           ?.uploadedHeader;
 
         const dedupePayload = parsedFile.rows.map((row, rowIndex) => ({

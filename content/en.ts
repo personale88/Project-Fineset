@@ -121,7 +121,7 @@ export const content = {
       resetEmailRateLimited:
         "Too many reset requests. Please wait a few minutes and try again.",
       resetEmailRedirectError:
-        "Password reset is misconfigured. Add https://mystore.tribly.ai/reset-password to Supabase Redirect URLs, then try again.",
+        "Password reset email could not be sent. Check SMTP settings and try again.",
     },
     resetPassword: {
       title: "Reset your password",

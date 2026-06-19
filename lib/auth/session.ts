@@ -2,7 +2,7 @@ import { getAppSession } from "@/lib/auth/get-app-session";
 import type { AppSession } from "@/types";
 import { NextResponse } from "next/server";
 
-/** Server-side session from Supabase Auth + Prisma AppUser profile. */
+/** Server-side session from local auth cookie + Prisma AppUser profile. */
 export async function getServerSession(): Promise<AppSession | null> {
   return getAppSession();
 }

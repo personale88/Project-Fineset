@@ -18,7 +18,8 @@ import {
   normalizeStoreManagerEmail,
   syncStoreManagerEmail,
 } from "@/lib/services/sync-store-manager-email";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { hashCredential } from "@/lib/auth/credentials";
+import { deleteAllSessionsForUser } from "@/lib/auth/session-store";
 
 export { StoreServiceError } from "@/lib/services/store-service-error";
 import type { CreateStoreInput, UpdateStoreInput } from "@/lib/validations/store.schema";
@@ -196,9 +197,7 @@ export async function updateStore(storeId: string, input: UpdateStoreInput) {
   const { businessOwnerEmail: emailInput, ...rest } = input;
 
   if (emailInput !== undefined) {
-    await syncStoreManagerEmail(storeId, emailInput, {
-      storeName: existing.name,
-    });
+    await syncStoreManagerEmail(storeId, emailInput);
   }
 
   const store = await prisma.store.update({
@@ -249,14 +248,12 @@ export async function updateStoreManagerPassword(storeId: string, password: stri
     );
   }
 
-  const supabase = createAdminClient();
-  const { error } = await supabase.auth.admin.updateUserById(manager.authId, {
-    password,
+  const passwordHash = await hashCredential(password);
+  await prisma.appUser.update({
+    where: { id: manager.id },
+    data: { passwordHash },
   });
-
-  if (error) {
-    throw new StoreServiceError(error.message ?? "Failed to update password", 502);
-  }
+  await deleteAllSessionsForUser(manager.id);
 
   return { appUserId: manager.id, email: manager.email };
 }
@@ -296,7 +293,6 @@ export async function softDeleteStore(
 
   const now = new Date();
   const purgeAt = purgeAtFromNow(now);
-  const supabase = createAdminClient();
 
   await prisma.$transaction([
     prisma.store.update({
@@ -319,21 +315,7 @@ export async function softDeleteStore(
   ]);
 
   for (const manager of store.appUsers) {
-    await supabase.auth.admin.updateUserById(manager.authId, {
-      app_metadata: {
-        role: manager.role,
-        storeId: manager.storeId,
-        staffId: manager.staffId,
-        appUserId: manager.id,
-        name: manager.name,
-        storeName: store.name,
-        employeeId: null,
-        isActive: false,
-      },
-    });
-    await supabase.auth.admin.signOut(manager.authId, "global").catch((err) => {
-      console.warn("[softDeleteStore] signOut failed", manager.authId, err.message);
-    });
+    await deleteAllSessionsForUser(manager.id);
   }
 
   void logAuthEvent({
@@ -385,8 +367,6 @@ export async function restoreStore(storeId: string): Promise<Store> {
     );
   }
 
-  const supabase = createAdminClient();
-
   const restored = await prisma.$transaction(async (tx) => {
     const updated = await tx.store.update({
       where: { id: storeId },
@@ -407,21 +387,6 @@ export async function restoreStore(storeId: string): Promise<Store> {
     });
     return updated;
   });
-
-  for (const manager of store.appUsers) {
-    await supabase.auth.admin.updateUserById(manager.authId, {
-      app_metadata: {
-        role: manager.role,
-        storeId: manager.storeId,
-        staffId: manager.staffId,
-        appUserId: manager.id,
-        name: manager.name,
-        storeName: store.name,
-        employeeId: null,
-        isActive: true,
-      },
-    });
-  }
 
   void logAuthEvent({
     event: "STORE_RESTORED",

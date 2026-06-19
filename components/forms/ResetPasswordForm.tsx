@@ -1,16 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
-import {
-  completePasswordRecovery,
-  parsePasswordRecoveryUrlParams,
-  shouldAttemptPasswordRecovery,
-} from "@/lib/auth/complete-password-recovery";
-import { clearPasswordRecoveryFlowAction } from "@/lib/auth/clear-password-recovery-flow";
-import { createClient } from "@/lib/supabase/client";
-import { isInvalidRefreshTokenError } from "@/lib/supabase/auth-errors";
+import { setPasswordAction } from "@/lib/auth/set-password-action";
 import { validatePassword } from "@/lib/auth/password-policy";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,76 +46,19 @@ export function ResetPasswordForm({
   errorAuthCallback,
 }: ResetPasswordFormProps) {
   const searchParams = useSearchParams();
-  const callbackError = searchParams.get("error");
+  const token = searchParams.get("token")?.trim() ?? "";
+  const isInvite = searchParams.get("invite") === "1";
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [sessionChecked, setSessionChecked] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
-  const [recoveryFailed, setRecoveryFailed] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const submitGuardRef = useRef(false);
 
-  useEffect(() => {
-    const supabase = createClient();
-    let cancelled = false;
-
-    async function bootstrapRecoverySession() {
-      setSessionChecked(false);
-
-      const params = parsePasswordRecoveryUrlParams(searchParams);
-
-      if (shouldAttemptPasswordRecovery(params)) {
-        const result = await completePasswordRecovery(supabase, params);
-        if (cancelled) return;
-
-        if (!result.ok) {
-          setRecoveryFailed(true);
-          setHasSession(false);
-          setSessionChecked(true);
-          return;
-        }
-      }
-
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (cancelled) return;
-
-      if (userError && isInvalidRefreshTokenError(userError)) {
-        await supabase.auth.signOut();
-        setHasSession(false);
-      } else {
-        setHasSession(Boolean(user));
-      }
-      setSessionChecked(true);
-    }
-
-    void bootstrapRecoverySession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN" || session) {
-        setHasSession(Boolean(session));
-        setSessionChecked(true);
-        setRecoveryFailed(false);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
-  }, [searchParams]);
+  const hasToken = token.length > 0;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitGuardRef.current || isPending || !hasSession) {
-      return;
-    }
+    if (submitGuardRef.current || isPending || !hasToken) return;
 
     submitGuardRef.current = true;
     setError(null);
@@ -145,27 +81,29 @@ export function ResetPasswordForm({
     }
 
     startTransition(async () => {
-      try {
-        const supabase = createClient();
-        const { error: updateError } = await supabase.auth.updateUser({ password });
+      const result = await setPasswordAction(token, password, confirmPassword, isInvite);
 
-        if (updateError) {
-          submitGuardRef.current = false;
-          setError(errorGeneric);
-          return;
-        }
-
-        await clearPasswordRecoveryFlowAction();
-        await supabase.auth.signOut();
-        window.location.assign("/?reset=success");
-      } catch {
+      if (!result.ok) {
         submitGuardRef.current = false;
-        setError(errorGeneric);
+        switch (result.code) {
+          case "invalid_token":
+            setError(errorAuthCallback);
+            break;
+          case "password_mismatch":
+            setError(errorMismatch);
+            break;
+          case "weak_password":
+            setError(errorGeneric);
+            break;
+          default:
+            setError(errorGeneric);
+        }
+        return;
       }
+
+      window.location.assign("/?reset=success");
     });
   }
-
-  const isLoading = isPending || !sessionChecked;
 
   return (
     <Card className="mx-auto w-full max-w-md">
@@ -174,12 +112,10 @@ export function ResetPasswordForm({
         <CardDescription>{subtitle}</CardDescription>
       </CardHeader>
       <CardContent>
-        {sessionChecked && !hasSession ? (
+        {!hasToken ? (
           <div className="space-y-4">
             <p className="text-sm text-status-error" role="alert">
-              {callbackError === "auth_callback" || recoveryFailed
-                ? errorAuthCallback
-                : errorNoSession}
+              {errorNoSession}
             </p>
             <Button asChild className="w-full">
               <Link href="/">{backToSignInLabel}</Link>
@@ -198,14 +134,14 @@ export function ResetPasswordForm({
                   required
                   autoComplete="new-password"
                   className="pr-24"
-                  disabled={isLoading}
+                  disabled={isPending}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   className="absolute right-1 top-1 h-8 px-2 text-xs"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  disabled={isLoading}
+                  disabled={isPending}
                 >
                   {showPassword ? "Hide" : "Show"}
                 </Button>
@@ -223,14 +159,14 @@ export function ResetPasswordForm({
                   required
                   autoComplete="new-password"
                   className="pr-24"
-                  disabled={isLoading}
+                  disabled={isPending}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   className="absolute right-1 top-1 h-8 px-2 text-xs"
                   onClick={() => setShowConfirmPassword((prev) => !prev)}
-                  disabled={isLoading}
+                  disabled={isPending}
                 >
                   {showConfirmPassword ? "Hide" : "Show"}
                 </Button>
@@ -243,7 +179,7 @@ export function ResetPasswordForm({
               </p>
             )}
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? "Updating…" : submitLabel}
             </Button>
 

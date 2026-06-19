@@ -85,25 +85,68 @@ enum AppRole {
 }
 
 model AppUser {
-  id          String    @id @default(cuid())
-  authId      String    @unique
-  email       String    @unique
-  name        String
-  role        AppRole
-  storeId     String?
-  staffId     String?   @unique
-  isActive    Boolean   @default(false)
-  invitedAt   DateTime?
-  activatedAt DateTime?
-  lastLoginAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  authId       String?   @unique
+  email        String    @unique
+  name         String
+  passwordHash String?
+  role         AppRole
+  storeId      String?
+  staffId      String?   @unique
+  isActive     Boolean   @default(false)
+  invitedAt    DateTime?
+  activatedAt  DateTime?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  store Store? @relation(fields: [storeId], references: [id], onDelete: Restrict)
-  staff Staff? @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  store              Store?               @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  staff              Staff?               @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  sessions           UserSession[]
+  passwordResetTokens PasswordResetToken[]
+  inviteTokens       InviteToken[]
 
   @@index([storeId, role, isActive])
   @@index([email])
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  appUserId String
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  appUser AppUser @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
+  @@index([appUserId])
+  @@index([expiresAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  appUserId String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  appUser AppUser @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
+  @@index([appUserId, createdAt(sort: Desc)])
+}
+
+model InviteToken {
+  id        String    @id @default(cuid())
+  appUserId String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  appUser AppUser @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
+  @@index([appUserId, createdAt(sort: Desc)])
 }
 
 model AuthAuditLog {

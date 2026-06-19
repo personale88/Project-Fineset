@@ -65,7 +65,7 @@ export async function GET() {
               ? "Schema looks OK and stores exist in DB. If UI is empty, redeploy latest code or check admin session / API errors."
               : "Schema looks OK but Store table has zero rows — creates may have rolled back after invite failure.",
     fix: !storeSchemaOk
-      ? "Set DIRECT_URL on Vercel (Supabase direct connection, port 5432), redeploy so build runs prisma migrate deploy, OR run scripts/apply-production-store-schema.sql in the SAME Supabase project as DATABASE_URL, then verify storeSchemaOk here."
+      ? "Run npm run db:migrate, or apply scripts/apply-production-store-schema.sql on the production database, then verify storeSchemaOk here."
       : "No schema fix needed.",
   });
 }

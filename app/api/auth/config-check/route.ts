@@ -7,6 +7,7 @@ import {
   getDatabaseHostForDiagnostics,
 } from "@/lib/db/ensure-production-store-schema";
 import { prisma } from "@/lib/db/prisma";
+import { getSmtpHostForDiagnostics, isSmtpConfigured } from "@/lib/email/env";
 
 const REQUIRED_STORE_COLUMNS = [
   "pincode",
@@ -75,7 +76,6 @@ export async function GET() {
   if (denied) return denied;
 
   const dbUrl = process.env.DATABASE_URL ?? "";
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 
   let dbOk = false;
   let dbError: string | null = null;
@@ -90,14 +90,10 @@ export async function GET() {
     dbUrl.length > 0 &&
     /^postgres(ql)?:\/\/[^:]+:[^@]+@[^@]+@/.test(dbUrl);
 
-  let supabaseHost = "";
-  try {
-    supabaseHost = new URL(supabaseUrl).hostname;
-  } catch {
-    supabaseHost = "(invalid URL)";
-  }
-
-  const hasServiceRole = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY?.trim());
+  const hasAuthSecret = Boolean(
+    process.env.AUTH_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim(),
+  );
+  const smtpConfigured = isSmtpConfigured();
   const hasDirectUrl = Boolean(process.env.DIRECT_URL?.trim());
 
   let storeHealth: Awaited<ReturnType<typeof getStoreSchemaHealth>> | null = null;
@@ -133,8 +129,8 @@ export async function GET() {
     ok:
       dbOk &&
       !dbUrlLikelyBroken &&
-      Boolean(supabaseUrl) &&
-      hasServiceRole &&
+      hasAuthSecret &&
+      smtpConfigured &&
       storeSchemaOk &&
       customerSchemaOk,
     checks: {
@@ -142,12 +138,9 @@ export async function GET() {
       databaseUrlLikelyBroken: dbUrlLikelyBroken,
       databaseConnected: dbOk,
       databaseError: dbError,
-      hasSupabaseUrl: supabaseUrl.length > 0,
-      supabaseHost,
-      hasAnonKey: Boolean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()),
-      hasServiceRoleKey: hasServiceRole,
-      staffCreateNeedsServiceRole:
-        "POST /api/staff requires SUPABASE_SERVICE_ROLE_KEY to create login users",
+      hasAuthSecret,
+      smtpConfigured,
+      smtpHost: getSmtpHostForDiagnostics(),
       appUrl: process.env.NEXT_PUBLIC_APP_URL?.trim() ?? "(not set)",
       nodeEnv: process.env.NODE_ENV,
       hasDirectUrl,
@@ -164,17 +157,17 @@ export async function GET() {
       prismaCustomerQueryOk: customerHealth?.prismaCustomerQueryOk,
     },
     hint: !customerSchemaOk
-      ? `Production DB missing customer/visit profile columns (Customer: ${(customerHealth?.missingCustomerColumns ?? []).join(", ") || "none"}; Visit: ${(customerHealth?.missingVisitColumns ?? []).join(", ") || "none"}). Run scripts/apply-production-customer-schema.sql or redeploy with DIRECT_URL set.`
+      ? `Production DB missing customer/visit profile columns (Customer: ${(customerHealth?.missingCustomerColumns ?? []).join(", ") || "none"}; Visit: ${(customerHealth?.missingVisitColumns ?? []).join(", ") || "none"}). Run scripts/apply-production-customer-schema.sql or npm run db:migrate.`
       : !storeSchemaOk
-      ? `Production DB (host ${getDatabaseHostForDiagnostics()}) missing columns: ${missingStoreColumns.join(", ")}. Set Vercel DIRECT_URL to Supabase Session pooler :5432, redeploy, or run scripts/apply-production-store-schema.sql on that exact project.`
+      ? `Production DB (host ${getDatabaseHostForDiagnostics()}) missing columns: ${missingStoreColumns.join(", ")}. Run npm run db:migrate or scripts/apply-production-store-schema.sql.`
       : dbUrlLikelyBroken
-        ? "DATABASE_URL password contains @ — encode as %40 in Vercel env vars."
+        ? "DATABASE_URL password contains @ — encode as %40 in env vars."
         : !dbOk
-          ? "Database unreachable — fix DATABASE_URL on Vercel and redeploy."
-          : !supabaseUrl
-            ? "Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY on Vercel, then redeploy."
-            : !hasServiceRole
-              ? "Add SUPABASE_SERVICE_ROLE_KEY on Vercel — required for Add Staff (Supabase Auth)."
-              : "Env looks OK — if Add Staff still fails, open Vercel logs for [api.staff] create failed.",
+          ? "Database unreachable — fix DATABASE_URL and restart the app."
+          : !hasAuthSecret
+            ? "Set AUTH_SECRET in your environment file."
+            : !smtpConfigured
+              ? "Set SMTP_* variables for invite and password-reset emails."
+              : "Env looks OK.",
   });
 }

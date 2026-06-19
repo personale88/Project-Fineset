@@ -1,32 +1,30 @@
 import { z } from "zod";
-
-/** Treat empty .env values as unset — dotenv loads "" instead of undefined. */
-function optionalEnv<T extends z.ZodTypeAny>(schema: T) {
-  return z.preprocess(
-    (val) => (typeof val === "string" && val.trim() === "" ? undefined : val),
-    schema,
-  );
-}
+import { optionalEnv } from "@/lib/env/optional-env";
 
 const envSchema = z.object({
   NODE_ENV: z
     .enum(["development", "production", "test"])
     .default("development"),
   DATABASE_URL: optionalEnv(z.string().min(1).optional()),
-  NEXT_PUBLIC_SUPABASE_URL: optionalEnv(z.string().url().optional()),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: optionalEnv(z.string().min(1).optional()),
-  SUPABASE_SERVICE_ROLE_KEY: optionalEnv(z.string().min(1).optional()),
+  DIRECT_URL: optionalEnv(z.string().min(1).optional()),
   NEXT_PUBLIC_APP_URL: optionalEnv(z.string().url().optional()),
   AUTH_SECRET: optionalEnv(z.string().min(1).optional()),
   NEXTAUTH_SECRET: optionalEnv(z.string().min(1).optional()),
   ENCRYPTION_KEY: optionalEnv(z.string().length(64).optional()),
+  SMTP_HOST: optionalEnv(z.string().min(1).optional()),
+  SMTP_PORT: optionalEnv(z.string().optional()),
+  SMTP_USER: optionalEnv(z.string().min(1).optional()),
+  SMTP_PASSWORD: optionalEnv(z.string().min(1).optional()),
+  SMTP_FROM: optionalEnv(z.string().min(1).optional()),
+  SMTP_SECURE: optionalEnv(z.string().optional()),
+  SMTP_REQUIRE_TLS: optionalEnv(z.string().optional()),
+  SMTP_CONNECTION_TIMEOUT_MS: optionalEnv(z.string().optional()),
+  SMTP_GREETING_TIMEOUT_MS: optionalEnv(z.string().optional()),
   UPSTASH_REDIS_REST_URL: optionalEnv(z.string().url().optional()),
   UPSTASH_REDIS_REST_TOKEN: optionalEnv(z.string().min(1).optional()),
   MASTER_ADMIN_EMAIL: optionalEnv(z.string().email().optional()),
   MASTER_ADMIN_PASSWORD: optionalEnv(z.string().min(8).optional()),
   MASTER_ADMIN_NAME: optionalEnv(z.string().min(1).optional()),
-  DEV_AUTH_BYPASS: optionalEnv(z.string().optional()),
-  DEV_AUTH_ROLE: optionalEnv(z.string().optional()),
   SKIP_ENV_VALIDATION: optionalEnv(z.string().optional()),
 });
 
@@ -58,19 +56,23 @@ export function validateEnv(): void {
     const missing: string[] = [];
 
     if (!hasEnv("DATABASE_URL")) missing.push("DATABASE_URL");
-    if (!hasEnv("NEXT_PUBLIC_SUPABASE_URL")) {
-      missing.push("NEXT_PUBLIC_SUPABASE_URL");
-    }
-    if (!hasEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY")) {
-      missing.push("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-    }
-    if (!hasEnv("SUPABASE_SERVICE_ROLE_KEY")) {
-      missing.push("SUPABASE_SERVICE_ROLE_KEY");
+    if (!hasEnv("AUTH_SECRET") && !hasEnv("NEXTAUTH_SECRET")) {
+      missing.push("AUTH_SECRET");
     }
     if (!hasEnv("ENCRYPTION_KEY")) missing.push("ENCRYPTION_KEY");
 
+    const smtpMissing: string[] = [];
+    if (!hasEnv("SMTP_HOST")) smtpMissing.push("SMTP_HOST");
+    if (!hasEnv("SMTP_PORT")) smtpMissing.push("SMTP_PORT");
+    if (!hasEnv("SMTP_USER")) smtpMissing.push("SMTP_USER");
+    if (!hasEnv("SMTP_PASSWORD")) smtpMissing.push("SMTP_PASSWORD");
+    if (!hasEnv("SMTP_FROM")) smtpMissing.push("SMTP_FROM");
+    if (smtpMissing.length > 0) {
+      missing.push(...smtpMissing);
+    }
+
     if (missing.length > 0) {
-      const message = `Missing required production environment variables: ${missing.join(", ")}. Add them in your Vercel project settings (Settings → Environment Variables), then redeploy.`;
+      const message = `Missing required production environment variables: ${missing.join(", ")}. Add them to your server environment file and restart the app.`;
       console.error(`[env] ${message}`);
       throw new Error(message);
     }

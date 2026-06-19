@@ -2,8 +2,8 @@ import { test, expect } from "@playwright/test";
 import { createRequestCounter, waitMs } from "./helpers/network";
 import baselines from "../tests/perf/baselines.json";
 
-const e2eEmail = process.env.E2E_USER_EMAIL;
-const e2ePassword = process.env.E2E_USER_PASSWORD;
+const e2eEmail = process.env.E2E_USER_EMAIL ?? process.env.MASTER_ADMIN_EMAIL;
+const e2ePassword = process.env.E2E_USER_PASSWORD ?? process.env.MASTER_ADMIN_PASSWORD;
 const hasE2eCredentials = Boolean(e2eEmail && e2ePassword);
 
 function baselineMs(key: keyof typeof baselines.api): number | undefined {

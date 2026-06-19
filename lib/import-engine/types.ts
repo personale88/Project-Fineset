@@ -13,8 +13,8 @@ export type ColumnType =
 export interface ColumnConfig {
   /** Label shown in mapping UI */
   frontendLabel: string;
-  /** Actual column name in Supabase */
-  supabaseColumn: string;
+  /** Actual column name in the database */
+  dbColumn: string;
   type: ColumnType;
   required: boolean;
   /** Used to match existing customers */
@@ -45,12 +45,12 @@ export interface FeatureSchemaConfig {
   /** Display name: 'Visit Log' */
   featureLabel: string;
   /** Primary table to upsert into */
-  supabaseTable: string;
+  dbTable: string;
   /** Always 'customers' */
   customerTable: string;
-  /** FK column in supabaseTable pointing to customer */
+  /** FK column in dbTable pointing to customer */
   customerIdColumn: string;
-  /** Supabase column names to dedupe customers on */
+  /** Database column names to dedupe customers on */
   dedupeKeys: string[];
   columns: ColumnConfig[];
 }

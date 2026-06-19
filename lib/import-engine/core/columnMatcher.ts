@@ -30,10 +30,10 @@ function confidenceLevelForScore(score: number): ConfidenceLevel {
 function scoreHeaderAgainstColumn(header: string, column: ColumnConfig): number {
   const headerNorm = normalise(header);
   const labelNorm = normalise(column.frontendLabel);
-  const supabaseNorm = normalise(column.supabaseColumn);
+  const dbNorm = normalise(column.dbColumn);
 
   if (headerNorm === labelNorm) return 100;
-  if (headerNorm === supabaseNorm) return 95;
+  if (headerNorm === dbNorm) return 95;
 
   const columnSynonyms = (column.synonyms ?? []).map(normalise);
   if (columnSynonyms.includes(headerNorm)) return 90;
@@ -41,7 +41,7 @@ function scoreHeaderAgainstColumn(header: string, column: ColumnConfig): number 
   const canonical = canonicalKeyForSynonym(headerNorm);
   if (canonical) {
     const globalSynonyms = SYNONYM_MAP[canonical] ?? [];
-    const columnTokens = [labelNorm, supabaseNorm, ...columnSynonyms];
+    const columnTokens = [labelNorm, dbNorm, ...columnSynonyms];
     if (
       globalSynonyms.some((alias) => columnTokens.some((token) => token.includes(alias))) ||
       columnSynonyms.some((syn) => globalSynonyms.includes(syn))
@@ -89,9 +89,9 @@ export function matchColumns(
 
   for (const candidate of candidates) {
     if (assignedHeaders.has(candidate.header)) continue;
-    if (assignedColumns.has(candidate.column.supabaseColumn)) continue;
+    if (assignedColumns.has(candidate.column.dbColumn)) continue;
     assignedHeaders.add(candidate.header);
-    assignedColumns.add(candidate.column.supabaseColumn);
+    assignedColumns.add(candidate.column.dbColumn);
     headerToColumn.set(candidate.header, {
       column: candidate.column,
       score: candidate.score,
@@ -112,7 +112,7 @@ export function matchColumns(
   });
 
   const unmappedSchemaColumns = schema.columns.filter(
-    (column) => !assignedColumns.has(column.supabaseColumn),
+    (column) => !assignedColumns.has(column.dbColumn),
   );
 
   return { mappings, unmappedSchemaColumns };
@@ -133,7 +133,7 @@ export function applyManualMapping(
         isManualOverride: true,
       };
     }
-    if (targetColumn && mapping.matchedColumn?.supabaseColumn === targetColumn.supabaseColumn) {
+    if (targetColumn && mapping.matchedColumn?.dbColumn === targetColumn.dbColumn) {
       return {
         ...mapping,
         matchedColumn: null,
@@ -161,10 +161,10 @@ export function missingRequiredColumns(
   const mappedColumns = new Set(
     mappings
       .filter((mapping) => mapping.matchedColumn)
-      .map((mapping) => mapping.matchedColumn!.supabaseColumn),
+      .map((mapping) => mapping.matchedColumn!.dbColumn),
   );
 
   return schema.columns
-    .filter((column) => column.required && !mappedColumns.has(column.supabaseColumn))
+    .filter((column) => column.required && !mappedColumns.has(column.dbColumn))
     .map((column) => column.frontendLabel);
 }

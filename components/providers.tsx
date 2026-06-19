@@ -2,7 +2,6 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
-import { SupabaseSessionGuard } from "@/components/auth/SupabaseSessionGuard";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LIVE_QUERY_OPTIONS } from "@/lib/sync/constants";
@@ -26,7 +25,6 @@ export function Providers({ children }: ProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={200}>
-        <SupabaseSessionGuard />
         {children}
         <Toaster />
       </TooltipProvider>

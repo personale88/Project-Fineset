@@ -1,4 +1,5 @@
-import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
+import { verifyCredential } from "@/lib/auth/credentials";
+import { loadAppUserProfileByEmail } from "@/lib/auth/load-app-user-profile";
 
 /**
  * Verifies the master admin password without mutating the current session cookies.
@@ -12,15 +13,10 @@ export async function verifyAdminPassword(
     return false;
   }
 
-  const url = `${getSupabaseUrl()}/auth/v1/token?grant_type=password`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      apikey: getSupabaseAnonKey(),
-    },
-    body: JSON.stringify({ email: normalizedEmail, password }),
-  });
+  const profile = await loadAppUserProfileByEmail(normalizedEmail);
+  if (!profile?.passwordHash || profile.role !== "MASTER_ADMIN") {
+    return false;
+  }
 
-  return response.ok;
+  return verifyCredential(password, profile.passwordHash);
 }

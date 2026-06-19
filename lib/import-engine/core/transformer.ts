@@ -48,7 +48,7 @@ function mappedSchemaColumns(
   const result = new Map<string, { config: ColumnConfig; uploadedHeader: string | null }>();
   for (const mapping of mappings) {
     if (!mapping.matchedColumn) continue;
-    result.set(mapping.matchedColumn.supabaseColumn, {
+    result.set(mapping.matchedColumn.dbColumn, {
       config: mapping.matchedColumn,
       uploadedHeader: mapping.uploadedHeader,
     });
@@ -62,7 +62,7 @@ function rawValueForColumn(
   mappings: ColumnMappingResult[],
 ): string | null {
   const mapping = mappings.find(
-    (item) => item.matchedColumn?.supabaseColumn === column.supabaseColumn,
+    (item) => item.matchedColumn?.dbColumn === column.dbColumn,
   );
   if (!mapping) return null;
   const value = row[mapping.uploadedHeader];
@@ -116,7 +116,7 @@ function transformValue(
     case "number": {
       if (
         schema.featureKey === "call_log" &&
-        column.supabaseColumn === "durationSeconds"
+        column.dbColumn === "durationSeconds"
       ) {
         const duration = parseDurationToSeconds(trimmed);
         if (duration === null) {
@@ -139,7 +139,7 @@ function transformValue(
 
       if (
         schema.featureKey === "visit_log" &&
-        column.supabaseColumn === "durationMins"
+        column.dbColumn === "durationMins"
       ) {
         const duration = parseDurationToMinutes(trimmed);
         if (duration === null) {
@@ -319,7 +319,7 @@ export async function transformRows(
   const duplicateIndexes = duplicateInFileRowIndexes(
     parsedRows.map((row, index) => {
       const phoneHeader = mappings.find(
-        (mapping) => mapping.matchedColumn?.supabaseColumn === "phone",
+        (mapping) => mapping.matchedColumn?.dbColumn === "phone",
       )?.uploadedHeader;
       const phone = phoneHeader ? row[phoneHeader] : undefined;
       return { rowIndex: index, phone: phone ?? null, email: null };
@@ -353,11 +353,11 @@ export async function transformRows(
 
     for (const column of schema.columns) {
       const raw = rawValueForColumn(rawData, column, mappings);
-      const hasMapping = columnMap.has(column.supabaseColumn);
+      const hasMapping = columnMap.has(column.dbColumn);
 
       if (!hasMapping) {
-        transformedData[column.supabaseColumn] = null;
-        if (column.isCustomerField) customerData[column.supabaseColumn] = null;
+        transformedData[column.dbColumn] = null;
+        if (column.isCustomerField) customerData[column.dbColumn] = null;
         if (column.required) {
           errors.push({
             column: column.frontendLabel,
@@ -373,14 +373,14 @@ export async function transformRows(
       warnings.push(...result.warnings);
 
       let value = result.value;
-      if (schema.featureKey === "call_log" && column.supabaseColumn === "answered") {
+      if (schema.featureKey === "call_log" && column.dbColumn === "answered") {
         value = mapCallOutcome(value);
       }
 
       if (column.isCustomerField) {
-        customerData[column.supabaseColumn] = value;
+        customerData[column.dbColumn] = value;
       } else {
-        transformedData[column.supabaseColumn] = value;
+        transformedData[column.dbColumn] = value;
       }
     }
 

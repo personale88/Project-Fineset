@@ -2,14 +2,13 @@
 
 Multi-tenant SaaS platform for jewelry store chains with Staff, Store, and Master Admin portals.
 
-**Vercel build `Unexpected character '\0'`:** OneDrive corrupts files under `OneDrive\Documents`. See [docs/ONEDRIVE_FILE_CORRUPTION.md](docs/ONEDRIVE_FILE_CORRUPTION.md). **Move the repo to `C:\dev\Project-Fineset`** (outside OneDrive) to stop this.
-
 ## Tech Stack
 
 - Next.js 16 (App Router) + TypeScript (strict)
 - Tailwind CSS + shadcn/ui design system
-- Prisma + PostgreSQL (Supabase)
-- Supabase Auth (email/password, invite onboarding)
+- Prisma + PostgreSQL
+- Local session auth (bcrypt passwords + httpOnly cookie)
+- nodemailer SMTP for invites and password reset
 - React Query + Server-Sent Events for live sync
 
 ## Getting Started
@@ -28,51 +27,16 @@ cp .env.example .env.local
 
 Fill in:
 
-- `DATABASE_URL` — Supabase Postgres connection string (use **transaction pooler** URL in production: `*.pooler.supabase.com:6543?pgbouncer=true`)
-- `DIRECT_URL` — Postgres URL for Prisma migrations only (run `npm run db:migrate` from your PC, not on Vercel build). Use Supabase **Session pooler** `:5432` on `*.pooler.supabase.com`, or direct `db.*.supabase.co:5432` if reachable from your network.
-- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon key
-- `SUPABASE_SERVICE_ROLE_KEY` — server-only (invites, bootstrap)
+- `DATABASE_URL` / `DIRECT_URL` — PostgreSQL connection (`:5432` for local dev and self-hosted)
+- `AUTH_SECRET` — `openssl rand -base64 32`
 - `ENCRYPTION_KEY` — `openssl rand -hex 32`
+- `NEXT_PUBLIC_APP_URL` — e.g. `http://localhost:3000`
+- `SMTP_*` — required for invite and forgot-password emails in production
 - `MASTER_ADMIN_EMAIL` / `MASTER_ADMIN_PASSWORD` — first admin bootstrap
 
-In Supabase Dashboard → Authentication → URL configuration, add:
+Optional:
 
-- Site URL: `http://localhost:3000` (use your production URL on Vercel)
-- Redirect URLs:
-  - `http://localhost:3000/auth/callback`
-  - `https://project-fineset.vercel.app/auth/callback` (production)
-
-**Production (Vercel → Settings → Environment Variables)** — required:
-
-- `DATABASE_URL`
-- `DIRECT_URL`
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `NEXT_PUBLIC_APP_URL` — e.g. `https://project-fineset.vercel.app`
-- `ENCRYPTION_KEY` — `openssl rand -hex 32`
-
-Recommended:
-
-- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` — rate limiting ([Upstash Console](https://console.upstash.com/))
-
-### Production DB credential runbook
-
-- `DATABASE_URL` must use the Supabase pooler host (`*.pooler.supabase.com:6543`) and include `pgbouncer=true&connection_limit=5` (or higher).
-- `DIRECT_URL` on Vercel must be Supabase **Session pooler** (`*.pooler.supabase.com:5432`, same password as `DATABASE_URL`). The app auto-applies Store DDL on first stores request using `DIRECT_URL`.
-- `DATABASE_URL` = transaction pooler `:6543?pgbouncer=true` (runtime queries only).
-- Vercel build does **not** run migrations (P1001 on `db.*.supabase.co`). Use GitHub Action `db-migrate.yml` or `npm run db:migrate` locally.
-
-**GitHub Actions (Settings → Secrets and variables → Actions)** — required for the `Database migrate` workflow:
-
-- `DATABASE_URL` — same Supabase pooler URL as Vercel (`:6543`, `pgbouncer=true`)
-- `DIRECT_URL` — optional; workflow derives session pooler `:5432` from `DATABASE_URL` when omitted
-- Keep both URLs on the same Supabase project and same active database password.
-- If you rotate DB password in Supabase:
-  - update both `DATABASE_URL` and `DIRECT_URL` in Vercel immediately,
-  - redeploy once so serverless instances use the new credentials,
-  - verify no `PrismaClientInitializationError` or `ECIRCUITBREAKER` appears in Vercel runtime logs.
+- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` — rate limiting
 
 ### 3. Set up database
 
@@ -83,8 +47,6 @@ npm run auth:bootstrap
 npm run auth:bootstrap-dev
 ```
 
-**Production Add Store error ("Database schema out of date"):** run `npm run db:migrate` locally (with `DIRECT_URL` in `.env.local`), or execute `scripts/apply-production-store-schema.sql` in Supabase SQL Editor. Verify with `/api/auth/config-check` (`storeSchemaOk: true`). Redeploy app after schema fix (build is `prisma generate && next build` only).
-
 `auth:bootstrap` creates the production admin from `MASTER_ADMIN_*` env vars.
 
 `auth:bootstrap-dev` creates dev accounts (after seed) with password `FineSet#1dev`:
@@ -92,7 +54,8 @@ npm run auth:bootstrap-dev
 | Email | Role |
 |-------|------|
 | admin@fineset.local | MASTER_ADMIN |
-| manager@store-alpha.local | STORE_MANAGER |
+| manager@store-alpha.local | BUSINESS_OWNER |
+| store-manager@store-alpha.local | STORE_MANAGER |
 | staff-a@store-alpha.local | STAFF |
 
 ### 4. Run development server
@@ -101,39 +64,43 @@ npm run auth:bootstrap-dev
 npm run dev
 ```
 
-Open [http://localhost:3000/login](http://localhost:3000/login).
+Open [http://localhost:3000](http://localhost:3000).
 
 ## Auth model
 
-- **Supabase Auth** stores passwords and sessions only.
+- **AppUser.passwordHash** stores bcrypt password hashes.
+- **UserSession** stores opaque session tokens (hashed at rest).
 - **Prisma `AppUser`** stores role, store assignment, and active status.
 - **Staff** table remains for visit attribution (`employeeId`, metrics).
-- Admins invite users by email; users set their own password via invite link.
-- Login uses a **server action** (`signInAction`) — one server round trip, cookies set before redirect.
-- Dashboard session resolution is **metadata-first** (JWT `app_metadata`) with Prisma fallback.
-- Target: **Sign In → dashboard shell visible in under 2s p95** (measure with `npm run auth:latency` or Playwright when `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` are set).
-- Align Vercel region (`vercel.json`), Supabase project, Upstash, and DB pooler in the same region.
+- Admins invite users by email; users set their password via invite link (SMTP).
+- Forgot password sends a token link to `/reset-password?token=...`.
+- Login uses a **server action** (`signInAction`) — one server round trip, session cookie set before redirect.
 
-### Performance and region
+### SMTP diagnostics
 
-- Production deploys target **Vercel `iad1`** ([`vercel.json`](vercel.json)). Use a Supabase project in **US East** (or the same region as your users) so `DATABASE_URL` pooler round-trips stay under ~100ms.
-- **Local dev** against a distant Supabase host often shows **3–5s per API call** — that is network latency, not broken app logic. Use `npm run perf:diagnostic` or `GET /api/perf/region-check` to measure DB ping and auth timing.
-- After login, JWT `app_metadata` is synced so dashboards avoid a Prisma lookup on every API request. Sign out and sign in again if sessions feel slow after a deploy.
-- Optional: set `PERF_LOG=true` to emit structured `[perf]` lines from instrumented API routes.
+```bash
+npm run auth:diagnose-smtp
+```
+
+## Production migration
+
+If you have existing production data, see [docs/PRODUCTION_AUTH_MIGRATION.md](docs/PRODUCTION_AUTH_MIGRATION.md) for cutover steps (migrate DB, bootstrap admin, reset other users via SMTP).
+
+## Performance
+
+Use `npm run perf:diagnostic` or `GET /api/perf/region-check` to measure DB latency. Keep the app server and PostgreSQL in the same region/network.
 
 | Metric | Target (same region) |
 |--------|----------------------|
-| DB `SELECT 1` | &lt; 100ms |
-| Supabase `getUser` | &lt; 200ms |
-| `GET /api/visits` (20 rows) | &lt; 600ms |
-| Store overview bundle | &lt; 1.5s |
+| DB `SELECT 1` | < 100ms |
+| `GET /api/visits` (20 rows) | < 600ms |
+| Store overview bundle | < 1.5s |
 
 ## Project Structure
 
 - `app/` — Routes and API handlers
 - `components/` — UI, forms, charts, layouts
-- `lib/` — API clients, auth, db, validations, sync
-- `lib/supabase/` — Supabase SSR clients
+- `lib/` — API clients, auth, db, validations, sync, email
 - `lib/auth/` — Session, invites, audit, RBAC helpers
 - `content/en.ts` — All UI strings
 - `prisma/` — Schema, migrations, and seed data
@@ -144,6 +111,7 @@ Open [http://localhost:3000/login](http://localhost:3000/login).
 |--------|-------------|
 | `npm run db:migrate` | Apply migrations |
 | `npm run db:seed` | Seed demo stores, staff, visits |
-| `npm run auth:bootstrap` | Create MASTER_ADMIN (Supabase + AppUser) |
+| `npm run auth:bootstrap` | Create MASTER_ADMIN with password hash |
 | `npm run auth:bootstrap-dev` | Dev login accounts for seeded data |
+| `npm run auth:diagnose-smtp` | Test SMTP configuration |
 | `npm run test:e2e` | Playwright smoke tests |

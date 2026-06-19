@@ -3,7 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -51,12 +50,6 @@ export function PortalShell({
       clearVisitDraft();
       queryClient.clear();
       await fetch("/api/auth/signout", { method: "POST" });
-      try {
-        const supabase = createClient();
-        await supabase.auth.signOut();
-      } catch {
-        // Dev bypass or offline Supabase — cookie sign-out above is enough.
-      }
       router.replace("/");
       router.refresh();
     } catch {

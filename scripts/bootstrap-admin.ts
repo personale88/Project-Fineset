@@ -1,11 +1,11 @@
 /**
- * Phase 2: Create the first MASTER_ADMIN in Supabase Auth + Prisma AppUser.
+ * Create the first MASTER_ADMIN with local password auth.
  *
  * Usage: npm run auth:bootstrap
- * Requires: SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, MASTER_ADMIN_* in .env.local
  */
+import { randomUUID } from "crypto";
 import { PrismaClient } from "@prisma/client";
-import { createAdminClient } from "../lib/supabase/admin";
+import { hashCredential } from "../lib/auth/credentials";
 import { validatePassword } from "../lib/auth/password-policy";
 
 const prisma = new PrismaClient();
@@ -26,64 +26,29 @@ async function main(): Promise<void> {
     throw new Error(passwordCheck.error ?? "Invalid password");
   }
 
-  const existing = await prisma.appUser.findUnique({ where: { email } });
-  if (existing?.isActive) {
-    console.log(`Admin already exists for ${email} (AppUser ${existing.id})`);
-    return;
-  }
+  const passwordHash = await hashCredential(password);
 
-  const supabase = createAdminClient();
-
-  let authId: string;
-
-  const { data: created, error: createError } =
-    await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name, role: "MASTER_ADMIN" },
-    });
-
-  if (createError) {
-    if (createError.message.includes("already been registered")) {
-      const { data: listData, error: listError } =
-        await supabase.auth.admin.listUsers();
-      if (listError) throw listError;
-      const found = listData.users.find(
-        (u) => u.email?.toLowerCase() === email,
-      );
-      if (!found) throw createError;
-      authId = found.id;
-      console.log(`Using existing Supabase user ${authId}`);
-    } else {
-      throw createError;
-    }
-  } else {
-    if (!created.user) throw new Error("No user returned from Supabase");
-    authId = created.user.id;
-    console.log(`Created Supabase user ${authId}`);
-  }
-
-  await prisma.appUser.upsert({
+  const appUser = await prisma.appUser.upsert({
     where: { email },
     create: {
-      authId,
+      authId: randomUUID(),
       email,
       name,
       role: "MASTER_ADMIN",
+      passwordHash,
       isActive: true,
       activatedAt: new Date(),
     },
     update: {
-      authId,
       name,
       role: "MASTER_ADMIN",
+      passwordHash,
       isActive: true,
       activatedAt: new Date(),
     },
   });
 
-  console.log(`MASTER_ADMIN ready: ${email}`);
+  console.log(`MASTER_ADMIN ready: ${email} (AppUser ${appUser.id})`);
 }
 
 main()

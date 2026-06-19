@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
-import { buildAppMetadata } from "@/lib/auth/activate-profile";
 import { logAuthEvent } from "@/lib/auth/audit";
 import { inviteUser } from "@/lib/auth/invite-user";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { deleteAllSessionsForUser } from "@/lib/auth/session-store";
 import type { CreateStaffInput, UpdateStaffInput } from "@/lib/validations/staff.schema";
 import type { Prisma, PurchaseStatus } from "@prisma/client";
 import type { StaffPerformanceRow } from "@/types";
@@ -226,79 +225,20 @@ export async function updateStaff(
       where: { id: staff.appUser.id },
       data: appUserData,
     });
-  }
 
-  const shouldSyncAuth =
-    staff.appUser?.authId &&
-    (appUserNeedsUpdate ||
-      input.employeeId !== undefined ||
-      input.phone !== undefined ||
-      input.isActive !== undefined);
-
-  if (shouldSyncAuth && staff.appUser?.authId) {
-    const profile = await prisma.appUser.findUnique({
-      where: { id: staff.appUser.id },
-      include: {
-        store: { select: { name: true } },
-        staff: {
-          select: {
-            employeeId: true,
-            storeId: true,
-            store: { select: { name: true } },
-          },
-        },
-      },
-    });
-
-    if (profile) {
-      const supabase = createAdminClient();
-      const authUpdates: {
-        email?: string;
-        app_metadata?: ReturnType<typeof buildAppMetadata>;
-      } = {
-        app_metadata: buildAppMetadata(profile),
-      };
-      if (normalizedEmail && normalizedEmail !== staff.appUser.email) {
-        authUpdates.email = normalizedEmail;
-      }
-
-      const { error } = await supabase.auth.admin.updateUserById(
-        staff.appUser.authId,
-        authUpdates,
-      );
-      if (error) {
-        throw new StaffUpdateError(
-          error.message ?? "Failed to update staff login",
-          502,
-        );
-      }
-
-      if (input.isActive === false) {
-        void logAuthEvent({
-          event: "USER_DEACTIVATED",
-          authId: staff.appUser.authId,
-          email: staff.appUser.email,
-          metadata: { staffId, storeId },
-        });
-        const { error: signOutError } = await supabase.auth.admin.signOut(
-          staff.appUser.authId,
-          "global",
-        );
-        if (signOutError) {
-          console.warn(
-            "[updateStaff] global signOut failed after deactivation",
-            staff.appUser.authId,
-            signOutError.message,
-          );
-        }
-      } else if (input.isActive === true) {
-        void logAuthEvent({
-          event: "USER_ACTIVATED",
-          authId: staff.appUser.authId,
-          email: staff.appUser.email,
-          metadata: { staffId, storeId },
-        });
-      }
+    if (input.isActive === false) {
+      await deleteAllSessionsForUser(staff.appUser.id);
+      void logAuthEvent({
+        event: "USER_DEACTIVATED",
+        email: staff.appUser.email,
+        metadata: { staffId, storeId },
+      });
+    } else if (input.isActive === true) {
+      void logAuthEvent({
+        event: "USER_ACTIVATED",
+        email: staff.appUser.email,
+        metadata: { staffId, storeId },
+      });
     }
   }
 
@@ -332,22 +272,13 @@ export async function deleteStaff(staffId: string, storeId: string) {
     );
   }
 
-  const authId = staff.appUser?.authId;
-
   await prisma.$transaction(async (tx) => {
     if (staff.appUser) {
+      await tx.userSession.deleteMany({ where: { appUserId: staff.appUser.id } });
       await tx.appUser.delete({ where: { id: staff.appUser.id } });
     }
     await tx.staff.delete({ where: { id: staffId } });
   });
-
-  if (authId) {
-    const supabase = createAdminClient();
-    const { error } = await supabase.auth.admin.deleteUser(authId);
-    if (error) {
-      console.error("Failed to delete auth user for staff", staffId, error.message);
-    }
-  }
 }
 
 export async function getStaffPerformance(

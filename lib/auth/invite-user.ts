@@ -1,46 +1,21 @@
+import { randomUUID } from "crypto";
 import { mergeStoreWhere } from "@/lib/db/store-scope";
 import { prisma } from "@/lib/db/prisma";
+import { createInviteToken } from "@/lib/auth/action-tokens";
+import { hashCredential } from "@/lib/auth/credentials";
 import { logAuthEvent } from "@/lib/auth/audit";
 import { validatePassword } from "@/lib/auth/password-policy";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { getAuthRedirectBaseUrl } from "@/lib/supabase/env";
+import { sendInviteEmail } from "@/lib/email/templates/auth-emails";
+import { isSmtpConfigured } from "@/lib/email/env";
+import { SmtpNotConfiguredError } from "@/lib/email/errors";
 import type { InviteUserInput } from "@/lib/validations/user-invite.schema";
 import type { AppRole } from "@prisma/client";
-import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface InviteUserResult {
   appUserId: string;
   email: string;
   role: AppRole;
-}
-
-async function createSupabaseAuthUser(
-  supabase: SupabaseClient,
-  email: string,
-  password: string,
-  name: string,
-  role: AppRole,
-): Promise<string> {
-  const { data: created, error: createError } =
-    await supabase.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: { name, role },
-    });
-
-  if (!createError && created.user) {
-    return created.user.id;
-  }
-
-  if (createError?.message.includes("already been registered")) {
-    throw new InviteError("This email is already registered", 409);
-  }
-
-  throw new InviteError(
-    createError?.message ?? "Failed to create auth user",
-    502,
-  );
+  emailSent: boolean;
 }
 
 export async function inviteUser(
@@ -97,25 +72,8 @@ export async function inviteUser(
     staffId = staff.id;
   }
 
-  let supabase;
-  try {
-    supabase = createAdminClient();
-  } catch (error) {
-    if (staffId) {
-      await prisma.staff.delete({ where: { id: staffId } }).catch(() => undefined);
-    }
-    const message =
-      error instanceof Error ? error.message : "Supabase admin client failed";
-    throw new InviteError(
-      message.includes("SERVICE_ROLE")
-        ? "Server missing SUPABASE_SERVICE_ROLE_KEY in Vercel. Add it and redeploy."
-        : message,
-      502,
-    );
-  }
-
   const now = new Date();
-  let authId: string;
+  let passwordHash: string | undefined;
   let provisionedWithPassword = false;
 
   if (input.password) {
@@ -126,115 +84,58 @@ export async function inviteUser(
       }
       throw new InviteError(passwordCheck.error ?? "Invalid password", 400);
     }
-
-    try {
-      authId = await createSupabaseAuthUser(
-        supabase,
-        email,
-        input.password,
-        name,
-        input.role,
-      );
-      provisionedWithPassword = true;
-    } catch (error) {
-      if (staffId) {
-        await prisma.staff.delete({ where: { id: staffId } }).catch(() => undefined);
-      }
-      console.error("[invite-user] supabase createUser failed", { email, error });
-      if (error instanceof InviteError) throw error;
-      throw new InviteError(
-        error instanceof Error
-          ? error.message
-          : "Failed to create Supabase login for this email",
-        502,
-      );
-    }
-  } else {
-    const redirectTo = `${getAuthRedirectBaseUrl()}/auth/callback`;
-    const { data: invited, error: inviteError } =
-      await supabase.auth.admin.inviteUserByEmail(email, {
-        redirectTo,
-        data: {
-          name,
-          role: input.role,
-        },
-      });
-
-    if (inviteError || !invited.user) {
-      if (staffId) {
-        await prisma.staff.delete({ where: { id: staffId } }).catch(() => undefined);
-      }
-      await logAuthEvent({
-        event: "INVITE_FAILED",
-        email,
-        metadata: { reason: inviteError?.message ?? "unknown" },
-      });
-      throw new InviteError(
-        inviteError?.message ?? "Failed to send invitation",
-        502,
-      );
-    }
-
-    authId = invited.user.id;
+    passwordHash = await hashCredential(input.password);
+    provisionedWithPassword = true;
   }
 
   const appUser = await prisma.appUser.create({
     data: {
-      authId,
+      authId: randomUUID(),
       email,
       name,
       role: input.role,
       storeId: input.storeId,
       staffId,
+      passwordHash,
       isActive: provisionedWithPassword,
       invitedAt: now,
       activatedAt: provisionedWithPassword ? now : undefined,
     },
   });
 
-  let storeName: string | null = null;
-  let employeeId: string | null = null;
+  let emailSent = false;
 
-  if (input.storeId) {
-    const store = await prisma.store.findUnique({
-      where: { id: input.storeId },
-      select: { name: true },
-    });
-    storeName = store?.name ?? null;
-  }
-
-  if (staffId) {
-    employeeId = input.employeeId ?? null;
-  }
-
-  const { error: metadataError } = await supabase.auth.admin.updateUserById(authId, {
-    app_metadata: {
-      role: input.role,
-      storeId: input.storeId ?? null,
-      staffId: staffId ?? null,
-      appUserId: appUser.id,
-      name,
-      storeName,
-      employeeId,
-      isActive: provisionedWithPassword,
-    },
-  });
-
-  if (metadataError) {
-    await prisma.appUser.delete({ where: { id: appUser.id } }).catch(() => undefined);
-    await supabase.auth.admin.deleteUser(authId).catch(() => undefined);
-    if (staffId) {
-      await prisma.staff.delete({ where: { id: staffId } }).catch(() => undefined);
+  if (!provisionedWithPassword) {
+    if (!isSmtpConfigured()) {
+      await prisma.appUser.delete({ where: { id: appUser.id } }).catch(() => undefined);
+      if (staffId) {
+        await prisma.staff.delete({ where: { id: staffId } }).catch(() => undefined);
+      }
+      throw new InviteError(
+        "SMTP is not configured — set SMTP_* environment variables to send invite emails",
+        502,
+      );
     }
-    throw new InviteError(
-      metadataError.message ?? "Failed to finalize user login metadata",
-      502,
-    );
+
+    try {
+      const token = await createInviteToken(appUser.id);
+      await sendInviteEmail(email, name, token);
+      emailSent = true;
+    } catch (error) {
+      await prisma.appUser.delete({ where: { id: appUser.id } }).catch(() => undefined);
+      if (staffId) {
+        await prisma.staff.delete({ where: { id: staffId } }).catch(() => undefined);
+      }
+      if (error instanceof SmtpNotConfiguredError) {
+        throw new InviteError(error.message, 502);
+      }
+      console.error("[invite-user] email failed", { email, error });
+      throw new InviteError("Failed to send invitation email", 502);
+    }
   }
 
   await logAuthEvent({
     event: provisionedWithPassword ? "USER_CREATED_WITH_PASSWORD" : "INVITE_SENT",
-    authId,
     email,
     metadata: { role: input.role, storeId: input.storeId, appUserId: appUser.id },
   });
@@ -242,6 +143,7 @@ export async function inviteUser(
   console.info("[invite-user] success", {
     email,
     role: input.role,
+    emailSent,
     elapsedMs: Date.now() - startedAt,
   });
 
@@ -249,6 +151,7 @@ export async function inviteUser(
     appUserId: appUser.id,
     email,
     role: input.role,
+    emailSent,
   };
 }
 

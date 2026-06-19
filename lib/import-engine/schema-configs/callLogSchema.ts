@@ -3,14 +3,14 @@ import type { FeatureSchemaConfig } from "@/lib/import-engine/types";
 export const callLogSchema: FeatureSchemaConfig = {
   featureKey: "call_log",
   featureLabel: "Call Log",
-  supabaseTable: "staff_call_logs",
+  dbTable: "staff_call_logs",
   customerTable: "customers",
   customerIdColumn: "customerId",
   dedupeKeys: ["phone"],
   columns: [
     {
       frontendLabel: "Customer Name",
-      supabaseColumn: "name",
+      dbColumn: "name",
       type: "string",
       required: false,
       isCustomerField: true,
@@ -18,7 +18,7 @@ export const callLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Customer Phone",
-      supabaseColumn: "phone",
+      dbColumn: "phone",
       type: "phone",
       required: true,
       isCustomerField: true,
@@ -37,7 +37,7 @@ export const callLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Customer Email",
-      supabaseColumn: "email",
+      dbColumn: "email",
       type: "email",
       required: false,
       isCustomerField: true,
@@ -46,7 +46,7 @@ export const callLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Call Date",
-      supabaseColumn: "createdAt",
+      dbColumn: "createdAt",
       type: "date",
       required: false,
       dateFormats: ["dd/MM/yyyy", "MM-dd-yyyy", "yyyy-MM-dd"],
@@ -54,14 +54,14 @@ export const callLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Call Duration",
-      supabaseColumn: "durationSeconds",
+      dbColumn: "durationSeconds",
       type: "number",
       required: false,
       synonyms: ["duration", "call duration", "talk time", "call time", "length", "minutes"],
     },
     {
       frontendLabel: "Call Outcome",
-      supabaseColumn: "answered",
+      dbColumn: "answered",
       type: "string",
       required: false,
       synonyms: [
@@ -76,7 +76,7 @@ export const callLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Agent Name",
-      supabaseColumn: "staffId",
+      dbColumn: "staffId",
       type: "lookup",
       required: false,
       lookupTable: "staff",
@@ -95,7 +95,7 @@ export const callLogSchema: FeatureSchemaConfig = {
     },
     {
       frontendLabel: "Notes",
-      supabaseColumn: "feedback",
+      dbColumn: "feedback",
       type: "string",
       required: false,
       synonyms: ["notes", "note", "remarks", "comments", "feedback", "call notes"],

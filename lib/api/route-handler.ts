@@ -54,8 +54,8 @@ export function handleRouteError(error: unknown): NextResponse {
       return NextResponse.json(
         {
           message: column
-            ? `Database missing column "${column}". Set Vercel DIRECT_URL (Supabase Session pooler port 5432), redeploy once, or run scripts/apply-production-store-schema.sql on the same Supabase project as DATABASE_URL.`
-            : "Database schema is out of date. Set Vercel DIRECT_URL (Session pooler :5432), redeploy, or apply scripts/apply-production-store-schema.sql on the correct Supabase project.",
+            ? `Database missing column "${column}". Run npm run db:migrate, or apply scripts/apply-production-store-schema.sql on the production database.`
+            : "Database schema is out of date. Run npm run db:migrate or apply scripts/apply-production-store-schema.sql.",
           code: error.code,
           column: column || undefined,
         },

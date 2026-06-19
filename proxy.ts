@@ -1,34 +1,30 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
-  getDevSessionFromRequest,
-  isDevAuthBypassEnabled,
-} from "@/lib/auth/dev-bypass";
-import {
   getProtectedRouteForPath,
   getRedirectForRole,
   LEGACY_STORE_DASHBOARD_PATH,
   PROTECTED_PORTAL_ROUTES,
   resolveLegacyDashboardRedirect,
 } from "@/lib/auth/routes";
-import { updateSession } from "@/lib/supabase/middleware";
+import { getSessionTokenFromRequest } from "@/lib/auth/session-cookie";
+import { getAppSessionRoleFromRequestToken } from "@/lib/auth/session-store";
 import type { UserRole } from "@/types";
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+  const sessionToken = getSessionTokenFromRequest(request);
+
+  async function resolveRole(): Promise<UserRole | undefined> {
+    if (!sessionToken) return undefined;
+    const role = await getAppSessionRoleFromRequestToken(sessionToken);
+    return role ?? undefined;
+  }
 
   if (
     pathname === LEGACY_STORE_DASHBOARD_PATH ||
     pathname.startsWith(`${LEGACY_STORE_DASHBOARD_PATH}/`)
   ) {
-    let role: UserRole | undefined;
-
-    if (isDevAuthBypassEnabled()) {
-      role = getDevSessionFromRequest(request)?.role;
-    } else {
-      const { user } = await updateSession(request);
-      role = user?.app_metadata?.role as UserRole | undefined;
-    }
-
+    const role = await resolveRole();
     const remappedPath = resolveLegacyDashboardRedirect(pathname, role);
 
     if (!role) {
@@ -44,50 +40,24 @@ export async function proxy(request: NextRequest) {
   const protectedRoute = getProtectedRouteForPath(pathname);
 
   if (!protectedRoute) {
-    if (isDevAuthBypassEnabled()) {
-      return NextResponse.next({ request });
-    }
-
-    const { response } = await updateSession(request);
-    return response;
-  }
-
-  if (isDevAuthBypassEnabled()) {
-    const devSession = getDevSessionFromRequest(request);
-    if (!devSession) {
-      const loginUrl = new URL("/", request.url);
-      loginUrl.searchParams.set("callbackUrl", pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    if (!protectedRoute.roles.includes(devSession.role)) {
-      return NextResponse.redirect(
-        new URL(getRedirectForRole(devSession.role), request.url),
-      );
-    }
-
     return NextResponse.next({ request });
   }
 
-  const { response, user, sessionExpired } = await updateSession(request);
+  const role = await resolveRole();
 
-  if (!user) {
+  if (!role) {
     const loginUrl = new URL("/", request.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
-    if (sessionExpired) {
-      loginUrl.searchParams.set("error", "session_expired");
-    }
     return NextResponse.redirect(loginUrl);
   }
 
-  const metadataRole = user.app_metadata?.role as UserRole | undefined;
-  if (metadataRole && !protectedRoute.roles.includes(metadataRole)) {
+  if (!protectedRoute.roles.includes(role)) {
     return NextResponse.redirect(
-      new URL(getRedirectForRole(metadataRole), request.url),
+      new URL(getRedirectForRole(role), request.url),
     );
   }
 
-  return response;
+  return NextResponse.next({ request });
 }
 
 export const config = {

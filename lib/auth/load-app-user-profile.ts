@@ -24,7 +24,8 @@ type RawAppUserRow = {
 function mapRawRow(row: RawAppUserRow): AppUserWithRelations {
   return {
     id: row.id,
-    authId: "",
+    authId: null,
+    passwordHash: null,
     email: row.email,
     name: row.name,
     role: row.role as AppRole,
