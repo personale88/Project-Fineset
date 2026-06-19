@@ -3,6 +3,7 @@ import type {
   GetStaffCallsParams,
   StaffCallDialResult,
   StaffCallFilterCounts,
+  StaffCallListItem,
   StaffCallListResponse,
   StaffCallMasterSource,
   StaffCallOutcomeResult,
@@ -66,4 +67,14 @@ export async function submitManualStaffCall(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function resolveStaffCallRecordApi(params: {
+  customerId?: string;
+  visitId?: string;
+  fieldSaleId?: string;
+  storeId?: string;
+}): Promise<StaffCallListItem> {
+  const qs = buildQueryString(params);
+  return apiFetch<StaffCallListItem>(`/api/staff/calls/resolve${qs}`);
 }

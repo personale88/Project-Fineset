@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createVisitSchema } from "@/lib/validations/visit.schema";
 import { phoneSchema } from "@/lib/validations/common.schema";
+import { formatCalendarDate, parseCalendarDate } from "@/lib/utils/calendar-date";
 
 const validPurchasedVisit = {
   customerName: "Jane Doe",
@@ -103,6 +104,26 @@ describe("createVisitSchema", () => {
       visitDate: tomorrow,
     });
     expect(result.success).toBe(false);
+  });
+
+  it("accepts backdated sale dates", () => {
+    const lastWeek = parseCalendarDate(
+      formatCalendarDate(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)),
+    );
+    const result = createVisitSchema.safeParse({
+      ...validPurchasedVisit,
+      visitDate: lastWeek,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts today's sale date", () => {
+    const today = parseCalendarDate(formatCalendarDate(new Date()));
+    const result = createVisitSchema.safeParse({
+      ...validPurchasedVisit,
+      visitDate: today,
+    });
+    expect(result.success).toBe(true);
   });
 
   it("rejects out time before in time", () => {

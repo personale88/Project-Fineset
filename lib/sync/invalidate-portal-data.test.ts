@@ -5,15 +5,15 @@ import { createDebouncedBatch } from "@/lib/sync/debounced-batch";
 import { SSE_INVALIDATION_DEBOUNCE_MS } from "@/lib/sync/constants";
 
 describe("invalidateEntity", () => {
-  it("invalidates only visit keys for visits entity", async () => {
+  it("invalidates analytics when visits change", async () => {
     const queryClient = new QueryClient();
     const invalidateSpy = vi.spyOn(queryClient, "invalidateQueries");
 
     await invalidateEntity(queryClient, "visits");
 
     const keys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
-    expect(keys).toEqual([["visits"]]);
-    expect(keys.some((key) => key?.[0] === "analytics")).toBe(false);
+    expect(keys).toContainEqual(["visits"]);
+    expect(keys).toContainEqual(["analytics"]);
   });
 
   it("invalidates analytics for stores entity", async () => {

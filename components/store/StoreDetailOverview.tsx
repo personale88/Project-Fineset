@@ -209,6 +209,7 @@ export function StoreDetailOverview({
         deltaPeriod={store.deltaPeriod}
         kpis={kpis}
         deltas={deltas}
+        purchaseStatusBreakdown={overview?.kpis.purchaseStatusBreakdown}
         isLoading={loading}
       />
 
@@ -218,6 +219,7 @@ export function StoreDetailOverview({
         periodLabel={periodLabel}
         deltaPeriod={store.deltaPeriod}
         storeId={storeId}
+        portalRole={portalRole}
         initialData={bundleHydrated ? overview?.calls : undefined}
         initialParams={bundleHydrated ? analyticsParams : undefined}
       />

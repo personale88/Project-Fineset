@@ -1,10 +1,10 @@
 import { EXTERNAL_SOURCE_CHANNELS } from "@/lib/services/staff-call-master";
 import {
-  buildCallsPeriodRange,
   buildFieldSaleFollowUpOpenWhere,
   buildFollowUpOpenWhere,
   buildNotAnsweredWhere,
 } from "@/lib/services/call-queue-utils";
+import { buildStaffCallActivityDateRange } from "@/lib/services/staff-calls-scope";
 import type {
   StaffCallMasterFilter,
   StaffCallOccasionFilter,
@@ -113,6 +113,35 @@ export function buildFieldSaleAnniversaryWhere(
   return { anniversaryMonth: month };
 }
 
+/** Occasion lists skip customers already reached with a successful call. */
+export function buildOccasionNeedsCallWhere(params: {
+  queue: StaffCallQueue;
+  birthday: StaffCallOccasionFilter;
+  anniversary: StaffCallOccasionFilter;
+}): Prisma.VisitWhereInput {
+  if (params.queue !== "ALL") return {};
+  const hasOccasion =
+    params.birthday === "THIS_MONTH" || params.anniversary === "THIS_MONTH";
+  if (!hasOccasion) return {};
+  return {
+    OR: [{ lastCallAnswered: null }, { lastCallAnswered: { not: "ANSWERED" } }],
+  };
+}
+
+export function buildFieldSaleOccasionNeedsCallWhere(params: {
+  queue: StaffCallQueue;
+  birthday: StaffCallOccasionFilter;
+  anniversary: StaffCallOccasionFilter;
+}): Prisma.FieldSaleWhereInput {
+  if (params.queue !== "ALL") return {};
+  const hasOccasion =
+    params.birthday === "THIS_MONTH" || params.anniversary === "THIS_MONTH";
+  if (!hasOccasion) return {};
+  return {
+    OR: [{ lastCallAnswered: null }, { lastCallAnswered: { not: "ANSWERED" } }],
+  };
+}
+
 export function buildVisitQueueWhere(
   queue: StaffCallQueue,
   staffId: string,
@@ -191,34 +220,50 @@ function buildVisitSourceWhere(master: StaffCallMasterFilter): Prisma.VisitWhere
   return {};
 }
 
+function buildVisitActivityDateWhere(
+  params: StaffCallsDbQueryParams,
+): Prisma.VisitWhereInput {
+  const range = buildStaffCallActivityDateRange(params);
+  if (!range) return {};
+  return { visitDate: { gte: range.start, lte: range.end } };
+}
+
+function buildFieldSaleActivityDateWhere(
+  params: StaffCallsDbQueryParams,
+): Prisma.FieldSaleWhereInput {
+  const range = buildStaffCallActivityDateRange(params);
+  if (!range) return {};
+  return { activityDate: { gte: range.start, lte: range.end } };
+}
+
 export function buildVisitListWhere(params: StaffCallsDbQueryParams): Prisma.VisitWhereInput {
-  const { start, end } = buildCallsPeriodRange(params.year, params.month);
   return {
     ...(params.storeScope ? {} : { staffId: params.staffId }),
     storeId: params.storeId,
-    visitDate: { gte: start, lte: end },
+    ...buildVisitActivityDateWhere(params),
     ...buildVisitSegmentWhere(params.segment),
     ...buildVisitQueueWhere(params.queue, params.staffId, params.storeScope),
     ...buildVisitSourceWhere(params.master),
     ...buildVisitValueTierWhere(params.valueTier),
     ...buildVisitBirthdayWhere(params.birthday, params.month),
     ...buildVisitAnniversaryWhere(params.anniversary, params.month),
+    ...buildOccasionNeedsCallWhere(params),
   };
 }
 
 export function buildFieldSaleListWhere(
   params: StaffCallsDbQueryParams,
 ): Prisma.FieldSaleWhereInput {
-  const { start, end } = buildCallsPeriodRange(params.year, params.month);
   return {
     ...(params.storeScope ? {} : { staffId: params.staffId }),
     storeId: params.storeId,
-    activityDate: { gte: start, lte: end },
+    ...buildFieldSaleActivityDateWhere(params),
     ...buildFieldSaleSegmentWhere(params.segment),
     ...buildFieldSaleQueueWhere(params.queue, params.staffId, params.storeScope),
     ...buildFieldSaleValueTierWhere(params.valueTier),
     ...buildFieldSaleBirthdayWhere(params.birthday, params.month),
     ...buildFieldSaleAnniversaryWhere(params.anniversary, params.month),
+    ...buildFieldSaleOccasionNeedsCallWhere(params),
   };
 }
 
@@ -252,4 +297,11 @@ export function toStaffCallsDbQueryParams(params: {
   return params;
 }
 
-export { buildCallsPeriodRange };
+export { buildCallsPeriodRange } from "@/lib/services/call-queue-utils";
+export {
+  buildStaffCallActivityDateRange,
+  matchesStaffCallActivityPeriod,
+  staffCallUsesActionQueueScope,
+  staffCallUsesOccasionOnlyScope,
+  staffCallUsesYearQueueScope,
+} from "@/lib/services/staff-calls-scope";

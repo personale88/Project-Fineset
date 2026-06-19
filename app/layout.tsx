@@ -2,12 +2,16 @@ import type { Metadata, Viewport } from "next";
 import { SerwistProvider } from "@serwist/turbopack/react";
 import { Inter, Playfair_Display } from "next/font/google";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
+import { ChunkLoadRecovery } from "@/components/pwa/ChunkLoadRecovery";
 import { PwaAssetRefresh } from "@/components/pwa/PwaAssetRefresh";
+import { PwaDevCleanup } from "@/components/pwa/PwaDevCleanup";
 import { PwaLoadingShell } from "@/components/pwa/PwaLoadingShell";
 import { PwaServiceWorkerUpdate } from "@/components/pwa/PwaServiceWorkerUpdate";
 import { Providers } from "@/components/providers";
 import { PWA_ASSET_VERSION, PWA_CONFIG } from "@/lib/pwa/config";
 import "@/styles/globals.css";
+
+const isProd = process.env.NODE_ENV === "production";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -88,19 +92,25 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const appShell = (
+    <Providers>
+      {!isProd ? <PwaDevCleanup /> : null}
+      {isProd ? <PwaAssetRefresh /> : null}
+      <PwaLoadingShell>{children}</PwaLoadingShell>
+      {isProd ? <PwaServiceWorkerUpdate /> : null}
+      {isProd ? <InstallPrompt /> : null}
+      <ChunkLoadRecovery />
+    </Providers>
+  );
+
   return (
     <html lang="en">
       <body className={`${inter.variable} ${playfair.variable} min-h-screen`}>
-        <SerwistProvider swUrl="/serwist/sw.js">
-          <Providers>
-            <PwaAssetRefresh />
-            <PwaLoadingShell>
-              {children}
-            </PwaLoadingShell>
-            <PwaServiceWorkerUpdate />
-            <InstallPrompt />
-          </Providers>
-        </SerwistProvider>
+        {isProd ? (
+          <SerwistProvider swUrl="/serwist/sw.js">{appShell}</SerwistProvider>
+        ) : (
+          appShell
+        )}
       </body>
     </html>
   );

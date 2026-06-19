@@ -24,7 +24,8 @@ interface SupabaseLoginFormProps {
   subtitle: string;
   submitLabel: string;
   errorInvalid: string;
-  errorInactive: string;
+  errorMissingProfile: string;
+  errorIncompleteProfile: string;
   errorDeactivated: string;
   errorGeneric: string;
   errorWrongPortal: string;
@@ -45,7 +46,8 @@ export function SupabaseLoginForm({
   subtitle,
   submitLabel,
   errorInvalid,
-  errorInactive,
+  errorMissingProfile,
+  errorIncompleteProfile,
   errorDeactivated,
   errorGeneric,
   errorWrongPortal,
@@ -80,12 +82,23 @@ export function SupabaseLoginForm({
 
   const urlBootstrapError = useMemo(() => {
     if (!urlError) return null;
-    if (urlError === "account_inactive") return errorInactive;
+    if (urlError === "account_missing_profile" || urlError === "account_inactive") {
+      return errorMissingProfile;
+    }
+    if (urlError === "account_incomplete_profile") return errorIncompleteProfile;
     if (urlError === "account_deactivated") return errorDeactivated;
     if (urlError === "wrong_portal") return errorWrongPortal;
     if (urlError === "session_expired") return errorSessionExpired;
     return errorInvalid;
-  }, [urlError, errorInactive, errorDeactivated, errorWrongPortal, errorSessionExpired, errorInvalid]);
+  }, [
+    urlError,
+    errorMissingProfile,
+    errorIncompleteProfile,
+    errorDeactivated,
+    errorWrongPortal,
+    errorSessionExpired,
+    errorInvalid,
+  ]);
 
   useEffect(() => {
     if (!urlError) return;
@@ -135,8 +148,11 @@ export function SupabaseLoginForm({
             case "invalid_credentials":
               setError(errorInvalid);
               break;
-            case "inactive":
-              setError(errorInactive);
+            case "missing_profile":
+              setError(errorMissingProfile);
+              break;
+            case "incomplete_profile":
+              setError(errorIncompleteProfile);
               break;
             case "deactivated":
               setError(errorDeactivated);

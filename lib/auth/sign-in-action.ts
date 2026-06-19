@@ -1,6 +1,7 @@
 "use server";
 
 import { completeLoginForSupabaseUser, logLoginSuccess } from "@/lib/auth/complete-login";
+import type { CompleteLoginFailureReason } from "@/lib/auth/complete-login";
 import {
   createDevSessionForEmail,
   isDevAuthBypassEnabled,
@@ -15,11 +16,17 @@ import {
   getRequestIdentifier,
 } from "@/lib/rate-limit";
 
+export type SignInFailureCode =
+  | "invalid_credentials"
+  | CompleteLoginFailureReason
+  | "rate_limited"
+  | "generic";
+
 export type SignInResult =
   | { ok: true; redirectTo: string }
   | {
       ok: false;
-      code: "invalid_credentials" | "inactive" | "deactivated" | "rate_limited" | "generic";
+      code: SignInFailureCode;
     };
 
 function logSignIn(event: string, payload: Record<string, unknown>) {
@@ -115,10 +122,7 @@ export async function signInAction(
   if (!result.ok) {
     logSignIn(result.reason, { totalMs: Date.now() - startedAt, timings });
     await supabase.auth.signOut();
-    if (result.reason === "deactivated") {
-      return { ok: false, code: "deactivated" };
-    }
-    return { ok: false, code: "inactive" };
+    return { ok: false, code: result.reason };
   }
 
   const { session } = result;

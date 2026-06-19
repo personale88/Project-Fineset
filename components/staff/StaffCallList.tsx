@@ -19,6 +19,7 @@ import { CallLogList, StaffCallCard, StaffCallFilterPanel } from "@/components/s
 import { Button } from "@/components/ui/button";
 import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { content } from "@/content/en";
+import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { getStaffCallsErrorMessage } from "@/lib/utils/staff-calls-errors";
 import type { Content } from "@/content/en";
 import type { GetStaffCallsParams, StaffCallListItem, StaffCallListResponse } from "@/types";
@@ -102,11 +103,18 @@ export function StaffCallList({
     setActiveItem(item);
     setDialogOpen(true);
     revealPhone.reset();
-    await revealPhone.mutateAsync({
-      recordId: item.recordId,
-      masterSource: item.masterSource,
-      storeId,
-    });
+    try {
+      await revealPhone.mutateAsync({
+        recordId: item.recordId,
+        masterSource: item.masterSource,
+        storeId,
+      });
+    } catch (error) {
+      handleCloseDialog(false);
+      toast({
+        title: getPortalErrorMessage(error, content.errors),
+      });
+    }
   }
 
   function handleCloseDialog(open: boolean) {
@@ -134,8 +142,10 @@ export function StaffCallList({
           toast({ title: copy.calls.dialog.feedbackSaved });
           handleCloseDialog(false);
         },
-        onError: () => {
-          toast({ title: content.errors.generic, description: copy.calls.loadError });
+        onError: (error) => {
+          toast({
+            title: getPortalErrorMessage(error, content.errors),
+          });
         },
       },
     );
@@ -149,8 +159,10 @@ export function StaffCallList({
         toast({ title: copy.calls.manualCall.saved });
         setManualDialogOpen(false);
       },
-      onError: () => {
-        toast({ title: content.errors.generic, description: copy.calls.loadError });
+      onError: (error) => {
+        toast({
+          title: getPortalErrorMessage(error, content.errors),
+        });
       },
     });
   }
@@ -208,6 +220,8 @@ export function StaffCallList({
 
       <StaffCallFilterPanel
         copy={copy.calls}
+        scopeHint={copy.calls.scopeHint}
+        queuePriorityHint={copy.calls.queuePriorityHint}
         year={filters.year}
         month={filters.month}
         segment={filters.segment}

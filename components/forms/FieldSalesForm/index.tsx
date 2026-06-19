@@ -6,11 +6,19 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { createFieldSaleSchema } from "@/lib/validations/field-sale.schema";
 import { useCreateFieldSale } from "@/hooks/useFieldSales";
 import { toast } from "@/hooks/useToast";
+import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
+import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
+import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { ProgressIndicator } from "@/components/forms/VisitForm/FormSection";
 import { VisitFormSuccess } from "@/components/forms/VisitForm/VisitFormSuccess";
 import { FieldSalesFormSections } from "./FieldSalesFormSections";
+import {
+  clearFieldSaleDraft,
+  loadFieldSaleDraft,
+  useFieldSaleDraft,
+} from "./useFieldSaleDraft";
 import {
   buildFieldSalesSections,
   getDefaultFieldSaleValues,
@@ -22,6 +30,7 @@ import {
 export function FieldSalesForm({ copy, common, errors }: FieldSalesFormProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [lastSubmittedFollowUp, setLastSubmittedFollowUp] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const form = useForm<FieldSalesFormValues>({
@@ -30,7 +39,7 @@ export function FieldSalesForm({ copy, common, errors }: FieldSalesFormProps) {
     mode: "onBlur",
   });
 
-  const { watch, control, handleSubmit, reset, trigger } = form;
+  const { watch, control, handleSubmit, reset, trigger, setValue } = form;
   const enrollmentOutcome = watch("enrollmentOutcome");
   const schemesPitched = watch("schemesPitched");
   const sections = useMemo(
@@ -39,6 +48,7 @@ export function FieldSalesForm({ copy, common, errors }: FieldSalesFormProps) {
   );
 
   const createFieldSaleMutation = useCreateFieldSale();
+  useFieldSaleDraft(watch, reset, !isSuccess);
 
   const activeSection = sections[stepIndex]?.id;
   const isLastStep = stepIndex >= sections.length - 1;
@@ -54,10 +64,11 @@ export function FieldSalesForm({ copy, common, errors }: FieldSalesFormProps) {
     .replace("{total}", String(sections.length));
 
   const resetForm = useCallback(() => {
-    reset(getDefaultFieldSaleValues());
+    reset({ ...getDefaultFieldSaleValues(), ...loadFieldSaleDraft() });
     setStepIndex(0);
     setSubmitError(null);
     setIsSuccess(false);
+    setLastSubmittedFollowUp(false);
   }, [reset]);
 
   async function validateCurrentStep(): Promise<boolean> {
@@ -83,11 +94,14 @@ export function FieldSalesForm({ copy, common, errors }: FieldSalesFormProps) {
 
     try {
       await createFieldSaleMutation.mutateAsync(values);
+      clearFieldSaleDraft();
+      setLastSubmittedFollowUp(Boolean(values.followUpNeeded));
       toast({ title: copy.actions.successTitle, description: copy.actions.successMessage });
       setIsSuccess(true);
-    } catch {
-      setSubmitError(errors.generic);
-      toast({ title: errors.generic });
+    } catch (error) {
+      const message = getPortalErrorMessage(error, errors);
+      setSubmitError(message);
+      toast({ title: message });
     }
   }
 
@@ -115,12 +129,29 @@ export function FieldSalesForm({ copy, common, errors }: FieldSalesFormProps) {
   }
 
   if (isSuccess) {
+    const secondaryActions = [
+      {
+        label: copy.actions.viewMyFieldSales,
+        href: `${STAFF_DASHBOARD_PATH}/my-field-sales`,
+      },
+      { label: copy.actions.viewCalls, href: `${STAFF_DASHBOARD_PATH}/calls` },
+      ...(lastSubmittedFollowUp
+        ? [
+            {
+              label: copy.actions.viewFollowUps,
+              href: buildFollowUpsHref(`${STAFF_DASHBOARD_PATH}/follow-ups`, "open"),
+            },
+          ]
+        : []),
+    ];
+
     return (
       <VisitFormSuccess
         title={copy.actions.successTitle}
         message={copy.actions.successMessage}
         logAnotherLabel={copy.actions.logAnother}
         onLogAnother={resetForm}
+        secondaryActions={secondaryActions}
       />
     );
   }
@@ -143,6 +174,7 @@ export function FieldSalesForm({ copy, common, errors }: FieldSalesFormProps) {
             copy={copy}
             control={control}
             watch={watch}
+            setValue={setValue}
             activeSection={activeSection}
             mode="wizard"
           />
@@ -153,6 +185,7 @@ export function FieldSalesForm({ copy, common, errors }: FieldSalesFormProps) {
             copy={copy}
             control={control}
             watch={watch}
+            setValue={setValue}
             mode="full"
           />
         </div>

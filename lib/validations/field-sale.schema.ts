@@ -82,6 +82,7 @@ export const getFieldSalesQuerySchema = z.object({
     .min(1)
     .max(12)
     .default(() => new Date().getMonth() + 1),
+  allTime: z.coerce.boolean().optional().default(false),
   storeId: z.string().optional(),
   staffId: z.string().optional(),
   search: z.string().optional(),

@@ -11,6 +11,7 @@ import {
   prepareCustomerPii,
 } from "@/lib/services/pii";
 import { fieldSaleDenormFields } from "@/lib/services/call-record-denorm";
+import { resolveCalendarDayFromInstant } from "@/lib/utils/calendar-date";
 import { calculateDurationMins, formatDate } from "@/lib/utils/formatters";
 
 interface CreateFieldSaleParams extends CreateFieldSaleInput {
@@ -100,7 +101,9 @@ export async function createFieldSale(
       data: {
         ...fieldData,
         enrollmentOutcome: enrollmentOutcome ?? undefined,
-        activityDate: activityDate ?? new Date(),
+        activityDate: activityDate
+          ? resolveCalendarDayFromInstant(activityDate)
+          : resolveCalendarDayFromInstant(new Date()),
         startTime: resolvedStart,
         endTime: resolvedEnd,
         durationMins,
@@ -154,6 +157,7 @@ interface ListFieldSalesParams {
   pageSize: number;
   year: number;
   month: number;
+  allTime?: boolean;
   search?: string;
   enrollmentOutcome?: CreateFieldSaleInput["enrollmentOutcome"];
   activityType?: CreateFieldSaleInput["activityType"];
@@ -194,10 +198,10 @@ function applyFieldSaleFilters(
 }
 
 function buildFieldSaleWhere(params: ListFieldSalesParams): Prisma.FieldSaleWhereInput {
-  return applyFieldSaleFilters(
-    { activityDate: monthRange(params.year, params.month) },
-    params,
-  );
+  const dateFilter = params.allTime
+    ? {}
+    : { activityDate: monthRange(params.year, params.month) };
+  return applyFieldSaleFilters(dateFilter, params);
 }
 
 function buildFieldSaleYearWhere(

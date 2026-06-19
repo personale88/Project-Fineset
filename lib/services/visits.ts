@@ -14,31 +14,17 @@ import { calculateDurationMins } from "@/lib/utils/formatters";
 import { resolveSchemeEnrollmentFlags } from "@/lib/services/scheme-enrollment";
 import { normalizeSchemesPitched } from "@/lib/validations/scheme.schema";
 import { broadcastSyncEvent } from "@/lib/sync/broadcaster";
-import { endOfCalendarDay, startOfCalendarDay } from "@/lib/utils/calendar-date";
+import {
+  applyTimeToCalendarDay,
+  endOfCalendarDay,
+  isSameCalendarDay,
+  resolveCalendarDayFromInstant,
+  startOfCalendarDay,
+} from "@/lib/utils/calendar-date";
 
 interface CreateVisitParams extends CreateVisitInput {
   storeId: string;
   staffId: string;
-}
-
-function startOfLocalDay(date: Date): Date {
-  const day = new Date(date);
-  day.setHours(0, 0, 0, 0);
-  return day;
-}
-
-function applyTimeToDay(day: Date, time: Date): Date {
-  const result = new Date(day);
-  result.setHours(time.getHours(), time.getMinutes(), 0, 0);
-  return result;
-}
-
-function isSameLocalDay(a: Date, b: Date): boolean {
-  return (
-    a.getFullYear() === b.getFullYear() &&
-    a.getMonth() === b.getMonth() &&
-    a.getDate() === b.getDate()
-  );
 }
 
 export async function createVisit(params: CreateVisitParams): Promise<Visit> {
@@ -115,20 +101,22 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
       },
     });
 
-    const visitDay = startOfLocalDay(visitDateInput ?? new Date());
+    const visitDay = resolveCalendarDayFromInstant(visitDateInput ?? new Date());
     const now = new Date();
     const inTime = visitData.inTime
-      ? applyTimeToDay(visitDay, visitData.inTime)
-      : isSameLocalDay(visitDay, now)
+      ? applyTimeToCalendarDay(visitDay, visitData.inTime)
+      : isSameCalendarDay(visitDay, now)
         ? now
         : undefined;
     const outTime =
       visitData.outTime && inTime
-        ? applyTimeToDay(visitDay, visitData.outTime)
+        ? applyTimeToCalendarDay(visitDay, visitData.outTime)
         : null;
     const durationMins =
       inTime && outTime !== null ? calculateDurationMins(inTime, outTime) : null;
     const visitDate = inTime ?? visitDay;
+    const resolvedFollowUpDate =
+      followUpNeeded && followUpDate ? startOfCalendarDay(followUpDate) : null;
 
     const denorm = visitDenormFields({
       transactionAmount: visitData.transactionAmount ?? null,
@@ -162,7 +150,7 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
         outTime,
         durationMins,
         followUpNeeded,
-        followUpDate: followUpNeeded ? followUpDate : null,
+        followUpDate: resolvedFollowUpDate,
         enrollmentOutcome,
         schemeEnrolled: schemeFlags.schemeEnrolled,
         ghsPolicy: schemeFlags.ghsPolicy,
@@ -170,12 +158,12 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
       },
     });
 
-    if (followUpNeeded && followUpDate) {
+    if (followUpNeeded && resolvedFollowUpDate) {
       await tx.followUp.create({
         data: {
           visitId: visit.id,
           assignedStaffId: staffId,
-          followUpDate,
+          followUpDate: resolvedFollowUpDate,
           reason: visitData.reasonNoPurchase ?? "Follow-up requested",
           status: "OPEN",
         },

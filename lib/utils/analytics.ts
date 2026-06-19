@@ -149,6 +149,7 @@ export function buildStoreKPIs(
     purchaseStatus: PurchaseStatus;
     transactionAmount: number | null;
     customerType: string;
+    schemeEnrolled?: boolean;
   }>,
   openFollowUps: number,
 ): StoreKPIs {
@@ -159,6 +160,7 @@ export function buildStoreKPIs(
     avgTransaction: calculateAvgTransaction(visits),
     newCustomers: visits.filter((v) => v.customerType === "NEW").length,
     repeatCustomers: visits.filter((v) => v.customerType === "REPEAT").length,
+    schemesEnrolled: visits.filter((v) => v.schemeEnrolled).length,
     openFollowUps,
   };
 }

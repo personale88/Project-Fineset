@@ -17,6 +17,8 @@ type StaffCallsCopy = Content["staff"]["calls"];
 
 interface StaffCallFilterPanelProps {
   copy: StaffCallsCopy;
+  scopeHint?: string;
+  queuePriorityHint?: string;
   year: number;
   month: number;
   segment: StaffCallSegment;
@@ -55,6 +57,8 @@ interface StaffCallFilterPanelProps {
 
 export function StaffCallFilterPanel({
   copy,
+  scopeHint,
+  queuePriorityHint,
   year,
   month,
   segment,
@@ -83,6 +87,12 @@ export function StaffCallFilterPanel({
 }: StaffCallFilterPanelProps) {
   return (
     <div className="min-w-0 space-y-3">
+      {scopeHint ? (
+        <p className="text-sm text-text-muted">{scopeHint}</p>
+      ) : null}
+      {queue !== "ALL" && queuePriorityHint ? (
+        <p className="text-sm text-text-muted">{queuePriorityHint}</p>
+      ) : null}
       <YearMonthFilters
         variant="compact"
         year={year}

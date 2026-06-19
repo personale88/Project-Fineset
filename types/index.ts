@@ -110,6 +110,7 @@ export interface StoreKPIs {
   avgTransaction: number;
   newCustomers: number;
   repeatCustomers: number;
+  schemesEnrolled: number;
   openFollowUps: number;
 }
 
@@ -120,6 +121,7 @@ export interface StoreKPIDeltas {
   avgTransaction: number;
   newCustomers: number;
   repeatCustomers: number;
+  schemesEnrolled: number;
 }
 
 export interface StorePerformanceDeltas {
@@ -261,6 +263,7 @@ export interface StoreCallAnalytics {
   staffBreakdown: StoreCallStaffRow[];
   byCustomerType: StoreCallBreakdownRow[];
   byPurchaseStatus: StoreCallBreakdownRow[];
+  visitLogByPurchaseStatus: Array<{ label: string; count: number; status: PurchaseStatus }>;
   byValueTier: StoreCallBreakdownRow[];
   byIntentTier: StoreCallBreakdownRow[];
   notesInsights: {
@@ -606,6 +609,7 @@ export interface GetFieldSalesListParams {
   pageSize?: number;
   year?: number;
   month?: number;
+  allTime?: boolean;
   storeId?: string;
   staffId?: string;
   search?: string;
@@ -718,5 +722,6 @@ export type MetalKtPref =
   | "GOLD_14KT"
   | "GOLD_18KT"
   | "GOLD_22KT"
+  | "GOLD_24KT"
   | "DIAMOND"
   | "SILVER";

@@ -40,6 +40,7 @@ model Store {
   customers  Customer[]
   fieldSales FieldSale[]
   importHistory ImportHistory[]
+  correctionRequests CorrectionRequest[]
 }
 
 model StoreCategoryOption {
@@ -67,6 +68,7 @@ model Staff {
   fieldSales        FieldSale[]
   assignedFollowUps FollowUp[]
   phoneRevealLogs   PhoneRevealLog[]
+  correctionRequests CorrectionRequest[]
 
   @@index([storeId, isActive])
 }
@@ -210,6 +212,7 @@ model Visit {
   followUp        FollowUp?
   callLogs        StaffCallLog[]
   phoneRevealLogs PhoneRevealLog[]
+  correctionRequests CorrectionRequest[]
 
   @@index([storeId, visitDate(sort: Desc)])
   @@index([staffId, storeId, visitDate(sort: Desc)])
@@ -419,6 +422,7 @@ model FieldSale {
   followUp FollowUp?
   callLogs StaffCallLog[]
   phoneRevealLogs PhoneRevealLog[]
+  correctionRequests CorrectionRequest[]
 
   @@index([staffId, activityDate(sort: Desc)])
   @@index([staffId, storeId, activityDate(sort: Desc), lastCallAnswered])
@@ -447,4 +451,29 @@ model ImportHistory {
   @@index([featureKey])
   @@index([storeId, importedAt(sort: Desc)])
   @@index([importedByAuthId])
+}
+
+enum CorrectionRequestStatus {
+  OPEN
+  RESOLVED
+}
+
+model CorrectionRequest {
+  id          String                  @id @default(cuid())
+  storeId     String
+  staffId     String
+  visitId     String?
+  fieldSaleId String?
+  message     String                  @db.VarChar(500)
+  status      CorrectionRequestStatus @default(OPEN)
+  createdAt   DateTime                @default(now())
+  resolvedAt  DateTime?
+
+  store     Store      @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  staff     Staff      @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  visit     Visit?     @relation(fields: [visitId], references: [id], onDelete: SetNull)
+  fieldSale FieldSale? @relation(fields: [fieldSaleId], references: [id], onDelete: SetNull)
+
+  @@index([storeId, status, createdAt(sort: Desc)])
+  @@index([staffId, createdAt(sort: Desc)])
 }

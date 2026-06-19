@@ -109,7 +109,7 @@ export function StorePortfolio({
         />
       </div>
 
-      <BusinessOwnerStoreNotifications />
+      <BusinessOwnerStoreNotifications period={period} />
 
       {loading ? (
         <div className={STORE_CAROUSEL_CLASS} aria-live="polite">

@@ -46,6 +46,8 @@ export async function GET(req: Request) {
       staffId,
       status: query.data.status,
       overdue: query.data.overdue,
+      dueToday: query.data.dueToday,
+      filter: query.data.filter,
     });
 
     return NextResponse.json(data);

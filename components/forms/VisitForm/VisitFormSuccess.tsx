@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,11 +11,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+interface VisitFormSuccessAction {
+  label: string;
+  href?: string;
+  onClick?: () => void;
+}
+
 interface VisitFormSuccessProps {
   title: string;
   message: string;
   logAnotherLabel: string;
   onLogAnother: () => void;
+  secondaryActions?: VisitFormSuccessAction[];
 }
 
 export function VisitFormSuccess({
@@ -22,6 +30,7 @@ export function VisitFormSuccess({
   message,
   logAnotherLabel,
   onLogAnother,
+  secondaryActions = [],
 }: VisitFormSuccessProps) {
   return (
     <Card className="border-status-success/30">
@@ -32,7 +41,24 @@ export function VisitFormSuccess({
         <CardTitle>{title}</CardTitle>
         <CardDescription>{message}</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-2">
+        {secondaryActions.map((action) =>
+          action.href ? (
+            <Button key={action.label} asChild variant="outline" className="w-full">
+              <Link href={action.href}>{action.label}</Link>
+            </Button>
+          ) : (
+            <Button
+              key={action.label}
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={action.onClick}
+            >
+              {action.label}
+            </Button>
+          ),
+        )}
         <Button className="w-full" onClick={onLogAnother}>
           {logAnotherLabel}
         </Button>

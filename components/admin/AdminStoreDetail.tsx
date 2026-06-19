@@ -182,6 +182,7 @@ export function AdminStoreDetail({
         deltaPeriod={storeCopy.deltaPeriod}
         kpis={kpis}
         deltas={deltas}
+        purchaseStatusBreakdown={overview?.kpis.purchaseStatusBreakdown}
         isLoading={loading}
       />
 

@@ -43,7 +43,8 @@ export function fieldSalesParamsMatch(
     (current.storeId ?? "") === (initial.storeId ?? "") &&
     (current.staffId ?? "") === (initial.staffId ?? "") &&
     (current.enrollmentOutcome ?? "") === (initial.enrollmentOutcome ?? "") &&
-    (current.activityType ?? "") === (initial.activityType ?? "")
+    (current.activityType ?? "") === (initial.activityType ?? "") &&
+    Boolean(current.allTime) === Boolean(initial.allTime)
   );
 }
 

@@ -5,27 +5,59 @@ describe("followUpQuerySchema", () => {
   it("parses overdue flag", () => {
     expect(followUpQuerySchema.parse({ overdue: "true" })).toEqual({
       overdue: true,
+      dueToday: false,
     });
   });
 
-  it("accepts status and overdue together", () => {
-    expect(
-      followUpQuerySchema.parse({ status: "CLOSED", overdue: "true" }),
-    ).toEqual({
-      status: "CLOSED",
-      overdue: true,
+  it("parses dueToday and filter", () => {
+    expect(followUpQuerySchema.parse({ dueToday: "true" })).toEqual({
+      dueToday: true,
+      overdue: false,
+    });
+    expect(followUpQuerySchema.parse({ filter: "open" })).toEqual({
+      filter: "open",
+      overdue: false,
+      dueToday: false,
     });
   });
 });
 
 describe("updateFollowUpSchema", () => {
-  it("requires valid status when provided", () => {
-    expect(updateFollowUpSchema.parse({ status: "OPEN" })).toEqual({
-      status: "OPEN",
+  it("accepts open and close actions", () => {
+    expect(updateFollowUpSchema.parse({ action: "open" })).toEqual({
+      action: "open",
+    });
+    expect(updateFollowUpSchema.parse({ action: "close" })).toEqual({
+      action: "close",
     });
   });
 
-  it("rejects invalid status", () => {
-    expect(() => updateFollowUpSchema.parse({ status: "INVALID" })).toThrow();
+  it("requires followUpDate when scheduling", () => {
+    expect(() => updateFollowUpSchema.parse({ action: "schedule" })).toThrow();
+  });
+
+  it("rejects past schedule dates", () => {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    expect(() =>
+      updateFollowUpSchema.parse({
+        action: "schedule",
+        followUpDate: yesterday.toISOString(),
+      }),
+    ).toThrow();
+  });
+
+  it("accepts future schedule dates", () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const parsed = updateFollowUpSchema.parse({
+      action: "schedule",
+      followUpDate: tomorrow.toISOString(),
+    });
+
+    expect(parsed.action).toBe("schedule");
+    expect(parsed.followUpDate).toBeInstanceOf(Date);
   });
 });

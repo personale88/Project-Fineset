@@ -103,10 +103,14 @@ export async function GET(request: Request) {
 
   if (!profile) {
     logCallback("inactive", { totalMs: Date.now() - startedAt, timings, reason: "missing_profile" });
-    return NextResponse.redirect(`${origin}/?error=account_inactive`);
+    return NextResponse.redirect(`${origin}/?error=account_missing_profile`);
   }
 
-  if (!profile.isActive) {
+  const staff = profile.staff as { isActive?: boolean } | null | undefined;
+  const isDeactivated =
+    (!profile.isActive && profile.activatedAt !== null) || staff?.isActive === false;
+
+  if (isDeactivated) {
     logCallback("deactivated", { totalMs: Date.now() - startedAt, timings });
     return NextResponse.redirect(`${origin}/?error=account_deactivated`);
   }
@@ -117,7 +121,7 @@ export async function GET(request: Request) {
     role = session.role;
   } catch (err) {
     console.error("[auth.callback] invalid profile", profile.id, err);
-    return NextResponse.redirect(`${origin}/?error=auth_callback`);
+    return NextResponse.redirect(`${origin}/?error=account_incomplete_profile`);
   }
 
   const destination = resolvePostAuthRedirect(role, next);

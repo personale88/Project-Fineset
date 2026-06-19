@@ -90,7 +90,7 @@ async function main(): Promise<void> {
     remaining,
     nextSteps: [
       "Log in with existing staff/store passwords",
-      "Staff: log new visits at /staff/dashboard/visits",
+      "Staff: log new visits at /staff/dashboard/log-visit",
       "Verify store + admin dashboards and Supabase tables",
     ],
   });

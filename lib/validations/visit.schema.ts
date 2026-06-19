@@ -53,6 +53,7 @@ const metalKtPrefSchema = z.enum([
   "GOLD_14KT",
   "GOLD_18KT",
   "GOLD_22KT",
+  "GOLD_24KT",
   "DIAMOND",
   "SILVER",
 ]);

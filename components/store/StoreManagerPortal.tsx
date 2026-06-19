@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DashboardNotifications } from "@/components/dashboard/DashboardNotifications";
+import { StoreCorrectionRequests } from "@/components/store/StoreCorrectionRequests";
 import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
 import type { Content } from "@/content/en";
 
@@ -60,6 +61,8 @@ export function StoreManagerPortal({ copy, storeId }: StoreManagerPortalProps) {
       </header>
 
       <DashboardNotifications variant="store_manager" storeId={storeId} />
+
+      <StoreCorrectionRequests storeId={storeId} />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {actions.map((action) => {

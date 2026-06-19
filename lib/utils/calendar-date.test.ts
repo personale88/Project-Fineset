@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   compareCalendarDateStrings,
   formatCalendarDate,
+  normalizeCalendarPickerDate,
   parseCalendarDate,
+  resolveCalendarDayFromInstant,
+  applyTimeToCalendarDay,
   startOfCalendarDay,
 } from "@/lib/utils/calendar-date";
 
@@ -35,5 +38,36 @@ describe("calendar-date", () => {
 
   it("compares calendar date strings", () => {
     expect(compareCalendarDateStrings("2026-06-13", "2026-06-14")).toBeLessThan(0);
+  });
+
+  it("normalizes picker dates to noon on the same calendar day", () => {
+    const midnight = new Date(2026, 5, 18, 0, 0, 0);
+    const normalized = normalizeCalendarPickerDate(midnight);
+    expect(formatCalendarDate(normalized)).toBe("2026-06-18");
+    expect(normalized.getHours()).toBe(12);
+  });
+
+  it("resolves the same calendar day from a normalized client instant", () => {
+    const clientInstant = parseCalendarDate("2026-06-18");
+    const storedDay = resolveCalendarDayFromInstant(clientInstant);
+    expect(formatCalendarDate(storedDay)).toBe("2026-06-18");
+  });
+
+  it("applies time-of-day onto a calendar day", () => {
+    const day = parseCalendarDate("2026-06-18");
+    const time = new Date(2026, 5, 18, 15, 45, 0);
+    const combined = applyTimeToCalendarDay(day, time);
+    expect(formatCalendarDate(combined)).toBe("2026-06-18");
+    expect(combined.getHours()).toBe(15);
+    expect(combined.getMinutes()).toBe(45);
+  });
+
+  it("keeps picker midnight stable through normalize and server resolve", () => {
+    const pickerMidnight = new Date(2026, 5, 18, 0, 0, 0);
+    const normalized = normalizeCalendarPickerDate(pickerMidnight);
+    const stored = resolveCalendarDayFromInstant(normalized);
+
+    expect(formatCalendarDate(normalized)).toBe("2026-06-18");
+    expect(formatCalendarDate(stored)).toBe("2026-06-18");
   });
 });

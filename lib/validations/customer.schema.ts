@@ -4,7 +4,8 @@ export const getCustomerProfileQuerySchema = z
   .object({
     customerId: z.string().optional(),
     visitId: z.string().optional(),
+    fieldSaleId: z.string().optional(),
   })
-  .refine((data) => data.customerId || data.visitId, {
-    message: "customerId or visitId is required",
+  .refine((data) => data.customerId || data.visitId || data.fieldSaleId, {
+    message: "customerId, visitId, or fieldSaleId is required",
   });

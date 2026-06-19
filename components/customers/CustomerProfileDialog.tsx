@@ -31,8 +31,17 @@ import { CustomerMergePanel } from "@/components/customers/CustomerMergePanel";
 type ProfileCopy = Content["store"]["visits"]["customerProfile"];
 type VisitFormFields = Content["visitForm"]["fields"];
 
+export type CustomerProfileLookup = {
+  customerId?: string | null;
+  visitId?: string | null;
+  fieldSaleId?: string | null;
+  customerName: string;
+  storeId?: string;
+};
+
 interface CustomerProfileDialogProps {
   visit: VisitListItem | null;
+  lookup?: CustomerProfileLookup | null;
   copy: ProfileCopy;
   fieldLabels: VisitFormFields;
   productLabels: Record<string, string>;
@@ -40,6 +49,7 @@ interface CustomerProfileDialogProps {
   onViewVisit?: (visitId: string) => void;
   showMerge?: boolean;
   storeId?: string;
+  headerActions?: React.ReactNode;
 }
 
 const timelineStyles: Record<
@@ -80,6 +90,7 @@ function ChipList({
 
 export function CustomerProfileDialog({
   visit,
+  lookup = null,
   copy,
   fieldLabels,
   productLabels,
@@ -87,15 +98,18 @@ export function CustomerProfileDialog({
   onViewVisit,
   showMerge = false,
   storeId,
+  headerActions,
 }: CustomerProfileDialogProps) {
-  const open = visit !== null;
+  const open = visit !== null || lookup !== null;
   const { data: profile, isLoading, isError } = useCustomerProfile({
-    customerId: visit?.customerId,
-    visitId: visit?.id,
+    customerId: lookup?.customerId ?? visit?.customerId,
+    visitId: lookup?.visitId ?? visit?.id,
+    fieldSaleId: lookup?.fieldSaleId,
+    storeId: lookup?.storeId ?? storeId,
     enabled: open,
   });
 
-  const initials = (profile?.customer.name ?? visit?.customerName ?? "?")
+  const initials = (profile?.customer.name ?? lookup?.customerName ?? visit?.customerName ?? "?")
     .split(" ")
     .map((part) => part[0])
     .join("")
@@ -162,6 +176,9 @@ export function CustomerProfileDialog({
                     )}
                   </div>
                 </div>
+                {headerActions ? (
+                  <div className="flex shrink-0 items-start gap-2">{headerActions}</div>
+                ) : null}
               </div>
             </DialogHeader>
 

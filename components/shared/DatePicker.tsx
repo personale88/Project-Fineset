@@ -11,6 +11,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { normalizeCalendarPickerDate } from "@/lib/utils/calendar-date";
 import { formatDate } from "@/lib/utils/formatters";
 
 interface DatePickerProps {
@@ -99,7 +100,7 @@ export function DatePicker({
             mode="single"
             selected={value}
             onSelect={(date) => {
-              onChange(date);
+              onChange(date ? normalizeCalendarPickerDate(date) : undefined);
               setOpen(false);
             }}
             defaultMonth={value}

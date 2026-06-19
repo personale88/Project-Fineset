@@ -1,23 +1,27 @@
 import { prisma } from "@/lib/db/prisma";
 import {
-  buildCallsPeriodRange,
   extractCallQueueSignals,
 } from "@/lib/services/call-queue-utils";
+import { classifyVisitMasterSource } from "@/lib/services/staff-call-master";
 import { listOwnedStoresForBusinessOwner } from "@/lib/services/manager-stores";
-import {
-  staffMissedTotal,
-  type StaffMissedSummary,
+import { decryptVisitPii } from "@/lib/services/pii";
+import { getPeriodRange } from "@/lib/utils/analytics";
+import type {
+  OverdueAlertItem,
 } from "@/lib/services/store-dashboard-notifications.types";
-import type { ManagerStoreOption } from "@/types";
+import type { AnalyticsPeriod, ManagerStoreOption } from "@/types";
 import type { CallAnswerStatus } from "@prisma/client";
 
-export type { StaffMissedSummary } from "@/lib/services/store-dashboard-notifications.types";
+export type {
+  OverdueAlertItem,
+  OverdueAlertCategory,
+  StaffMissedSummary,
+} from "@/lib/services/store-dashboard-notifications.types";
 export { staffMissedTotal } from "@/lib/services/store-dashboard-notifications.types";
 
-interface StaffMissedCounts {
-  missedCalls: number;
-  missedBirthdays: number;
-  missedAnniversaries: number;
+interface AlertPeriodRange {
+  start: Date;
+  end: Date;
 }
 
 function startOfDay(date: Date): Date {
@@ -26,59 +30,86 @@ function startOfDay(date: Date): Date {
   return next;
 }
 
-function isOverdueFollowUp(followUpDate: Date): boolean {
-  return followUpDate < startOfDay(new Date());
+function isDateInRange(date: Date | string, range: AlertPeriodRange): boolean {
+  const value = new Date(date);
+  return value >= startOfDay(range.start) && value <= range.end;
 }
 
-function isMissedOccasion(
-  occasionDate: Date | null | undefined,
-  referenceDate: Date,
+function monthsInRange(range: AlertPeriodRange): number[] {
+  const months = new Set<number>();
+  const cursor = new Date(range.start.getFullYear(), range.start.getMonth(), 1);
+  const endMonth = new Date(range.end.getFullYear(), range.end.getMonth(), 1);
+
+  while (cursor <= endMonth) {
+    months.add(cursor.getMonth() + 1);
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return [...months];
+}
+
+function missedOccasionDateInRange(
+  occasionDate: Date,
+  range: AlertPeriodRange,
   lastCallAnswered: CallAnswerStatus | null | undefined,
-): boolean {
-  if (!occasionDate) return false;
+): Date | null {
+  if (lastCallAnswered === "ANSWERED") return null;
 
-  const occasionMonth = occasionDate.getUTCMonth();
-  const occasionDay = occasionDate.getUTCDate();
-  if (occasionMonth !== referenceDate.getMonth()) return false;
-  if (occasionDay >= referenceDate.getDate()) return false;
+  const years = new Set([range.start.getFullYear(), range.end.getFullYear()]);
 
-  return lastCallAnswered !== "ANSWERED";
+  for (const year of years) {
+    const occurrence = new Date(
+      year,
+      occasionDate.getUTCMonth(),
+      occasionDate.getUTCDate(),
+      12,
+      0,
+      0,
+      0,
+    );
+
+    if (!isDateInRange(occurrence, range)) continue;
+    if (occurrence > range.end) continue;
+
+    return occurrence;
+  }
+
+  return null;
 }
 
-function emptyCounts(): StaffMissedCounts {
-  return {
-    missedCalls: 0,
-    missedBirthdays: 0,
-    missedAnniversaries: 0,
-  };
+function followUpDueInRange(followUpDate: Date, range: AlertPeriodRange): boolean {
+  return isDateInRange(followUpDate, range);
 }
 
-function ensureStaffCounts(
-  map: Map<string, StaffMissedCounts>,
-  staffId: string,
-): StaffMissedCounts {
-  const existing = map.get(staffId);
-  if (existing) return existing;
-  const created = emptyCounts();
-  map.set(staffId, created);
-  return created;
+function isOverdueAsOfPeriodEnd(followUpDate: Date, range: AlertPeriodRange): boolean {
+  const todayStart = startOfDay(new Date());
+  const asOf = range.end < todayStart ? range.end : new Date();
+  return followUpDate < startOfDay(asOf);
 }
 
-async function buildStaffMissedForStore(
+function pushAlert(
+  items: OverdueAlertItem[],
+  alert: Omit<OverdueAlertItem, "id">,
+): void {
+  items.push({
+    ...alert,
+    id: `${alert.category}:${alert.reason}:${alert.storeId}:${alert.staffId}:${alert.recordId ?? alert.customerName}:${alert.missedDate}`,
+  });
+}
+
+async function buildOverdueAlertsForStore(
   store: ManagerStoreOption,
-  referenceDate = new Date(),
-): Promise<StaffMissedSummary[]> {
-  const year = referenceDate.getFullYear();
-  const month = referenceDate.getMonth() + 1;
-  const { start, end } = buildCallsPeriodRange(year, month);
-  const periodWhere = { gte: start, lte: end };
+  range: AlertPeriodRange,
+): Promise<OverdueAlertItem[]> {
+  const periodWhere = { gte: range.start, lte: range.end };
+  const occasionMonths = monthsInRange(range);
+  const items: OverdueAlertItem[] = [];
 
   const [staffMembers, openFollowUps, callVisits, occasionVisits, occasionFieldSales] =
     await Promise.all([
       prisma.staff.findMany({
         where: { storeId: store.id, isActive: true },
         select: { id: true, name: true },
-        orderBy: { name: "asc" },
       }),
       prisma.followUp.findMany({
         where: {
@@ -86,8 +117,24 @@ async function buildStaffMissedForStore(
           OR: [{ visit: { storeId: store.id } }, { fieldSale: { storeId: store.id } }],
         },
         select: {
+          id: true,
           assignedStaffId: true,
           followUpDate: true,
+          visit: {
+            select: {
+              id: true,
+              customerName: true,
+              customerPhone: true,
+              sourceChannel: true,
+            },
+          },
+          fieldSale: {
+            select: {
+              id: true,
+              customerName: true,
+              customerPhone: true,
+            },
+          },
         },
       }),
       prisma.visit.findMany({
@@ -100,12 +147,20 @@ async function buildStaffMissedForStore(
           ],
         },
         select: {
+          id: true,
           staffId: true,
+          customerName: true,
+          customerPhone: true,
+          sourceChannel: true,
+          visitDate: true,
+          lastCallAt: true,
           lastCallAnswered: true,
           followUp: {
             select: {
+              id: true,
               status: true,
               assignedStaffId: true,
+              followUpDate: true,
             },
           },
         },
@@ -113,11 +168,21 @@ async function buildStaffMissedForStore(
       prisma.visit.findMany({
         where: {
           storeId: store.id,
-          visitDate: periodWhere,
-          OR: [{ birthMonth: month }, { anniversaryMonth: month }],
+          OR: [
+            { visitDate: periodWhere },
+            { birthMonth: { in: occasionMonths } },
+            { anniversaryMonth: { in: occasionMonths } },
+          ],
+          AND: {
+            OR: [{ birthMonth: { not: null } }, { anniversaryMonth: { not: null } }],
+          },
         },
         select: {
+          id: true,
           staffId: true,
+          customerName: true,
+          customerPhone: true,
+          sourceChannel: true,
           dateOfBirth: true,
           anniversary: true,
           birthMonth: true,
@@ -134,11 +199,20 @@ async function buildStaffMissedForStore(
       prisma.fieldSale.findMany({
         where: {
           storeId: store.id,
-          activityDate: periodWhere,
-          OR: [{ birthMonth: month }, { anniversaryMonth: month }],
+          OR: [
+            { activityDate: periodWhere },
+            { birthMonth: { in: occasionMonths } },
+            { anniversaryMonth: { in: occasionMonths } },
+          ],
+          AND: {
+            OR: [{ birthMonth: { not: null } }, { anniversaryMonth: { not: null } }],
+          },
         },
         select: {
+          id: true,
           staffId: true,
+          customerName: true,
+          customerPhone: true,
           birthMonth: true,
           anniversaryMonth: true,
           lastCallAnswered: true,
@@ -153,19 +227,45 @@ async function buildStaffMissedForStore(
     ]);
 
   const staffNameById = new Map(staffMembers.map((member) => [member.id, member.name]));
-  const countsByStaff = new Map<string, StaffMissedCounts>();
 
-  for (const member of staffMembers) {
-    ensureStaffCounts(countsByStaff, member.id);
-  }
+  const storeMeta = {
+    storeId: store.id,
+    storeName: store.name,
+    storeCity: store.city,
+    storeState: store.state,
+  };
+
+  const staffName = (staffId: string) => staffNameById.get(staffId) ?? "Unknown staff";
+  const emittedFollowUpIds = new Set<string>();
 
   for (const followUp of openFollowUps) {
-    if (!isOverdueFollowUp(followUp.followUpDate)) continue;
-    ensureStaffCounts(countsByStaff, followUp.assignedStaffId).missedCalls += 1;
+    if (!followUpDueInRange(followUp.followUpDate, range)) continue;
+    if (!isOverdueAsOfPeriodEnd(followUp.followUpDate, range)) continue;
+
+    const source = followUp.visit ?? followUp.fieldSale;
+    if (!source) continue;
+
+    emittedFollowUpIds.add(followUp.id);
+    const decrypted = decryptVisitPii(source);
+    pushAlert(items, {
+      category: "calls",
+      reason: "FOLLOW_UP_OVERDUE",
+      ...storeMeta,
+      staffId: followUp.assignedStaffId,
+      staffName: staffName(followUp.assignedStaffId),
+      customerName: decrypted.customerName,
+      customerPhone: decrypted.customerPhone,
+      missedDate: followUp.followUpDate.toISOString(),
+      recordId: followUp.visit?.id ?? followUp.fieldSale?.id ?? null,
+      masterSource: followUp.visit
+        ? classifyVisitMasterSource(followUp.visit.sourceChannel)
+        : "FIELD_SALE",
+    });
   }
 
   for (const visit of callVisits) {
-    const bucket = ensureStaffCounts(countsByStaff, visit.staffId);
+    const decrypted = decryptVisitPii(visit);
+    const masterSource = classifyVisitMasterSource(visit.sourceChannel);
     const signals = extractCallQueueSignals({
       staffId: visit.staffId,
       followUp: visit.followUp,
@@ -173,45 +273,103 @@ async function buildStaffMissedForStore(
     });
 
     if (signals.lastCallAnswered === "NOT_ANSWERED") {
-      bucket.missedCalls += 1;
+      const missedDate = visit.lastCallAt ?? visit.visitDate;
+      if (!isDateInRange(missedDate, range)) continue;
+
+      pushAlert(items, {
+        category: "calls",
+        reason: "NOT_ANSWERED",
+        ...storeMeta,
+        staffId: visit.staffId,
+        staffName: staffName(visit.staffId),
+        customerName: decrypted.customerName,
+        customerPhone: decrypted.customerPhone,
+        missedDate: missedDate.toISOString(),
+        recordId: visit.id,
+        masterSource,
+      });
     }
 
     if (
       visit.followUp?.status === "OPEN" &&
-      visit.followUp.assignedStaffId === visit.staffId
+      visit.followUp.assignedStaffId === visit.staffId &&
+      !emittedFollowUpIds.has(visit.followUp.id) &&
+      followUpDueInRange(visit.followUp.followUpDate, range) &&
+      !isOverdueAsOfPeriodEnd(visit.followUp.followUpDate, range)
     ) {
-      bucket.missedCalls += 1;
+      pushAlert(items, {
+        category: "calls",
+        reason: "OPEN_FOLLOW_UP",
+        ...storeMeta,
+        staffId: visit.staffId,
+        staffName: staffName(visit.staffId),
+        customerName: decrypted.customerName,
+        customerPhone: decrypted.customerPhone,
+        missedDate: visit.followUp.followUpDate.toISOString(),
+        recordId: visit.id,
+        masterSource,
+      });
     }
   }
 
   const recordOccasion = (
     staffId: string,
+    recordId: string,
+    customerName: string,
+    customerPhone: string,
+    masterSource: OverdueAlertItem["masterSource"],
     birthMonth: number | null,
     anniversaryMonth: number | null,
     dateOfBirth: Date | null | undefined,
     anniversary: Date | null | undefined,
     lastCallAnswered: CallAnswerStatus | null | undefined,
   ) => {
-    const bucket = ensureStaffCounts(countsByStaff, staffId);
+    const decrypted = decryptVisitPii({ customerName, customerPhone });
 
-    if (
-      birthMonth === month &&
-      isMissedOccasion(dateOfBirth ?? null, referenceDate, lastCallAnswered)
-    ) {
-      bucket.missedBirthdays += 1;
+    const birthdayDate = dateOfBirth
+      ? missedOccasionDateInRange(dateOfBirth, range, lastCallAnswered)
+      : null;
+    if (birthMonth && birthdayDate) {
+      pushAlert(items, {
+        category: "birthdays",
+        reason: "BIRTHDAY",
+        ...storeMeta,
+        staffId,
+        staffName: staffName(staffId),
+        customerName: decrypted.customerName,
+        customerPhone: decrypted.customerPhone,
+        missedDate: birthdayDate.toISOString(),
+        recordId,
+        masterSource,
+      });
     }
 
-    if (
-      anniversaryMonth === month &&
-      isMissedOccasion(anniversary ?? null, referenceDate, lastCallAnswered)
-    ) {
-      bucket.missedAnniversaries += 1;
+    const anniversaryDate = anniversary
+      ? missedOccasionDateInRange(anniversary, range, lastCallAnswered)
+      : null;
+    if (anniversaryMonth && anniversaryDate) {
+      pushAlert(items, {
+        category: "anniversaries",
+        reason: "ANNIVERSARY",
+        ...storeMeta,
+        staffId,
+        staffName: staffName(staffId),
+        customerName: decrypted.customerName,
+        customerPhone: decrypted.customerPhone,
+        missedDate: anniversaryDate.toISOString(),
+        recordId,
+        masterSource,
+      });
     }
   };
 
   for (const visit of occasionVisits) {
     recordOccasion(
       visit.staffId,
+      visit.id,
+      visit.customerName,
+      visit.customerPhone,
+      classifyVisitMasterSource(visit.sourceChannel),
       visit.birthMonth,
       visit.anniversaryMonth,
       visit.dateOfBirth ?? visit.customer?.dateOfBirth,
@@ -223,6 +381,10 @@ async function buildStaffMissedForStore(
   for (const fieldSale of occasionFieldSales) {
     recordOccasion(
       fieldSale.staffId,
+      fieldSale.id,
+      fieldSale.customerName,
+      fieldSale.customerPhone,
+      "FIELD_SALE",
       fieldSale.birthMonth,
       fieldSale.anniversaryMonth,
       fieldSale.customer?.dateOfBirth,
@@ -231,35 +393,27 @@ async function buildStaffMissedForStore(
     );
   }
 
-  return Array.from(countsByStaff.entries())
-    .map(([staffId, counts]) => ({
-      storeId: store.id,
-      storeName: store.name,
-      storeCity: store.city,
-      storeState: store.state,
-      staffId,
-      staffName: staffNameById.get(staffId) ?? "Unknown staff",
-      missedCalls: counts.missedCalls,
-      missedBirthdays: counts.missedBirthdays,
-      missedAnniversaries: counts.missedAnniversaries,
-    }))
-    .filter((entry) => staffMissedTotal(entry) > 0);
+  return items.filter((item) => isDateInRange(item.missedDate, range));
 }
 
 export async function getBusinessOwnerStoreNotifications(
   email: string,
   primaryStoreId: string,
-): Promise<StaffMissedSummary[]> {
+  period: AnalyticsPeriod["label"] = "today",
+  referenceDate = new Date(),
+): Promise<OverdueAlertItem[]> {
+  const range = getPeriodRange(period, referenceDate);
   const stores = await listOwnedStoresForBusinessOwner(email, primaryStoreId);
   const items = (
-    await Promise.all(stores.map((store) => buildStaffMissedForStore(store)))
+    await Promise.all(stores.map((store) => buildOverdueAlertsForStore(store, range)))
   ).flat();
 
   return items.sort((a, b) => {
-    const totalDiff = staffMissedTotal(b) - staffMissedTotal(a);
-    if (totalDiff !== 0) return totalDiff;
+    const dateDiff = new Date(a.missedDate).getTime() - new Date(b.missedDate).getTime();
+    if (dateDiff !== 0) return dateDiff;
     return (
-      a.storeName.localeCompare(b.storeName) || a.staffName.localeCompare(b.staffName)
+      a.customerName.localeCompare(b.customerName) ||
+      a.storeName.localeCompare(b.storeName)
     );
   });
 }

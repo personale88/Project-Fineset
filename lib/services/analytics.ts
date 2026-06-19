@@ -27,6 +27,7 @@ const visitAnalyticsSelect = {
   customerType: true,
   sourceChannel: true,
   reasonNoPurchase: true,
+  schemeEnrolled: true,
 } as const;
 
 function buildVisitBreakdowns(
@@ -86,22 +87,14 @@ export const getStoreAnalytics = unstable_cache(
         storeId,
         visitDate: { gte: start, lte: end },
       },
-      select: {
-        purchaseStatus: true,
-        transactionAmount: true,
-        customerType: true,
-      },
+      select: visitAnalyticsSelect,
     }),
     prisma.visit.findMany({
       where: {
         storeId,
         visitDate: { gte: previousRange.start, lte: previousRange.end },
       },
-      select: {
-        purchaseStatus: true,
-        transactionAmount: true,
-        customerType: true,
-      },
+      select: visitAnalyticsSelect,
     }),
     prisma.followUp.count({
       where: {
@@ -124,11 +117,18 @@ export const getStoreAnalytics = unstable_cache(
       kpis.repeatCustomers,
       previousKpis.repeatCustomers,
     ),
+    schemesEnrolled: calculateDelta(
+      kpis.schemesEnrolled,
+      previousKpis.schemesEnrolled,
+    ),
   };
+
+  const breakdowns = buildVisitBreakdowns(visits);
 
   return {
     kpis,
     kpiDeltas,
+    ...breakdowns,
   };
   },
   ["getStoreAnalytics"],
@@ -216,6 +216,7 @@ export async function getAdminStoreDetailAnalytics(
         purchaseStatus: true,
         transactionAmount: true,
         customerType: true,
+        schemeEnrolled: true,
       },
     }),
     prisma.followUp.count({
@@ -242,6 +243,10 @@ export async function getAdminStoreDetailAnalytics(
     repeatCustomers: calculateDelta(
       kpis.repeatCustomers,
       previousKpis.repeatCustomers,
+    ),
+    schemesEnrolled: calculateDelta(
+      kpis.schemesEnrolled,
+      previousKpis.schemesEnrolled,
     ),
   };
 

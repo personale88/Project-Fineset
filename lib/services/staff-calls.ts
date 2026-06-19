@@ -1,9 +1,14 @@
 import { prisma } from "@/lib/db/prisma";
+import { hashPhone } from "@/lib/crypto/pii";
+import { phoneDigitsForHash } from "@/lib/import-engine/utils/phoneNormaliser";
+import { lookupCustomerByPhone } from "@/lib/services/customers";
 import { classifyVisitMasterSource } from "@/lib/services/staff-call-master";
 import { resolveStoredValueTier } from "@/lib/services/call-record-denorm";
 import {
   countStaffCallFiltersFromRecords,
+  fetchStaffCallPendingActionRecords,
   fetchStaffCallYearRecords,
+  mergeStaffCallYearRecords,
 } from "@/lib/services/staff-calls-filter-counts";
 import {
   countMergedStaffCalls,
@@ -393,13 +398,67 @@ type StaffCallFilterParams = Omit<ListStaffCallsParams, "page" | "pageSize">;
 export async function listStaffCallFilters(
   params: StaffCallFilterParams,
 ): Promise<StaffCallFilterCounts> {
-  const yearRecords = await fetchStaffCallYearRecords(
-    params.staffId,
-    params.storeId,
-    params.year,
-    params.storeScope,
-  );
-  return countStaffCallFiltersFromRecords(yearRecords, params);
+  const [yearRecords, pendingRecords] = await Promise.all([
+    fetchStaffCallYearRecords(
+      params.staffId,
+      params.storeId,
+      params.year,
+      params.storeScope,
+    ),
+    fetchStaffCallPendingActionRecords(
+      params.staffId,
+      params.storeId,
+      params.storeScope,
+    ),
+  ]);
+  const records = mergeStaffCallYearRecords(yearRecords, pendingRecords);
+  return countStaffCallFiltersFromRecords(records, params);
+}
+
+export async function resolveStaffCallRecord(params: {
+  staffId: string;
+  storeId: string;
+  storeScope?: boolean;
+  customerId?: string;
+  visitId?: string;
+  fieldSaleId?: string;
+}): Promise<StaffCallListItem | null> {
+  const { staffId, storeId, storeScope = false } = params;
+  const staffFilter = storeScope ? {} : { staffId };
+
+  if (params.visitId) {
+    const visit = await prisma.visit.findFirst({
+      where: { id: params.visitId, storeId, ...staffFilter },
+      select: visitListSelect(staffId, storeScope),
+    });
+    return visit ? toVisitRecord(visit, staffId, storeScope).item : null;
+  }
+
+  if (params.fieldSaleId) {
+    const fieldSale = await prisma.fieldSale.findFirst({
+      where: { id: params.fieldSaleId, storeId, ...staffFilter },
+      select: fieldSaleListSelect(staffId, storeScope),
+    });
+    return fieldSale ? toFieldSaleRecord(fieldSale, staffId, storeScope).item : null;
+  }
+
+  if (params.customerId) {
+    const visit = await prisma.visit.findFirst({
+      where: { customerId: params.customerId, storeId, ...staffFilter },
+      orderBy: { visitDate: "desc" },
+      select: visitListSelect(staffId, storeScope),
+    });
+    if (visit) return toVisitRecord(visit, staffId, storeScope).item;
+
+    const fieldSale = await prisma.fieldSale.findFirst({
+      where: { customerId: params.customerId, storeId, ...staffFilter },
+      orderBy: { activityDate: "desc" },
+      select: fieldSaleListSelect(staffId, storeScope),
+    });
+    return fieldSale ? toFieldSaleRecord(fieldSale, staffId, storeScope).item : null;
+  }
+
+  return null;
 }
 
 export async function listStaffCalls(params: ListStaffCallsParams): Promise<StaffCallListResponse> {
@@ -841,6 +900,75 @@ export async function recordManualStaffCall(
   let visitId: string | null = null;
 
   try {
+    const phoneHash = hashPhone(phoneDigitsForHash(customerPhone));
+    const existingCustomer = await lookupCustomerByPhone(storeId, customerPhone);
+
+    const visitWhere: Prisma.VisitWhereInput = {
+      storeId,
+      staffId,
+      OR: [
+        ...(existingCustomer ? [{ customerId: existingCustomer.id }] : []),
+        { customerPhoneHash: phoneHash },
+      ],
+    };
+
+    const existingVisit = await prisma.visit.findFirst({
+      where: visitWhere,
+      orderBy: { visitDate: "desc" },
+      select: { id: true, sourceChannel: true },
+    });
+
+    if (existingVisit) {
+      const result = await recordStaffCallOutcome({
+        recordId: existingVisit.id,
+        masterSource: classifyVisitMasterSource(existingVisit.sourceChannel),
+        staffId,
+        storeId,
+        answered,
+        feedback,
+        scheduleFollowUp,
+        followUpDate,
+      });
+
+      if (!result) {
+        throw new ManualStaffCallError("Failed to record manual call outcome");
+      }
+
+      return result;
+    }
+
+    const existingFieldSale = await prisma.fieldSale.findFirst({
+      where: {
+        storeId,
+        staffId,
+        OR: [
+          ...(existingCustomer ? [{ customerId: existingCustomer.id }] : []),
+          { customerPhoneHash: phoneHash },
+        ],
+      },
+      orderBy: { activityDate: "desc" },
+      select: { id: true },
+    });
+
+    if (existingFieldSale) {
+      const result = await recordStaffCallOutcome({
+        recordId: existingFieldSale.id,
+        masterSource: "FIELD_SALE",
+        staffId,
+        storeId,
+        answered,
+        feedback,
+        scheduleFollowUp,
+        followUpDate,
+      });
+
+      if (!result) {
+        throw new ManualStaffCallError("Failed to record manual call outcome");
+      }
+
+      return result;
+    }
+
     const visit = await createVisit({
       storeId,
       staffId,

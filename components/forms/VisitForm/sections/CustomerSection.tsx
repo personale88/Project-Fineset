@@ -22,6 +22,10 @@ import { Label } from "@/components/ui/label";
 import { calculateDurationMins, formatDurationMins } from "@/lib/utils/formatters";
 import { useCustomerLookupPrefill } from "@/hooks/useCustomerLookupPrefill";
 import { DatePicker } from "@/components/shared/DatePicker";
+import {
+  isSameCalendarDay,
+  normalizeCalendarPickerDate,
+} from "@/lib/utils/calendar-date";
 import { FormSection } from "../FormSection";
 import type { VisitFormCopy, VisitFormValues } from "../VisitForm.types";
 import {
@@ -65,7 +69,16 @@ export function CustomerSection({
             <FormControl>
               <DatePicker
                 value={field.value}
-                onChange={field.onChange}
+                onChange={(date) => {
+                  field.onChange(date);
+                  const today = normalizeCalendarPickerDate(new Date());
+                  if (date && !isSameCalendarDay(date, today)) {
+                    setValue("inTime", undefined);
+                    setValue("outTime", undefined);
+                  } else if (date && isSameCalendarDay(date, today)) {
+                    setValue("inTime", new Date());
+                  }
+                }}
                 onBlur={field.onBlur}
                 placeholder={fields.saleDate.placeholder}
                 toDate={new Date()}
@@ -74,6 +87,9 @@ export function CustomerSection({
                 toYear={new Date().getFullYear()}
               />
             </FormControl>
+            {fields.saleDate.hint ? (
+              <p className="text-xs text-text-muted">{fields.saleDate.hint}</p>
+            ) : null}
             <FormMessage />
           </FormItem>
         )}

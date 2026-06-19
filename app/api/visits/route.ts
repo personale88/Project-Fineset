@@ -4,6 +4,7 @@ import { unauthorized } from "@/lib/auth/session";
 import {
   PORTAL_ACTOR_ROLES,
   requirePortalActorContext,
+  requireStaffContext,
 } from "@/lib/auth/resolve-staff";
 import { checkWriteRateLimit, getRequestIdentifier } from "@/lib/rate-limit";
 import { resolveStorePortalStoreId } from "@/lib/auth/resolve-manager-store-id";
@@ -45,14 +46,21 @@ export const POST = await withAuthValidation(
 );
 
 export const GET = withAuthQuery(
-  ["STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN"] as const,
+  ["STAFF", "STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN"] as const,
   getVisitsQuerySchema,
   async (session, query) => {
     const timer = createPerfTimer();
     timer.mark("auth");
 
     let storeId: string | undefined;
-    if (session.role === "STORE_MANAGER" || session.role === "BUSINESS_OWNER") {
+    let staffId = query.staffId;
+
+    if (session.role === "STAFF") {
+      const staff = await requireStaffContext(session);
+      if (!staff) return unauthorized();
+      storeId = staff.storeId;
+      staffId = staff.staffId;
+    } else if (session.role === "STORE_MANAGER" || session.role === "BUSINESS_OWNER") {
       const resolved = await resolveStorePortalStoreId(
         session,
         query.storeId,
@@ -73,7 +81,7 @@ export const GET = withAuthQuery(
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
       followUpOnly: query.followUpOnly,
-      staffId: query.staffId,
+      staffId,
       purchaseStatus: query.purchaseStatus,
       visitType: query.visitType,
       customerType: query.customerType,

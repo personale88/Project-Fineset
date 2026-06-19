@@ -6,6 +6,8 @@ import { ApiError } from "@/types";
 export async function getCustomerProfile(params: {
   customerId?: string;
   visitId?: string;
+  fieldSaleId?: string;
+  storeId?: string;
 }): Promise<CustomerProfile> {
   const qs = buildQueryString(params);
   return apiFetch<CustomerProfile>(`/api/customers/profile${qs}`);

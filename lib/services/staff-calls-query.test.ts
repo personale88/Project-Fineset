@@ -44,14 +44,25 @@ describe("staff-calls-query", () => {
     const where = buildVisitListWhere({
       ...baseParams,
       valueTier: "MID",
-      birthday: "THIS_MONTH",
+      birthday: "ALL",
       anniversary: "ALL",
     });
 
     expect(where.callValueTier).toBe("MID");
-    expect(where.birthMonth).toBe(6);
+    expect(where.birthMonth).toBeUndefined();
     expect(where.anniversaryMonth).toBeUndefined();
     expect(where.staffId).toBe("staff-1");
+    expect(where.visitDate).toBeDefined();
+  });
+
+  it("drops visit month filter for birthday occasion lists", () => {
+    const where = buildVisitListWhere({
+      ...baseParams,
+      birthday: "THIS_MONTH",
+    });
+
+    expect(where.birthMonth).toBe(6);
+    expect(where.visitDate).toBeUndefined();
   });
 
   it("composes field sale value tier where", () => {

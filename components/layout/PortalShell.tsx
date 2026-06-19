@@ -24,7 +24,9 @@ interface NavItem {
 
 interface PortalShellProps {
   title: string;
+  homeHref?: string;
   navItems?: NavItem[];
+  bottomNav?: React.ReactNode;
   signOutLabel: string;
   headerActions?: React.ReactNode;
   children: React.ReactNode;
@@ -32,7 +34,9 @@ interface PortalShellProps {
 
 export function PortalShell({
   title,
+  homeHref = "/",
   navItems = [],
+  bottomNav,
   signOutLabel,
   headerActions,
   children,
@@ -100,7 +104,7 @@ export function PortalShell({
       <header className="sticky top-0 z-20 border-b border-border bg-surface-card">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-page-x py-4 sm:px-page-md">
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2.5">
+            <Link href={homeHref} className="flex items-center gap-2.5">
               <Logo size={28} linked={false} />
               <span className="font-display text-lg font-semibold text-brand-gold">
                 {title}
@@ -162,9 +166,16 @@ export function PortalShell({
         )}
       </header>
       <OfflineQueueBanner />
-      <main id="main-content" className="mx-auto min-w-0 max-w-7xl px-page-x py-6 sm:px-page-md">
+      <main
+        id="main-content"
+        className={cn(
+          "mx-auto min-w-0 max-w-7xl px-page-x py-6 sm:px-page-md",
+          bottomNav ? "pb-24 sm:pb-6" : undefined,
+        )}
+      >
         {children}
       </main>
+      {bottomNav}
     </div>
   );
 }

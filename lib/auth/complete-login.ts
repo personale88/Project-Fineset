@@ -7,9 +7,25 @@ import {
 import type { AppSession } from "@/types";
 import type { User } from "@supabase/supabase-js";
 
+export type CompleteLoginFailureReason =
+  | "missing_profile"
+  | "incomplete_profile"
+  | "deactivated";
+
 export type CompleteLoginResult =
   | { ok: true; session: AppSession }
-  | { ok: false; reason: "inactive_or_missing_profile" | "deactivated" };
+  | { ok: false; reason: CompleteLoginFailureReason };
+
+function isDeactivatedProfile(
+  profile: NonNullable<Awaited<ReturnType<typeof activateProfileForAuthUser>>>,
+): boolean {
+  if (!profile.isActive && profile.activatedAt !== null) {
+    return true;
+  }
+
+  const staff = profile.staff as { isActive?: boolean } | null | undefined;
+  return staff?.isActive === false;
+}
 
 /**
  * Resolve AppUser profile after Supabase auth, activating invited users on first login.
@@ -19,7 +35,7 @@ export async function completeLoginForSupabaseUser(
   options: { awaitMetadataSync?: boolean } = {},
 ): Promise<CompleteLoginResult> {
   if (!user.email) {
-    return { ok: false, reason: "inactive_or_missing_profile" };
+    return { ok: false, reason: "missing_profile" };
   }
 
   const profile = await activateProfileForAuthUser(user.id, user.email, {
@@ -33,10 +49,10 @@ export async function completeLoginForSupabaseUser(
       email: user.email,
       metadata: { reason: "missing_profile" },
     });
-    return { ok: false, reason: "inactive_or_missing_profile" };
+    return { ok: false, reason: "missing_profile" };
   }
 
-  if (!profile.isActive) {
+  if (isDeactivatedProfile(profile)) {
     void logAuthEvent({
       event: "LOGIN_FAILED",
       authId: user.id,
@@ -54,7 +70,16 @@ export async function completeLoginForSupabaseUser(
     return { ok: true, session };
   } catch (err) {
     console.error("[complete-login] invalid profile", user.id, err);
-    return { ok: false, reason: "inactive_or_missing_profile" };
+    void logAuthEvent({
+      event: "LOGIN_FAILED",
+      authId: user.id,
+      email: user.email,
+      metadata: {
+        reason: "incomplete_profile",
+        detail: err instanceof Error ? err.message : String(err),
+      },
+    });
+    return { ok: false, reason: "incomplete_profile" };
   }
 }
 

@@ -7,6 +7,73 @@ import {
 } from "@/lib/auth/resolve-effective-role";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AppSession } from "@/types";
+import type { Prisma } from "@prisma/client";
+
+const appUserInclude = {
+  store: { select: { name: true } },
+  staff: {
+    select: {
+      employeeId: true,
+      storeId: true,
+      isActive: true,
+      store: { select: { name: true } },
+    },
+  },
+} satisfies Prisma.AppUserInclude;
+
+type LoadedAppUser = AppUserWithRelations & {
+  staff: (AppUserWithRelations["staff"] & { isActive: boolean }) | null;
+};
+
+function normalizeAuthEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+async function loadProfileByAuthId(authId: string): Promise<LoadedAppUser | null> {
+  return prisma.appUser.findUnique({
+    where: { authId },
+    include: appUserInclude,
+  }) as Promise<LoadedAppUser | null>;
+}
+
+async function loadProfileByEmail(email: string): Promise<LoadedAppUser | null> {
+  return prisma.appUser.findUnique({
+    where: { email: normalizeAuthEmail(email) },
+    include: appUserInclude,
+  }) as Promise<LoadedAppUser | null>;
+}
+
+/**
+ * Supabase auth id can drift after re-invite or password reset flows.
+ * Re-link the AppUser row when email matches.
+ */
+async function linkProfileAuthId(
+  profile: LoadedAppUser,
+  authId: string,
+  email: string,
+): Promise<LoadedAppUser> {
+  if (profile.authId === authId) {
+    return profile;
+  }
+
+  const linked = (await prisma.appUser.update({
+    where: { id: profile.id },
+    data: { authId },
+    include: appUserInclude,
+  })) as LoadedAppUser;
+
+  void logAuthEvent({
+    event: "AUTH_ID_LINKED",
+    authId,
+    email: normalizeAuthEmail(email),
+    metadata: {
+      appUserId: profile.id,
+      previousAuthId: profile.authId,
+    },
+  });
+
+  return linked;
+}
 
 export function buildAppMetadata(profile: AppUserWithRelations) {
   return {
@@ -35,6 +102,34 @@ async function syncSupabaseMetadata(
   }
 }
 
+async function resolveProfileForAuthUser(
+  authId: string,
+  email: string,
+): Promise<LoadedAppUser | null> {
+  const normalizedEmail = normalizeAuthEmail(email);
+
+  let profile = await loadProfileByAuthId(authId);
+
+  if (!profile) {
+    const byEmail = await loadProfileByEmail(normalizedEmail);
+    if (byEmail) {
+      profile = await linkProfileAuthId(byEmail, authId, normalizedEmail);
+    }
+  }
+
+  if (!profile) {
+    void logAuthEvent({
+      event: "UNAUTHORIZED_ACCESS",
+      authId,
+      email: normalizedEmail,
+      metadata: { reason: "no_app_user_profile" },
+    });
+    return null;
+  }
+
+  return profile;
+}
+
 /**
  * Mark AppUser active after successful auth callback or password login.
  */
@@ -43,27 +138,8 @@ export async function activateProfileForAuthUser(
   email: string,
   options: { awaitMetadataSync?: boolean } = {},
 ): Promise<AppUserWithRelations | null> {
-  const profile = await prisma.appUser.findUnique({
-    where: { authId },
-    include: {
-      store: { select: { name: true } },
-      staff: {
-        select: {
-          employeeId: true,
-          storeId: true,
-          store: { select: { name: true } },
-        },
-      },
-    },
-  });
-
+  const profile = await resolveProfileForAuthUser(authId, email);
   if (!profile) {
-    void logAuthEvent({
-      event: "UNAUTHORIZED_ACCESS",
-      authId,
-      email,
-      metadata: { reason: "no_app_user_profile" },
-    });
     return null;
   }
 
@@ -83,10 +159,18 @@ export async function activateProfileForAuthUser(
     }
   }
 
-  const isFirstActivation = !profile.isActive;
+  const isDeactivatedAccount =
+    !profile.isActive && profile.activatedAt !== null;
+  const isDeactivatedStaff = profile.staff?.isActive === false;
+
+  if (isDeactivatedAccount || isDeactivatedStaff) {
+    return profile;
+  }
+
+  const isPendingInvite = !profile.isActive && !profile.activatedAt;
   const now = new Date();
 
-  if (isFirstActivation) {
+  if (isPendingInvite) {
     await prisma.appUser.update({
       where: { id: profile.id },
       data: {
@@ -115,7 +199,7 @@ export async function activateProfileForAuthUser(
       });
   }
 
-  const shouldAwaitSync = options.awaitMetadataSync || isFirstActivation;
+  const shouldAwaitSync = options.awaitMetadataSync || isPendingInvite;
   if (shouldAwaitSync) {
     await syncSupabaseMetadata(authId, profile);
   } else {
@@ -132,16 +216,7 @@ export async function syncAuthMetadataForSession(
   try {
     const profile = await prisma.appUser.findUnique({
       where: { id: session.userId },
-      include: {
-        store: { select: { name: true } },
-        staff: {
-        select: {
-          employeeId: true,
-          storeId: true,
-          store: { select: { name: true } },
-        },
-      },
-      },
+      include: appUserInclude,
     });
 
     if (!profile) {

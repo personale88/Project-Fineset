@@ -8,6 +8,7 @@ import {
 export const getCustomersQuerySchema = paginationQuerySchema.extend({
   search: z.string().optional(),
   storeId: z.string().optional(),
+  scope: z.enum(["mine", "store"]).optional().default("store"),
 });
 
 export const lookupCustomerQuerySchema = z.object({
