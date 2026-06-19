@@ -74,7 +74,7 @@ export async function POST(req: Request) {
   const startedAt = Date.now();
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["BUSINESS_OWNER", "STORE_MANAGER"])) return unauthorized();
+    if (!requireRole(session, ["BUSINESS_OWNER"])) return unauthorized();
 
     const body: unknown = await req.json();
     const parsed = createStaffSchema.safeParse(body);

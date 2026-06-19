@@ -3,7 +3,9 @@
 import { content } from "@/content/en";
 import { StaffCallList } from "@/components/staff/StaffCallList";
 import { StoreScopedSection } from "@/components/store/StoreScopedSection";
-import { storeDetailPathForRole } from "@/lib/utils/store-dashboard-url";
+import {
+  portalListBackHref,
+} from "@/lib/utils/store-dashboard-url";
 import type { GetStaffCallsParams, StaffCallListResponse } from "@/types";
 
 interface StoreCallsPageClientProps {
@@ -31,13 +33,16 @@ export function StoreCallsPageClient({
         return (
           <StaffCallList
             copy={content.staff}
+            pageTitle={content.portal.calls.title}
+            pageSubtitle={content.portal.calls.subtitle}
+            backLabel={content.store.storeDetail.backToPortal}
             emptyMessage={content.empty.staffCalls}
             storeId={activeStoreId}
-            showImport
+            showImport={portalRole === "BUSINESS_OWNER"}
             initialCallsParams={canUseInitialData ? initialCallsParams : undefined}
             initialData={canUseInitialData ? initialCalls : undefined}
             initialParams={canUseInitialData ? initialCallsParams : undefined}
-            backHref={storeDetailPathForRole(activeStoreId, portalRole)}
+            backHref={portalListBackHref(portalRole, activeStoreId)}
           />
         );
       }}

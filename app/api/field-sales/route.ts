@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/session";
 import { handleRouteError } from "@/lib/api/route-handler";
 import { resolveStorePortalStoreId } from "@/lib/auth/resolve-manager-store-id";
+import { resolvePersonalStaffId } from "@/lib/auth/resolve-personal-scope";
 import {
   PORTAL_ACTOR_ROLES,
   requirePortalActorContext,
@@ -48,6 +49,8 @@ export async function GET(req: Request) {
       );
       if (resolved instanceof NextResponse) return resolved;
       storeId = resolved;
+      const personalStaffId = await resolvePersonalStaffId(session, query.data.personalScope);
+      if (personalStaffId) staffId = personalStaffId;
     } else if (query.data.storeId) {
       storeId = query.data.storeId;
     }

@@ -20,7 +20,7 @@ interface ResolveStaffCallParams {
   callingKey?: string;
 }
 
-export function useStaffCallFlow(storeId?: string) {
+export function useStaffCallFlow(storeId?: string, personalScope = false) {
   const [activeItem, setActiveItem] = useState<StaffCallListItem | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [callingKey, setCallingKey] = useState<string | null>(null);
@@ -58,6 +58,7 @@ export function useStaffCallFlow(storeId?: string) {
         const item = await resolveStaffCallRecordApi({
           ...params,
           storeId: params.storeId ?? storeId,
+          personalScope,
         });
         setActiveItem(item);
         setDialogOpen(true);
@@ -66,6 +67,7 @@ export function useStaffCallFlow(storeId?: string) {
           recordId: item.recordId,
           masterSource: item.masterSource,
           storeId: params.storeId ?? storeId,
+          personalScope,
         });
       } catch (error) {
         closeDialog(false);
@@ -76,7 +78,7 @@ export function useStaffCallFlow(storeId?: string) {
         setCallingKey(null);
       }
     },
-    [closeDialog, revealPhone, storeId],
+    [closeDialog, personalScope, revealPhone, storeId],
   );
 
   function submitCallOutcome(payload: StaffCallOutcomeInput, onSuccess?: () => void) {
@@ -88,6 +90,7 @@ export function useStaffCallFlow(storeId?: string) {
           recordId: activeItem.recordId,
           masterSource: activeItem.masterSource,
           storeId,
+          personalScope,
         },
         payload,
       },

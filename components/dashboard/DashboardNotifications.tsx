@@ -46,7 +46,7 @@ import type {
 import type { LucideIcon } from "lucide-react";
 
 interface DashboardNotificationsProps {
-  variant: "staff" | "store_manager";
+  variant: "staff" | "store_manager" | "store_manager_personal";
   storeId?: string;
   /** Embedded inside StaffWorkQueue browse mode — no standalone header/footer chrome. */
   presentation?: "standalone" | "embedded";
@@ -172,8 +172,9 @@ export function DashboardNotifications({
     () => ({
       ...defaultStaffCallsParams(),
       ...(storeId ? { storeId } : {}),
+      ...(variant === "store_manager_personal" ? { personalScope: true } : {}),
     }),
-    [storeId],
+    [storeId, variant],
   );
 
   const {
@@ -184,6 +185,7 @@ export function DashboardNotifications({
     refetch: refetchFollowUps,
   } = useFollowUps({
     ...(variant === "store_manager" && storeId ? { storeId } : {}),
+    ...(variant === "store_manager_personal" ? { personalScope: true } : {}),
     status: "OPEN",
   });
   const {
@@ -221,14 +223,18 @@ export function DashboardNotifications({
   );
 
   const callsBasePath =
-    variant === "staff"
-      ? `${STAFF_DASHBOARD_PATH}/calls`
-      : `${STORE_MANAGER_DASHBOARD_PATH}/my-calls`;
+    variant === "staff" || variant === "store_manager_personal"
+      ? variant === "store_manager_personal"
+        ? `${STORE_MANAGER_DASHBOARD_PATH}/my-calls`
+        : `${STAFF_DASHBOARD_PATH}/calls`
+      : `${STORE_MANAGER_DASHBOARD_PATH}/calls`;
 
   const followUpsHref =
     variant === "staff"
       ? `${STAFF_DASHBOARD_PATH}/follow-ups`
-      : `${STORE_MANAGER_DASHBOARD_PATH}/follow-ups`;
+      : variant === "store_manager_personal"
+        ? `${STORE_MANAGER_DASHBOARD_PATH}/my-follow-ups`
+        : `${STORE_MANAGER_DASHBOARD_PATH}/follow-ups`;
 
   const followUps = openFollowUps ?? [];
   const overdueFollowUps = useMemo(

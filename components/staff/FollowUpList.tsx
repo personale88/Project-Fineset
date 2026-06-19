@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { content } from "@/content/en";
 import { useFollowUps, type FollowUpFilter } from "@/hooks/useFollowUps";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
@@ -11,47 +11,105 @@ import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
 import { cn } from "@/lib/utils";
 import { QueryLoadState } from "@/components/shared/QueryLoadState";
 import { FollowUpCard } from "@/components/staff/FollowUpCard";
+import { FollowUpBulkReassignBar } from "@/components/staff/FollowUpBulkReassignBar";
 import { CallFeedbackDialog } from "@/components/staff/CallFeedbackDialog";
 import { useStaffCallFlow } from "@/hooks/useStaffCallFlow";
+
+interface FollowUpCopy {
+  title: string;
+  subtitle: string;
+  guide: string;
+  filters: Record<FollowUpFilter, string>;
+  empty: string;
+  emptyDueToday: string;
+  emptyOpen: string;
+  emptyMismatched: string;
+}
 
 interface FollowUpListProps {
   storeId?: string;
   canAssign?: boolean;
   backHref?: string;
   filter?: FollowUpFilter;
+  personalScope?: boolean;
+  copy?: FollowUpCopy;
 }
-
-const filters: FollowUpFilter[] = ["overdue", "due_today", "open"];
 
 export function FollowUpList({
   storeId,
   canAssign: canAssignProp,
   backHref = STAFF_DASHBOARD_PATH,
   filter = "overdue",
+  personalScope = false,
+  copy: copyOverride,
 }: FollowUpListProps) {
-  const canAssign = canAssignProp ?? Boolean(storeId);
-  const copy = content.staff.followUps;
-  const followUpsBasePath = `${backHref}/follow-ups`;
+  const canAssign = canAssignProp ?? Boolean(storeId && !personalScope);
+  const copy = copyOverride ?? content.staff.followUps;
+  const followUpsBasePath = personalScope
+    ? `${backHref}/my-follow-ups`
+    : `${backHref}/follow-ups`;
+
+  const filters = useMemo((): FollowUpFilter[] => {
+    const base: FollowUpFilter[] = ["overdue", "due_today", "open"];
+    return personalScope ? base : [...base, "mismatched"];
+  }, [personalScope]);
 
   const queryParams = useMemo(() => {
+    if (filter === "mismatched") {
+      return { mismatched: true as const, storeId };
+    }
     if (filter === "overdue") {
-      return { overdue: true as const, storeId };
+      return {
+        overdue: true as const,
+        ...(personalScope ? { personalScope: true as const } : { storeId }),
+      };
     }
     if (filter === "due_today") {
-      return { filter: "due_today" as const, storeId };
+      return {
+        filter: "due_today" as const,
+        ...(personalScope ? { personalScope: true as const } : { storeId }),
+      };
     }
-    return { filter: "open" as const, storeId };
-  }, [filter, storeId]);
+    return {
+      filter: "open" as const,
+      ...(personalScope ? { personalScope: true as const } : { storeId }),
+    };
+  }, [filter, personalScope, storeId]);
 
   const { data, isLoading, isError, error, refetch } = useFollowUps(queryParams);
   const callFlow = useStaffCallFlow(storeId);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const showBulkReassign = canAssign && filter === "mismatched" && Boolean(storeId);
+  const bulkCopy = content.store.managerDashboard.followUps.store.bulkReassign;
+
+  const followUpIds = useMemo(() => (data ?? []).map((item) => item.id), [data]);
+
+  function toggleSelected(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (!data?.length) return;
+    if (selectedIds.size === data.length) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(data.map((item) => item.id)));
+  }
 
   const emptyMessage =
     filter === "due_today"
       ? copy.emptyDueToday
       : filter === "open"
         ? copy.emptyOpen
-        : copy.empty;
+        : filter === "mismatched"
+          ? copy.emptyMismatched
+          : copy.empty;
 
   return (
     <div className="space-y-4">
@@ -70,11 +128,7 @@ export function FollowUpList({
         </div>
       </div>
 
-      <div
-        className="flex flex-wrap gap-2"
-        role="tablist"
-        aria-label={copy.title}
-      >
+      <div className="flex flex-wrap gap-2" aria-label={copy.title}>
         {filters.map((item) => {
           const isActive = filter === item;
           const href = buildFollowUpsHref(followUpsBasePath, item);
@@ -82,8 +136,7 @@ export function FollowUpList({
             <Link
               key={item}
               href={href}
-              role="tab"
-              aria-selected={isActive}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "rounded-chip px-3 py-1.5 text-sm font-medium transition-colors",
                 isActive
@@ -97,6 +150,20 @@ export function FollowUpList({
         })}
       </div>
 
+      {showBulkReassign && storeId ? (
+        <FollowUpBulkReassignBar
+          storeId={storeId}
+          followUpIds={followUpIds}
+          selectedIds={selectedIds}
+          onToggle={toggleSelected}
+          onToggleAll={toggleAll}
+          onComplete={() => {
+            setSelectedIds(new Set());
+            void refetch();
+          }}
+        />
+      ) : null}
+
       <QueryLoadState
         isLoading={isLoading}
         isError={isError}
@@ -109,8 +176,20 @@ export function FollowUpList({
         ) : (
           <ul className="space-y-3">
             {data.map((item) => (
-              <li key={item.id}>
-                <FollowUpCard
+              <li key={item.id} className="flex gap-3">
+                {showBulkReassign ? (
+                  <div className="pt-4">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-border accent-brand-gold"
+                      checked={selectedIds.has(item.id)}
+                      onChange={() => toggleSelected(item.id)}
+                      aria-label={bulkCopy.selected.replace("{count}", "1")}
+                    />
+                  </div>
+                ) : null}
+                <div className="min-w-0 flex-1">
+                  <FollowUpCard
                   item={item}
                   storeId={storeId}
                   canAssign={canAssign}
@@ -126,6 +205,7 @@ export function FollowUpList({
                   }
                   isCalling={callFlow.isCalling(item.id)}
                 />
+                </div>
               </li>
             ))}
           </ul>
@@ -140,9 +220,7 @@ export function FollowUpList({
         dialInfo={callFlow.revealPhone.data ?? null}
         isDialLoading={callFlow.revealPhone.isPending}
         isSubmitting={callFlow.submitOutcome.isPending}
-        onSubmit={(payload) =>
-          callFlow.submitCallOutcome(payload, () => void refetch())
-        }
+        onSubmit={(payload) => callFlow.submitCallOutcome(payload, () => void refetch())}
       />
     </div>
   );

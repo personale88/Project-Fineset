@@ -6,6 +6,8 @@ describe("followUpQuerySchema", () => {
     expect(followUpQuerySchema.parse({ overdue: "true" })).toEqual({
       overdue: true,
       dueToday: false,
+      personalScope: false,
+      mismatched: false,
     });
   });
 
@@ -13,11 +15,15 @@ describe("followUpQuerySchema", () => {
     expect(followUpQuerySchema.parse({ dueToday: "true" })).toEqual({
       dueToday: true,
       overdue: false,
+      personalScope: false,
+      mismatched: false,
     });
     expect(followUpQuerySchema.parse({ filter: "open" })).toEqual({
       filter: "open",
       overdue: false,
       dueToday: false,
+      personalScope: false,
+      mismatched: false,
     });
   });
 });

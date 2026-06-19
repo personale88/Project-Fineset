@@ -265,3 +265,31 @@ async function assignFollowUp(
     customerName: parent.customerName,
   };
 }
+
+export async function bulkAssignFollowUps(params: {
+  storeId: string;
+  targetStaffId: string;
+  followUpIds: string[];
+}): Promise<{ assigned: number; skipped: number }> {
+  let assigned = 0;
+  let skipped = 0;
+
+  for (const followUpId of params.followUpIds) {
+    try {
+      await assignCustomerToStaff({
+        storeId: params.storeId,
+        followUpId,
+        targetStaffId: params.targetStaffId,
+      });
+      assigned += 1;
+    } catch (error) {
+      if (error instanceof CustomerAssignmentError && error.code === "SAME_STAFF") {
+        skipped += 1;
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  return { assigned, skipped };
+}

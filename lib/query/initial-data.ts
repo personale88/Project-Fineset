@@ -160,7 +160,9 @@ export function staffCallsParamsMatch(
     (current.queue ?? "ALL") === (initial.queue ?? "ALL") &&
     (current.master ?? "ALL") === (initial.master ?? "ALL") &&
     (current.birthday ?? "ALL") === (initial.birthday ?? "ALL") &&
-    (current.anniversary ?? "ALL") === (initial.anniversary ?? "ALL")
+    (current.anniversary ?? "ALL") === (initial.anniversary ?? "ALL") &&
+    Boolean(current.personalScope) === Boolean(initial.personalScope) &&
+    (current.viewStaffId ?? "") === (initial.viewStaffId ?? "")
   );
 }
 

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ interface PortalShellProps {
   title: string;
   homeHref?: string;
   navItems?: NavItem[];
+  showDesktopNav?: boolean;
   bottomNav?: React.ReactNode;
   signOutLabel: string;
   headerActions?: React.ReactNode;
@@ -36,6 +38,7 @@ export function PortalShell({
   title,
   homeHref = "/",
   navItems = [],
+  showDesktopNav = true,
   bottomNav,
   signOutLabel,
   headerActions,
@@ -79,10 +82,13 @@ export function PortalShell({
       );
     }
     if (href === STORE_MANAGER_DASHBOARD_PATH) {
-      return (
-        pathname === href ||
-        pathname.startsWith(`${STORE_MANAGER_DASHBOARD_PATH}/stores/`)
-      );
+      return pathname === href;
+    }
+    if (
+      href.startsWith(`${STORE_MANAGER_DASHBOARD_PATH}/stores/`) ||
+      href.startsWith(`${BUSINESS_OWNER_DASHBOARD_PATH}/stores/`)
+    ) {
+      return pathname === href || pathname.startsWith(`${href}/`);
     }
     if (href === ADMIN_DASHBOARD_PATH) {
       return pathname === href;
@@ -110,7 +116,7 @@ export function PortalShell({
                 {title}
               </span>
             </Link>
-            {navItems.length > 0 && (
+            {navItems.length > 0 && showDesktopNav && (
               <nav className="hidden shrink-0 gap-4 sm:flex" aria-label="Main navigation">
                 {navItems.map((item) => (
                   <Link
@@ -137,12 +143,24 @@ export function PortalShell({
               size="sm"
               disabled={isSigningOut}
               onClick={() => void handleSignOut()}
+              className="hidden gap-1.5 sm:inline-flex"
             >
+              <LogOut className="h-4 w-4" aria-hidden />
               {isSigningOut ? "Signing out…" : signOutLabel}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isSigningOut}
+              onClick={() => void handleSignOut()}
+              className="sm:hidden"
+              aria-label={isSigningOut ? "Signing out…" : signOutLabel}
+            >
+              <LogOut className="h-4 w-4" aria-hidden />
             </Button>
           </div>
         </div>
-        {navItems.length > 0 && (
+        {navItems.length > 0 && !bottomNav && (
           <nav
             className="flex h-14 items-center gap-2 overflow-x-auto border-t border-border px-page-x [scrollbar-width:none] [-ms-overflow-style:none] sm:hidden [&::-webkit-scrollbar]:hidden"
             aria-label="Main navigation"

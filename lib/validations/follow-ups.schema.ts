@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { personalScopeQuerySchema } from "@/lib/validations/personal-scope.schema";
 import { startOfCalendarDay } from "@/lib/utils/calendar-date";
 
 function startOfDay(date: Date): Date {
@@ -14,6 +15,8 @@ function endOfDay(date: Date): Date {
 
 export const followUpQuerySchema = z.object({
   status: z.enum(["OPEN", "CLOSED", "CONVERTED", "NO_RESPONSE"]).optional(),
+  personalScope: personalScopeQuerySchema,
+  mismatched: personalScopeQuerySchema,
   overdue: z
     .enum(["true", "false"])
     .optional()

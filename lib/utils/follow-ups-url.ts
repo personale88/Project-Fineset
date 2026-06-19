@@ -23,6 +23,6 @@ export function parseFollowUpFilter(
   value: string | string[] | undefined,
 ): FollowUpFilter {
   const raw = typeof value === "string" ? value : value?.[0];
-  if (raw === "due_today" || raw === "open") return raw;
+  if (raw === "due_today" || raw === "open" || raw === "mismatched") return raw;
   return "overdue";
 }

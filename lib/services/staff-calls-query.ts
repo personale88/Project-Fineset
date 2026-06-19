@@ -25,6 +25,8 @@ export interface StaffCallsDbQueryParams {
   storeId: string;
   /** When true, list all staff records in the store (portal owner/manager view). */
   storeScope?: boolean;
+  /** When storeScope is true, optionally limit to one RSO's customers. */
+  viewStaffId?: string;
   master: StaffCallMasterFilter;
   segment: StaffCallSegment;
   valueTier: StaffCallValueTier;
@@ -237,8 +239,14 @@ function buildFieldSaleActivityDateWhere(
 }
 
 export function buildVisitListWhere(params: StaffCallsDbQueryParams): Prisma.VisitWhereInput {
+  const staffFilter = params.storeScope
+    ? params.viewStaffId
+      ? { staffId: params.viewStaffId }
+      : {}
+    : { staffId: params.staffId };
+
   return {
-    ...(params.storeScope ? {} : { staffId: params.staffId }),
+    ...staffFilter,
     storeId: params.storeId,
     ...buildVisitActivityDateWhere(params),
     ...buildVisitSegmentWhere(params.segment),
@@ -254,8 +262,14 @@ export function buildVisitListWhere(params: StaffCallsDbQueryParams): Prisma.Vis
 export function buildFieldSaleListWhere(
   params: StaffCallsDbQueryParams,
 ): Prisma.FieldSaleWhereInput {
+  const staffFilter = params.storeScope
+    ? params.viewStaffId
+      ? { staffId: params.viewStaffId }
+      : {}
+    : { staffId: params.staffId };
+
   return {
-    ...(params.storeScope ? {} : { staffId: params.staffId }),
+    ...staffFilter,
     storeId: params.storeId,
     ...buildFieldSaleActivityDateWhere(params),
     ...buildFieldSaleSegmentWhere(params.segment),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import type { VisitListItem } from "@/types";
 import { buildVisitColumns } from "./visits-columns";
 import { CustomerProfileDialog } from "@/components/customers/CustomerProfileDialog";
@@ -60,6 +61,7 @@ export function VisitsTable({
   storeId,
   canAssign = false,
   onAssigned,
+  highlightRecordId,
 }: VisitsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [selectedVisit, setSelectedVisit] = useState<VisitListItem | null>(null);
@@ -100,6 +102,12 @@ export function VisitsTable({
     .replace("{total}", String(total));
 
   const pageLabel = copy.page.replace("{page}", String(page));
+
+  useEffect(() => {
+    if (!highlightRecordId || !data.some((row) => row.id === highlightRecordId)) return;
+    const el = document.getElementById(`visit-row-${highlightRecordId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightRecordId, data]);
 
   return (
     <div className="space-y-4">
@@ -166,7 +174,11 @@ export function VisitsTable({
               {table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="cursor-pointer"
+                  id={`visit-row-${row.original.id}`}
+                  className={cn(
+                    "cursor-pointer",
+                    highlightRecordId === row.original.id && "bg-brand-gold/10 ring-1 ring-brand-gold/40",
+                  )}
                   tabIndex={0}
                   aria-label={`View visit details for ${row.original.customerName}. Click the customer name for their profile.`}
                   onClick={() => setSelectedVisit(row.original)}

@@ -30,17 +30,14 @@ Site URL should remain: `https://mystore.tribly.ai`
 
 **Authentication → Email Templates → Reset password**
 
-Replace the reset link so it uses `TokenHash` (works in any browser, including incognito):
+Copy the full HTML from [`emails/reset-password.html`](../emails/reset-password.html) into the Supabase template editor.
+
+**Local preview:** open [`http://localhost:3000/emails/reset-password/preview`](http://localhost:3000/emails/reset-password/preview) while the dev server is running. The file under `emails/` is not served as a static URL (`/emails/reset-password.html` will 404).
+
+The template uses `TokenHash` (works in any browser, including incognito) and is mobile-responsive with MyStore branding. Key link format:
 
 ```html
-<h2>Reset your password</h2>
-<p>Follow this link to reset your password for your account:</p>
-<p>
-  <a href="{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery">
-    Reset password
-  </a>
-</p>
-<p>If you did not request a password reset, you can ignore this email.</p>
+{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}&type=recovery
 ```
 
 ## 4. Verify after deploy

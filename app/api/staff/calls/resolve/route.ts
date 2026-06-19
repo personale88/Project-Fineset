@@ -11,10 +11,11 @@ import {
   STAFF_CALLS_ROLES,
   requireStaffCallsContext,
 } from "@/lib/auth/resolve-staff";
+import { resolveStaffCallsStoreScope } from "@/lib/auth/resolve-personal-scope";
 import { resolveStaffCallRecord } from "@/lib/services/staff-calls";
 
-function usesStoreCallScope(role: string): boolean {
-  return role === "BUSINESS_OWNER" || role === "STORE_MANAGER" || role === "MASTER_ADMIN";
+function parsePersonalScope(url: URL): boolean {
+  return url.searchParams.get("personalScope") === "true";
 }
 
 export async function GET(req: Request) {
@@ -35,10 +36,15 @@ export async function GET(req: Request) {
       return badRequest("customerId, visitId, or fieldSaleId is required");
     }
 
+    const storeScope = resolveStaffCallsStoreScope(
+      session.role,
+      parsePersonalScope(url),
+    );
+
     const item = await resolveStaffCallRecord({
       staffId: staff.staffId,
       storeId: staff.storeId,
-      storeScope: usesStoreCallScope(session.role),
+      storeScope,
       customerId,
       visitId,
       fieldSaleId,

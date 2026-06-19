@@ -8,6 +8,7 @@ import {
 } from "@/lib/auth/resolve-staff";
 import { checkWriteRateLimit, getRequestIdentifier } from "@/lib/rate-limit";
 import { resolveStorePortalStoreId } from "@/lib/auth/resolve-manager-store-id";
+import { resolvePersonalStaffId } from "@/lib/auth/resolve-personal-scope";
 import { createVisit, listVisits } from "@/lib/services/visits";
 import { withAuthQuery, withAuthValidation } from "@/lib/api/route-handler";
 import { createPerfTimer, logPerf } from "@/lib/perf/timing";
@@ -67,6 +68,8 @@ export const GET = withAuthQuery(
       );
       if (resolved instanceof NextResponse) return resolved;
       storeId = resolved;
+      const personalStaffId = await resolvePersonalStaffId(session, query.personalScope);
+      if (personalStaffId) staffId = personalStaffId;
     } else if (query.storeId) {
       storeId = query.storeId;
     }

@@ -6,7 +6,7 @@ import { LIVE_QUERY_OPTIONS } from "@/lib/sync/constants";
 import type { UpdateFollowUpInput } from "@/lib/validations/follow-ups.schema";
 import type { FollowUpListItem } from "@/types";
 
-export type FollowUpFilter = "overdue" | "due_today" | "open";
+export type FollowUpFilter = "overdue" | "due_today" | "open" | "mismatched";
 
 export interface FollowUpQuery {
   storeId?: string;
@@ -14,6 +14,8 @@ export interface FollowUpQuery {
   overdue?: boolean;
   dueToday?: boolean;
   filter?: FollowUpFilter;
+  personalScope?: boolean;
+  mismatched?: boolean;
 }
 
 interface UpdateFollowUpVariables {
@@ -29,6 +31,8 @@ export function useFollowUps(params: FollowUpQuery = {}) {
     overdue: params.overdue ? "true" : undefined,
     dueToday: params.dueToday ? "true" : undefined,
     filter: params.filter,
+    personalScope: params.personalScope ? "true" : undefined,
+    mismatched: params.mismatched ? "true" : undefined,
   });
 
   return useQuery({

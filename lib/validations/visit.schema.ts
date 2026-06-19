@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { personalScopeQuerySchema } from "@/lib/validations/personal-scope.schema";
 import { PRODUCT_CATEGORY_VALUES } from "@/lib/constants/product-categories";
 import { paginationQuerySchema, phoneSchema, sortOrderSchema } from "./common.schema";
 import {
@@ -217,6 +218,7 @@ export const getVisitsQuerySchema = paginationQuerySchema
   visitType: optionalQueryEnum(visitTypeSchema),
   customerType: optionalQueryEnum(customerTypeSchema),
   sourceChannel: optionalQueryEnum(sourceChannelSchema),
+  personalScope: personalScopeQuerySchema,
 })
   .superRefine((data, ctx) => {
     if (data.startDate && data.endDate && data.startDate > data.endDate) {

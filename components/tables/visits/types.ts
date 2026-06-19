@@ -37,6 +37,7 @@ export interface VisitsTableProps {
   storeId?: string;
   canAssign?: boolean;
   onAssigned?: () => void;
+  highlightRecordId?: string;
 }
 
 export interface VisitColumnLabels {

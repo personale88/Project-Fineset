@@ -24,6 +24,7 @@ interface ListFollowUpsParams {
   overdue?: boolean;
   dueToday?: boolean;
   filter?: "overdue" | "due_today" | "open";
+  mismatched?: boolean;
 }
 
 interface UpdateFollowUpParams {
@@ -37,6 +38,7 @@ const followUpInclude = {
   visit: {
     select: {
       storeId: true,
+      staffId: true,
       customerName: true,
       customerPhone: true,
     },
@@ -44,6 +46,7 @@ const followUpInclude = {
   fieldSale: {
     select: {
       storeId: true,
+      staffId: true,
       customerName: true,
       customerPhone: true,
     },
@@ -133,12 +136,16 @@ export async function listFollowUps(
     include: {
       visit: {
         select: {
+          storeId: true,
+          staffId: true,
           customerName: true,
           customerPhone: true,
         },
       },
       fieldSale: {
         select: {
+          storeId: true,
+          staffId: true,
           customerName: true,
           customerPhone: true,
         },
@@ -146,14 +153,21 @@ export async function listFollowUps(
     },
   });
 
-  const staffIds = Array.from(new Set(followUps.map((f) => f.assignedStaffId)));
+  const filteredFollowUps = params.mismatched
+    ? followUps.filter((followUp) => {
+        const ownerId = followUp.visit?.staffId ?? followUp.fieldSale?.staffId;
+        return ownerId != null && ownerId !== followUp.assignedStaffId;
+      })
+    : followUps;
+
+  const staffIds = Array.from(new Set(filteredFollowUps.map((f) => f.assignedStaffId)));
   const staffMembers = await prisma.staff.findMany({
     where: { id: { in: staffIds } },
     select: { id: true, name: true },
   });
   const staffMap = new Map(staffMembers.map((s) => [s.id, s.name]));
 
-  return followUps.map((f) => {
+  return filteredFollowUps.map((f) => {
     const source = f.visit ?? f.fieldSale;
     const decrypted = source
       ? decryptVisitPii({

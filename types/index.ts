@@ -509,6 +509,8 @@ export interface StaffCallOutcomeResult {
 
 export interface GetStaffCallsParams {
   storeId?: string;
+  personalScope?: boolean;
+  viewStaffId?: string;
   segment?: StaffCallSegment;
   valueTier?: StaffCallValueTier;
   queue?: StaffCallQueue;
@@ -613,6 +615,7 @@ export interface GetFieldSalesListParams {
   storeId?: string;
   staffId?: string;
   search?: string;
+  personalScope?: boolean;
   enrollmentOutcome?: string;
   activityType?: string;
 }
@@ -665,6 +668,7 @@ export interface GetVisitsParams {
   visitType?: string;
   customerType?: string;
   sourceChannel?: string;
+  personalScope?: boolean;
 }
 
 export interface StoreManagerPortfolio {

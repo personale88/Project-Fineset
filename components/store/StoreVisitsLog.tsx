@@ -45,6 +45,7 @@ interface StoreVisitsLogProps {
   backLabel?: string;
   showImport?: boolean;
   viewOnlySubtitle?: string;
+  highlightRecordId?: string;
 }
 
 type VisitFilter = "all" | "followUpOnly";
@@ -62,6 +63,7 @@ export function StoreVisitsLog({
   backLabel,
   showImport = false,
   viewOnlySubtitle,
+  highlightRecordId,
 }: StoreVisitsLogProps) {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
@@ -288,6 +290,7 @@ export function StoreVisitsLog({
           storeId={storeId}
           canAssign
           onAssigned={() => void refetch()}
+          highlightRecordId={highlightRecordId}
         />
       </QueryLoadState>
 

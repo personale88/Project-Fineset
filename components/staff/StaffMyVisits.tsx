@@ -16,7 +16,13 @@ import type { CustomerProfileLookup } from "@/components/customers/CustomerProfi
 import type { VisitListItem } from "@/types";
 import { Button } from "@/components/ui/button";
 
-export function StaffMyVisits() {
+export function StaffMyVisits({
+  portalBasePath = STAFF_DASHBOARD_PATH,
+  personalScope = false,
+}: {
+  portalBasePath?: string;
+  personalScope?: boolean;
+} = {}) {
   const copy = content.staff.myVisits;
   const amendCopy = content.staff.amend;
   const correctionCopy = content.staff.correctionRequest;
@@ -30,6 +36,7 @@ export function StaffMyVisits() {
     pageSize: "15",
     sortBy: "visitDate",
     sortOrder: "desc",
+    ...(personalScope ? { personalScope: true } : {}),
   });
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
@@ -38,7 +45,7 @@ export function StaffMyVisits() {
     <div className="space-y-4">
       <div className="space-y-3">
         <Link
-          href={STAFF_DASHBOARD_PATH}
+          href={portalBasePath}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary transition-colors hover:text-brand-gold"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
@@ -50,7 +57,7 @@ export function StaffMyVisits() {
             <p className="text-text-secondary">{copy.subtitle}</p>
           </div>
           <Button asChild variant="outline" size="sm">
-            <Link href={`${STAFF_DASHBOARD_PATH}/log-visit`}>{copy.logVisit}</Link>
+            <Link href={`${portalBasePath}/log-visit`}>{copy.logVisit}</Link>
           </Button>
         </div>
       </div>

@@ -2,11 +2,11 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { SyncEntity } from "@/lib/sync/version";
 
 const ENTITY_QUERY_KEYS: Record<SyncEntity, string[][]> = {
-  visits: [["visits"], ["analytics"], ["correction-requests"]],
-  fieldSales: [["field-sales"], ["analytics"]],
-  staff: [["staff"]],
+  visits: [["visits"], ["analytics"], ["correction-requests"], ["manager-dashboard"]],
+  fieldSales: [["field-sales"], ["analytics"], ["manager-dashboard"]],
+  staff: [["staff"], ["manager-dashboard"]],
   customers: [["customers"]],
-  followUps: [["follow-ups"], ["analytics"], ["staff-work-queue"], ["staff-digest"]],
+  followUps: [["follow-ups"], ["analytics"], ["staff-work-queue"], ["staff-digest"], ["manager-dashboard"]],
   callLogs: [
     ["staff-calls"],
     ["staff-calls-filters"],
@@ -15,6 +15,7 @@ const ENTITY_QUERY_KEYS: Record<SyncEntity, string[][]> = {
     ["analytics"],
     ["staff-work-queue"],
     ["staff-digest"],
+    ["manager-dashboard"],
   ],
   stores: [["stores"], ["analytics"]],
 };

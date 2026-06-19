@@ -58,7 +58,7 @@ export const fetchInitialStoreManagerCalls = cache(
     if (!staff) return null;
 
     const params = defaultStaffCallsParams();
-    const merged: GetStaffCallsParams = { ...params, ...overrides };
+    const merged: GetStaffCallsParams = { personalScope: true, ...params, ...overrides };
 
     const data = await listStaffCalls({
       staffId: staff.staffId,

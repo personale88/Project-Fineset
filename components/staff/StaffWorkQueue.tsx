@@ -196,15 +196,32 @@ function WorkQueueAccordionSection({
   );
 }
 
-export function StaffWorkQueue() {
+export function StaffWorkQueue({
+  portalBasePath = STAFF_DASHBOARD_PATH,
+  title,
+  subtitle,
+  callsPath,
+  browseVariant = "staff",
+  browseStoreId,
+  callFlowStoreId,
+}: {
+  portalBasePath?: string;
+  title?: string;
+  subtitle?: string;
+  callsPath?: string;
+  browseVariant?: "staff" | "store_manager_personal";
+  browseStoreId?: string;
+  callFlowStoreId?: string;
+} = {}) {
   const copy = content.staff.workQueue;
   const callsCopy = content.staff.calls;
   const { data, isLoading, isError, error, refetch } = useStaffWorkQueue(12);
-  const callFlow = useStaffCallFlow();
+  const callFlow = useStaffCallFlow(callFlowStoreId ?? browseStoreId);
   const [mode, setMode] = useState<WorkQueueMode>("compact");
   const [openSections, setOpenSections] = useState<Set<StaffWorkQueueReason>>(new Set());
 
-  const modeSubtitle = mode === "compact" ? copy.compactSubtitle : copy.browseSubtitle;
+  const modeSubtitle =
+    subtitle ?? (mode === "compact" ? copy.compactSubtitle : copy.browseSubtitle);
 
   const cardLabels = {
     valueTierLabels: callsCopy.valueTierLabels,
@@ -302,7 +319,9 @@ export function StaffWorkQueue() {
       <div className="border-b border-border px-4 py-4 sm:px-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h2 className="font-display text-lg font-semibold text-text-primary">{copy.title}</h2>
+            <h2 className="font-display text-lg font-semibold text-text-primary">
+              {title ?? copy.title}
+            </h2>
             <p className="mt-1 text-sm text-text-muted">{modeSubtitle}</p>
           </div>
           <div
@@ -361,19 +380,23 @@ export function StaffWorkQueue() {
         )}
       </QueryLoadState>
       ) : (
-        <DashboardNotifications variant="staff" presentation="embedded" />
+        <DashboardNotifications
+          variant={browseVariant}
+          storeId={browseStoreId}
+          presentation="embedded"
+        />
       )}
 
       {mode === "compact" ? (
       <div className="flex flex-wrap gap-2 border-t border-border px-4 py-3 sm:px-5">
         <Button asChild variant="outline" size="sm">
-          <Link href={buildFollowUpsHref(`${STAFF_DASHBOARD_PATH}/follow-ups`, "due_today")}>
+          <Link href={buildFollowUpsHref(`${portalBasePath}/follow-ups`, "due_today")}>
             {copy.viewTasks}
           </Link>
         </Button>
         <Button asChild variant="outline" size="sm">
           <Link
-            href={`${STAFF_DASHBOARD_PATH}/calls?${buildStaffCallsSearchParams({
+            href={`${callsPath ?? `${portalBasePath}/calls`}?${buildStaffCallsSearchParams({
               ...defaultStaffCallsParams(),
               queue: "NOT_ANSWERED",
             })}`}
