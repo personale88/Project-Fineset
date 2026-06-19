@@ -8,6 +8,7 @@ import {
   unauthorized,
 } from "@/lib/auth/session";
 import { requireStaffContext } from "@/lib/auth/resolve-staff";
+import { resolvePersonalStaffId } from "@/lib/auth/resolve-personal-scope";
 import { listFollowUps } from "@/lib/services/follow-ups";
 import { followUpQuerySchema } from "@/lib/validations/follow-ups.schema";
 
@@ -39,6 +40,8 @@ export async function GET(req: Request) {
       );
       if (resolved instanceof NextResponse) return resolved;
       storeId = resolved;
+      const personalStaffId = await resolvePersonalStaffId(session, query.data.personalScope);
+      if (personalStaffId) staffId = personalStaffId;
     }
 
     const data = await listFollowUps({
@@ -46,6 +49,9 @@ export async function GET(req: Request) {
       staffId,
       status: query.data.status,
       overdue: query.data.overdue,
+      dueToday: query.data.dueToday,
+      filter: query.data.filter,
+      mismatched: query.data.mismatched,
     });
 
     return NextResponse.json(data);

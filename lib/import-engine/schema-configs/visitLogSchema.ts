@@ -106,6 +106,7 @@ const METAL_KT_VALUES = [
   "GOLD_14KT",
   "GOLD_18KT",
   "GOLD_22KT",
+  "GOLD_24KT",
   "DIAMOND",
   "SILVER",
 ] as const;
@@ -113,6 +114,7 @@ const METAL_KT_LABELS: Record<string, string> = {
   GOLD_14KT: "Gold 14KT",
   GOLD_18KT: "Gold 18KT",
   GOLD_22KT: "Gold 22KT",
+  GOLD_24KT: "Gold 24KT",
   DIAMOND: "Diamond",
   SILVER: "Silver",
 };

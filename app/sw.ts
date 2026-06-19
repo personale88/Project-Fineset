@@ -28,6 +28,10 @@ const serwist = new Serwist({
         sensitiveRoutes.some((match) => match(url.pathname)),
       handler: new NetworkOnly(),
     },
+    {
+      matcher: ({ url }) => url.pathname.startsWith("/_next/"),
+      handler: new NetworkOnly(),
+    },
     ...defaultCache,
   ],
   fallbacks: {

@@ -78,6 +78,10 @@ function dayInCurrentMonth(day: number, hour = 11, minute = 0): Date {
   return new Date(now.getFullYear(), now.getMonth(), safeDay, hour, minute, 0, 0);
 }
 
+function pastDayInCurrentMonth(daysBeforeToday: number): number {
+  return Math.max(1, new Date().getDate() - daysBeforeToday);
+}
+
 function visitTime(hours: number, minutes: number, base = new Date()): Date {
   const date = new Date(base);
   date.setHours(hours, minutes, 0, 0);
@@ -198,11 +202,15 @@ async function seedVisit(spec: SeedVisitSpec) {
   const now = new Date();
   const birthday =
     spec.scenario === "birthday_month"
-      ? new Date(Date.UTC(now.getFullYear() - 35, now.getMonth(), 12))
+      ? new Date(
+          Date.UTC(now.getFullYear() - 35, now.getMonth(), pastDayInCurrentMonth(5)),
+        )
       : null;
   const anniversary =
     spec.scenario === "anniversary_month"
-      ? new Date(Date.UTC(now.getFullYear() - 8, now.getMonth(), 18))
+      ? new Date(
+          Date.UTC(now.getFullYear() - 8, now.getMonth(), pastDayInCurrentMonth(3)),
+        )
       : null;
 
   const baseVisit = {
@@ -449,7 +457,7 @@ async function seedStoreActivity(
           ...fieldSaleDenormFields({
             monthlyCommitment: null,
             dateOfBirth: new Date(
-              Date.UTC(new Date().getFullYear() - 30, new Date().getMonth(), 8),
+              Date.UTC(new Date().getFullYear() - 30, new Date().getMonth(), pastDayInCurrentMonth(6)),
             ),
             anniversary: null,
           }),

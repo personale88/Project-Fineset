@@ -70,6 +70,19 @@ export function portalSectionPath(
   return appendStoreQuery(base, storeId);
 }
 
+export function portalListBackHref(
+  role: "STORE_MANAGER" | "BUSINESS_OWNER",
+  storeId: string,
+): string {
+  return role === "STORE_MANAGER"
+    ? storeManagerDashboardHref()
+    : storeDetailPathForRole(storeId, role);
+}
+
+export function storeManagerDashboardHref(): string {
+  return STORE_MANAGER_DASHBOARD_PATH;
+}
+
 export function storeDetailBackLabel(
   role: "STORE_MANAGER" | "BUSINESS_OWNER",
   labels: { backToPortal: string; backToPortfolio: string },

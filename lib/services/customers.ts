@@ -54,6 +54,7 @@ export async function lookupCustomerByPhone(
 
 interface ListCustomersParams {
   storeId?: string;
+  staffId?: string;
   page: number;
   pageSize: number;
   search?: string;
@@ -64,6 +65,13 @@ export async function listCustomers(params: ListCustomersParams) {
 
   if (params.storeId) {
     where.storeId = params.storeId;
+  }
+
+  if (params.staffId) {
+    where.OR = [
+      { visits: { some: { staffId: params.staffId } } },
+      { fieldSales: { some: { staffId: params.staffId } } },
+    ];
   }
 
   const searchWhere = params.search

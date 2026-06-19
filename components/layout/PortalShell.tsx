@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,7 +24,10 @@ interface NavItem {
 
 interface PortalShellProps {
   title: string;
+  homeHref?: string;
   navItems?: NavItem[];
+  showDesktopNav?: boolean;
+  bottomNav?: React.ReactNode;
   signOutLabel: string;
   headerActions?: React.ReactNode;
   children: React.ReactNode;
@@ -31,7 +35,10 @@ interface PortalShellProps {
 
 export function PortalShell({
   title,
+  homeHref = "/",
   navItems = [],
+  showDesktopNav = true,
+  bottomNav,
   signOutLabel,
   headerActions,
   children,
@@ -68,10 +75,13 @@ export function PortalShell({
       );
     }
     if (href === STORE_MANAGER_DASHBOARD_PATH) {
-      return (
-        pathname === href ||
-        pathname.startsWith(`${STORE_MANAGER_DASHBOARD_PATH}/stores/`)
-      );
+      return pathname === href;
+    }
+    if (
+      href.startsWith(`${STORE_MANAGER_DASHBOARD_PATH}/stores/`) ||
+      href.startsWith(`${BUSINESS_OWNER_DASHBOARD_PATH}/stores/`)
+    ) {
+      return pathname === href || pathname.startsWith(`${href}/`);
     }
     if (href === ADMIN_DASHBOARD_PATH) {
       return pathname === href;
@@ -91,16 +101,16 @@ export function PortalShell({
         Skip to main content
       </a>
       <header className="sticky top-0 z-20 border-b border-border bg-surface-card">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-page-x py-4 sm:px-page-md">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2.5">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-page-x py-4 sm:gap-4 sm:px-page-md">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-6">
+            <Link href={homeHref} className="flex shrink-0 items-center gap-2.5">
               <Logo size={28} linked={false} />
               <span className="font-display text-lg font-semibold text-brand-gold">
                 {title}
               </span>
             </Link>
-            {navItems.length > 0 && (
-              <nav className="hidden gap-4 sm:flex" aria-label="Main navigation">
+            {navItems.length > 0 && showDesktopNav && (
+              <nav className="hidden shrink-0 gap-4 sm:flex" aria-label="Main navigation">
                 {navItems.map((item) => (
                   <Link
                     key={item.href}
@@ -119,19 +129,31 @@ export function PortalShell({
               </nav>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {headerActions}
             <Button
               variant="outline"
               size="sm"
               disabled={isSigningOut}
               onClick={() => void handleSignOut()}
+              className="hidden gap-1.5 sm:inline-flex"
             >
+              <LogOut className="h-4 w-4" aria-hidden />
               {isSigningOut ? "Signing out…" : signOutLabel}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={isSigningOut}
+              onClick={() => void handleSignOut()}
+              className="sm:hidden"
+              aria-label={isSigningOut ? "Signing out…" : signOutLabel}
+            >
+              <LogOut className="h-4 w-4" aria-hidden />
             </Button>
           </div>
         </div>
-        {navItems.length > 0 && (
+        {navItems.length > 0 && !bottomNav && (
           <nav
             className="flex h-14 items-center gap-2 overflow-x-auto border-t border-border px-page-x [scrollbar-width:none] [-ms-overflow-style:none] sm:hidden [&::-webkit-scrollbar]:hidden"
             aria-label="Main navigation"
@@ -155,9 +177,16 @@ export function PortalShell({
         )}
       </header>
       <OfflineQueueBanner />
-      <main id="main-content" className="mx-auto min-w-0 max-w-7xl px-page-x py-6 sm:px-page-md">
+      <main
+        id="main-content"
+        className={cn(
+          "mx-auto min-w-0 max-w-7xl px-page-x py-6 sm:px-page-md",
+          bottomNav ? "pb-24 sm:pb-6" : undefined,
+        )}
+      >
         {children}
       </main>
+      {bottomNav}
     </div>
   );
 }

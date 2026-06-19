@@ -1,10 +1,23 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAuthEvent } from "@/lib/auth/audit";
 import type { AppUserWithRelations } from "@/lib/auth/app-session-from-profile";
-import {
-  resolveEffectiveRole,
-  shouldPromoteToBusinessOwner,
-} from "@/lib/auth/resolve-effective-role";
+import { shouldPromoteToBusinessOwner } from "@/lib/auth/resolve-effective-role";
+
+const profileInclude = {
+  store: { select: { name: true } },
+  staff: {
+    select: {
+      employeeId: true,
+      storeId: true,
+      isActive: true,
+      store: { select: { name: true } },
+    },
+  },
+} as const;
+
+type LoadedAppUser = AppUserWithRelations & {
+  staff: (AppUserWithRelations["staff"] & { isActive: boolean }) | null;
+};
 
 /**
  * Mark AppUser active after successful invite activation or password login.
@@ -15,21 +28,12 @@ export async function activateProfileForAuthUser(
 ): Promise<AppUserWithRelations | null> {
   const normalizedEmail = email.trim().toLowerCase();
 
-  const profile = await prisma.appUser.findFirst({
+  const profile = (await prisma.appUser.findFirst({
     where: authId
       ? { OR: [{ authId }, { email: normalizedEmail }] }
       : { email: normalizedEmail },
-    include: {
-      store: { select: { name: true } },
-      staff: {
-        select: {
-          employeeId: true,
-          storeId: true,
-          store: { select: { name: true } },
-        },
-      },
-    },
-  });
+    include: profileInclude,
+  })) as LoadedAppUser | null;
 
   if (!profile) {
     void logAuthEvent({
@@ -57,10 +61,18 @@ export async function activateProfileForAuthUser(
     }
   }
 
-  const isFirstActivation = !profile.isActive;
+  const isDeactivatedAccount =
+    !profile.isActive && profile.activatedAt !== null;
+  const isDeactivatedStaff = profile.staff?.isActive === false;
+
+  if (isDeactivatedAccount || isDeactivatedStaff) {
+    return profile;
+  }
+
+  const isPendingInvite = !profile.isActive && !profile.activatedAt;
   const now = new Date();
 
-  if (isFirstActivation) {
+  if (isPendingInvite) {
     await prisma.appUser.update({
       where: { id: profile.id },
       data: {

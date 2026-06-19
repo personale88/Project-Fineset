@@ -12,9 +12,15 @@ import {
 } from "@/lib/auth/resolve-staff";
 import { listStaffCallFilters } from "@/lib/services/staff-calls";
 import { staffCallListQuerySchema } from "@/lib/validations/staff-calls.schema";
+import { resolveStaffCallsStoreScope } from "@/lib/auth/resolve-personal-scope";
+import { prisma } from "@/lib/db/prisma";
 
-function usesStoreCallScope(role: string): boolean {
-  return role === "BUSINESS_OWNER" || role === "STORE_MANAGER" || role === "MASTER_ADMIN";
+async function assertViewStaffInStore(viewStaffId: string, storeId: string) {
+  const member = await prisma.staff.findFirst({
+    where: { id: viewStaffId, storeId, isActive: true },
+    select: { id: true },
+  });
+  return Boolean(member);
 }
 
 export async function GET(req: Request) {
@@ -31,10 +37,16 @@ export async function GET(req: Request) {
     const staff = await requireStaffCallsContext(session, query.data.storeId);
     if (!staff) return unauthorized();
 
+    if (query.data.viewStaffId) {
+      const valid = await assertViewStaffInStore(query.data.viewStaffId, staff.storeId);
+      if (!valid) return badRequest("Invalid staff filter");
+    }
+
     const filters = await listStaffCallFilters({
       staffId: staff.staffId,
       storeId: staff.storeId,
-      storeScope: usesStoreCallScope(session.role),
+      storeScope: resolveStaffCallsStoreScope(session.role, query.data.personalScope),
+      viewStaffId: query.data.viewStaffId,
       master: query.data.master,
       segment: query.data.segment,
       valueTier: query.data.valueTier,

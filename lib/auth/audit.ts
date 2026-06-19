@@ -9,6 +9,7 @@ export type AuthAuditEvent =
   | "INVITE_FAILED"
   | "USER_CREATED_WITH_PASSWORD"
   | "USER_ACTIVATED"
+  | "AUTH_ID_LINKED"
   | "USER_DEACTIVATED"
   | "PASSWORD_RESET_REQUESTED"
   | "PASSWORD_RESET_COMPLETED"
@@ -18,7 +19,9 @@ export type AuthAuditEvent =
   | "STORE_RESTORED"
   | "STAFF_CREATED"
   | "VISIT_IMPORT"
-  | "CUSTOMER_MERGED";
+  | "CUSTOMER_MERGED"
+  | "STAFF_RECORD_AMENDED"
+  | "STAFF_CORRECTION_REQUEST";
 
 interface LogAuthEventParams {
   event: AuthAuditEvent;

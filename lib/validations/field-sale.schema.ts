@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { personalScopeQuerySchema } from "@/lib/validations/personal-scope.schema";
 import { phoneSchema } from "./common.schema";
 import {
   fieldDeclineReasonSchema,
@@ -82,9 +83,11 @@ export const getFieldSalesQuerySchema = z.object({
     .min(1)
     .max(12)
     .default(() => new Date().getMonth() + 1),
+  allTime: z.coerce.boolean().optional().default(false),
   storeId: z.string().optional(),
   staffId: z.string().optional(),
   search: z.string().optional(),
+  personalScope: personalScopeQuerySchema,
   enrollmentOutcome: schemeEnrollmentOutcomeSchema.optional(),
   activityType: fieldActivityTypeSchema.optional(),
 });

@@ -1,28 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import { content } from "@/content/en";
+import { useIsClient } from "@/hooks/useIsClient";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useIsClient } from "@/hooks/useIsClient";
-
-const STORAGE_KEY = "fineset-onboarding-seen";
 
 interface RoleOnboardingModalProps {
   role: string;
   userName?: string;
 }
 
+const STORAGE_KEY = "fineset-onboarding-seen";
+
 const copyByRole: Record<string, { title: string; body: string }> = {
-  STAFF: {
-    title: "Welcome",
-    body: "Log visits, work your call list, and record field sales from this portal.",
-  },
   STORE_MANAGER: {
     title: "Welcome, store manager",
     body: "Log activity for your store and review performance from the store dashboard.",
@@ -45,32 +43,74 @@ function readOnboardingOpen(role: string): boolean {
 export function RoleOnboardingModal({ role, userName }: RoleOnboardingModalProps) {
   const isClient = useIsClient();
   const [open, setOpen] = useState(() => readOnboardingOpen(role));
+  const [step, setStep] = useState(0);
 
   function dismiss() {
     window.localStorage.setItem(`${STORAGE_KEY}:${role}`, "1");
     setOpen(false);
   }
 
-  const copy = copyByRole[role] ?? {
-    title: "Welcome",
-    body: "Use the dashboard to get started.",
-  };
-  const title =
-    role === "STAFF" && userName?.trim()
-      ? `Welcome, ${userName.trim()}`
-      : copy.title;
-
   if (!isClient || !open) {
     return null;
   }
 
+  if (role === "STAFF") {
+    const steps = [
+      { title: content.staff.onboarding.step1Title, body: content.staff.onboarding.step1Body },
+      { title: content.staff.onboarding.step2Title, body: content.staff.onboarding.step2Body },
+      { title: content.staff.onboarding.step3Title, body: content.staff.onboarding.step3Body },
+    ];
+    const current = steps[step];
+    const title =
+      step === 0 && userName?.trim()
+        ? `Welcome, ${userName.trim()}`
+        : current.title;
+
+    return (
+      <Dialog open onOpenChange={(next) => !next && dismiss()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{current.body}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <span className="text-xs text-text-muted">
+              {step + 1} / {steps.length}
+            </span>
+            <div className="flex gap-2">
+              {step > 0 ? (
+                <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)}>
+                  {content.common.previous}
+                </Button>
+              ) : null}
+              {step < steps.length - 1 ? (
+                <Button type="button" onClick={() => setStep((s) => s + 1)}>
+                  {content.common.next}
+                </Button>
+              ) : (
+                <Button type="button" onClick={dismiss}>
+                  Got it
+                </Button>
+              )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  const copy = copyByRole[role] ?? {
+    title: "Welcome",
+    body: "Use the dashboard to get started.",
+  };
+
   return (
     <Dialog open onOpenChange={(next) => !next && dismiss()}>
       <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
-            <DialogDescription>{copy.body}</DialogDescription>
-          </DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{copy.title}</DialogTitle>
+          <DialogDescription>{copy.body}</DialogDescription>
+        </DialogHeader>
         <Button type="button" onClick={dismiss}>
           Got it
         </Button>

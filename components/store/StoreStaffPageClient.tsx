@@ -4,8 +4,8 @@ import { content } from "@/content/en";
 import { StoreScopedSection } from "@/components/store/StoreScopedSection";
 import { StaffManagement } from "@/components/store/StaffManagement";
 import {
+  portalListBackHref,
   storeDetailBackLabel,
-  storeDetailPathForRole,
 } from "@/lib/utils/store-dashboard-url";
 import type { getStaff } from "@/lib/api/staff";
 
@@ -35,7 +35,7 @@ export function StoreStaffPageClient({
             emptyMessage={content.empty.staff}
             errors={content.errors}
             initialStaff={canUseInitialData ? initialStaff : undefined}
-            backHref={storeDetailPathForRole(storeId, portalRole)}
+            backHref={portalListBackHref(portalRole, storeId)}
             backLabel={backLabel}
             readOnly={portalRole === "STORE_MANAGER"}
             showImport={portalRole === "BUSINESS_OWNER"}

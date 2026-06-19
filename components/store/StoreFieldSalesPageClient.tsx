@@ -4,8 +4,8 @@ import { content } from "@/content/en";
 import { PortalFieldSalesLog } from "@/components/portal/PortalFieldSalesLog";
 import { StoreScopedSection } from "@/components/store/StoreScopedSection";
 import {
+  portalListBackHref,
   storeDetailBackLabel,
-  storeDetailPathForRole,
 } from "@/lib/utils/store-dashboard-url";
 import type { FieldSaleListResponse, GetFieldSalesListParams } from "@/types";
 
@@ -45,7 +45,7 @@ export function StoreFieldSalesPageClient({
             initialFieldSalesParams={
               canUseInitialData ? initialFieldSalesParams : undefined
             }
-            backHref={storeDetailPathForRole(activeStoreId, portalRole)}
+            backHref={portalListBackHref(portalRole, activeStoreId)}
             backLabel={backLabel}
           />
         );

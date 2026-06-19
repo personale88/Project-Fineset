@@ -13,8 +13,13 @@ const year = 2026;
 const month = 6;
 const visitDate = new Date(year, month - 1, 15);
 
+let visitIdCounter = 0;
+let fieldSaleIdCounter = 0;
+
 function visit(overrides: Partial<StaffCallVisitCountRow> = {}): StaffCallVisitCountRow {
+  visitIdCounter += 1;
   return {
+    id: `visit-${visitIdCounter}`,
     staffId,
     visitDate,
     sourceChannel: "ORGANIC_WALK_IN",
@@ -34,7 +39,9 @@ function visit(overrides: Partial<StaffCallVisitCountRow> = {}): StaffCallVisitC
 function fieldSale(
   overrides: Partial<StaffCallFieldSaleCountRow> = {},
 ): StaffCallFieldSaleCountRow {
+  fieldSaleIdCounter += 1;
   return {
+    id: `field-sale-${fieldSaleIdCounter}`,
     staffId,
     activityDate: visitDate,
     customerType: "NEW",

@@ -3,6 +3,7 @@ import type {
   GetStaffCallsParams,
   StaffCallDialResult,
   StaffCallFilterCounts,
+  StaffCallListItem,
   StaffCallListResponse,
   StaffCallMasterSource,
   StaffCallOutcomeResult,
@@ -16,6 +17,7 @@ export interface StaffCallRecordRef {
   recordId: string;
   masterSource: StaffCallMasterSource;
   storeId?: string;
+  personalScope?: boolean;
 }
 
 export async function getStaffCalls(
@@ -39,6 +41,7 @@ export async function revealStaffCallPhone(
   const qs = buildQueryString({
     masterSource: ref.masterSource,
     storeId: ref.storeId,
+    ...(ref.personalScope ? { personalScope: true } : {}),
   });
   return apiFetch<StaffCallDialResult>(`/api/staff/calls/${ref.recordId}${qs}`);
 }
@@ -50,6 +53,7 @@ export async function submitStaffCallOutcome(
   const qs = buildQueryString({
     masterSource: ref.masterSource,
     storeId: ref.storeId,
+    ...(ref.personalScope ? { personalScope: true } : {}),
   });
   return apiFetch<StaffCallOutcomeResult>(`/api/staff/calls/${ref.recordId}${qs}`, {
     method: "POST",
@@ -66,4 +70,15 @@ export async function submitManualStaffCall(
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function resolveStaffCallRecordApi(params: {
+  customerId?: string;
+  visitId?: string;
+  fieldSaleId?: string;
+  storeId?: string;
+  personalScope?: boolean;
+}): Promise<StaffCallListItem> {
+  const qs = buildQueryString(params);
+  return apiFetch<StaffCallListItem>(`/api/staff/calls/resolve${qs}`);
 }

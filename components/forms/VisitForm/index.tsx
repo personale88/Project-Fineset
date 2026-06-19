@@ -6,12 +6,15 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { createVisitSchema } from "@/lib/validations/visit.schema";
 import { useCreateVisit } from "@/hooks/useVisits";
 import { toast } from "@/hooks/useToast";
+import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { ProgressIndicator } from "./FormSection";
 import { VisitFormSections } from "./VisitFormSections";
 import { VisitFormSuccess } from "./VisitFormSuccess";
 import { buildClientVisitFormValues, clearVisitDraft, loadVisitDraft, useVisitDraft } from "./useVisitDraft";
+import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
+import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
 import {
   buildSections,
   getDefaultVisitValues,
@@ -24,6 +27,7 @@ export function VisitForm({ copy, common, errors }: VisitFormProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [lastSubmittedFollowUp, setLastSubmittedFollowUp] = useState(false);
 
   const form = useForm<VisitFormValues>({
     resolver: zodResolver(createVisitSchema),
@@ -90,11 +94,13 @@ export function VisitForm({ copy, common, errors }: VisitFormProps) {
     try {
       await createVisitMutation.mutateAsync(values);
       clearVisitDraft();
+      setLastSubmittedFollowUp(Boolean(values.followUpNeeded && values.followUpDate));
       toast({ title: copy.actions.successTitle, description: copy.actions.successMessage });
       setIsSuccess(true);
-    } catch {
-      setSubmitError(errors.generic);
-      toast({ title: errors.generic });
+    } catch (error) {
+      const message = getPortalErrorMessage(error, errors);
+      setSubmitError(message);
+      toast({ title: message });
     }
   }
 
@@ -122,12 +128,26 @@ export function VisitForm({ copy, common, errors }: VisitFormProps) {
   }
 
   if (isSuccess) {
+    const secondaryActions = [
+      { label: copy.actions.viewMyVisits, href: `${STAFF_DASHBOARD_PATH}/my-visits` },
+      { label: copy.actions.viewCalls, href: `${STAFF_DASHBOARD_PATH}/calls` },
+      ...(lastSubmittedFollowUp
+        ? [
+            {
+              label: copy.actions.viewFollowUps,
+              href: buildFollowUpsHref(`${STAFF_DASHBOARD_PATH}/follow-ups`, "open"),
+            },
+          ]
+        : []),
+    ];
+
     return (
       <VisitFormSuccess
         title={copy.actions.successTitle}
         message={copy.actions.successMessage}
         logAnotherLabel={copy.actions.logAnother}
         onLogAnother={resetForm}
+        secondaryActions={secondaryActions}
       />
     );
   }

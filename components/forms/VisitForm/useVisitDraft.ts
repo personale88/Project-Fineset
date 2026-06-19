@@ -3,6 +3,10 @@
 import { useEffect } from "react";
 import type { UseFormWatch, UseFormReset } from "react-hook-form";
 import {
+  isSameCalendarDay,
+  normalizeCalendarPickerDate,
+} from "@/lib/utils/calendar-date";
+import {
   VISIT_DRAFT_STORAGE_KEY,
   extractDraftFields,
   getDefaultVisitValues,
@@ -66,9 +70,16 @@ export function clearVisitDraft(): void {
 export function buildClientVisitFormValues(
   draft?: Partial<VisitDraftFields>,
 ): VisitFormValues {
+  const values = getDefaultVisitValues(draft ? normalizeLoadedDraft(draft) : undefined);
+  const today = normalizeCalendarPickerDate(new Date());
+  const saleDay = values.visitDate
+    ? normalizeCalendarPickerDate(values.visitDate)
+    : today;
+
   return {
-    ...getDefaultVisitValues(draft ? normalizeLoadedDraft(draft) : undefined),
-    inTime: new Date(),
+    ...values,
+    visitDate: saleDay,
+    inTime: isSameCalendarDay(saleDay, today) ? new Date() : undefined,
   };
 }
 

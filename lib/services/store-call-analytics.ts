@@ -21,6 +21,10 @@ import {
   getPreviousPeriodRange,
 } from "@/lib/utils/analytics";
 import { formatPercent } from "@/lib/utils/formatters";
+import {
+  buildVisitPurchaseStatusBreakdown,
+  toVisitPurchaseStatusLabelRows,
+} from "@/lib/utils/visit-analytics-breakdown";
 
 type PeriodLabel = AnalyticsPeriod["label"];
 
@@ -412,6 +416,7 @@ export async function getStoreCallAnalytics(
     previousEligiblePool,
     userCallSourceVisits,
     previousUserCallSourceVisits,
+    visitsInPeriod,
   ] = await Promise.all([
     fetchCallLogsForStore(storeId, start, end),
     fetchCallLogsForStore(storeId, previous.start, previous.end),
@@ -420,7 +425,15 @@ export async function getStoreCallAnalytics(
     countEligiblePool(storeId, previous.start, previous.end),
     fetchVisitsFromUserCalls(storeId, start, end),
     fetchVisitsFromUserCalls(storeId, previous.start, previous.end),
+    prisma.visit.findMany({
+      where: { storeId, visitDate: { gte: start, lte: end } },
+      select: { purchaseStatus: true },
+    }),
   ]);
+
+  const visitLogByPurchaseStatus = toVisitPurchaseStatusLabelRows(
+    buildVisitPurchaseStatusBreakdown(visitsInPeriod),
+  );
 
   const purchasedByPhone = buildPurchasedVisitsByPhone(purchasedVisits);
   const feedbackSnippets = callLogs
@@ -463,6 +476,7 @@ export async function getStoreCallAnalytics(
     period,
     periodRange: { start: start.toISOString(), end: end.toISOString() },
     ...current,
+    visitLogByPurchaseStatus,
     deltas: {
       totalCalls: calculateDelta(current.summary.totalCalls, prevMetrics.summary.totalCalls),
       answered: calculateDelta(current.summary.answered, prevMetrics.summary.answered),

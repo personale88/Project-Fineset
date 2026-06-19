@@ -64,7 +64,8 @@ import { NUMERIC_FONT_FAMILY } from "@/lib/utils/typography";
 import { useChartCategoryAxisWidth } from "@/hooks/useChartCategoryAxisWidth";
 import type { PeriodValue } from "@/components/shared/PeriodSwitcher";
 import type { Content } from "@/content/en";
-import type { StoreCallAnalytics, StoreCallBreakdownRow } from "@/types";
+import type { StoreCallAnalytics, StoreCallBreakdownRow, PurchaseStatus } from "@/types";
+import { portalSectionPath } from "@/lib/utils/store-dashboard-url";
 
 type CallsOverviewCopy = Content["store"]["callsOverview"];
 
@@ -128,9 +129,17 @@ interface StoreCallsOverviewSectionProps {
   periodLabel: string;
   deltaPeriod: string;
   storeId: string;
+  portalRole?: "STORE_MANAGER" | "BUSINESS_OWNER";
   logDashboardBase?: string;
   initialData?: import("@/types").StoreCallAnalytics;
   initialParams?: import("@/types").GetAnalyticsParams;
+}
+
+function hasCallOverviewContent(data: StoreCallAnalytics): boolean {
+  return (
+    data.summary.totalCalls > 0 ||
+    data.visitLogByPurchaseStatus.some((row) => row.count > 0)
+  );
 }
 
 export function StoreCallsOverviewSection({
@@ -139,6 +148,7 @@ export function StoreCallsOverviewSection({
   periodLabel,
   deltaPeriod,
   storeId,
+  portalRole = "BUSINESS_OWNER",
   logDashboardBase,
   initialData,
   initialParams,
@@ -162,13 +172,14 @@ export function StoreCallsOverviewSection({
         onRetry={() => void refetch()}
         skeletonCount={4}
       >
-        {!data || data.summary.totalCalls === 0 ? (
+        {!data || !hasCallOverviewContent(data) ? (
           <EmptyState message={copy.empty} />
         ) : (
           <StoreCallsOverviewContent
             copy={copy}
             data={data}
             storeId={storeId}
+            portalRole={portalRole}
             deltaPeriod={deltaPeriod}
             periodLabel={periodLabel}
             logDashboardBase={logDashboardBase}
@@ -183,6 +194,7 @@ function StoreCallsOverviewContent({
   copy,
   data,
   storeId,
+  portalRole,
   deltaPeriod,
   periodLabel,
   logDashboardBase,
@@ -190,6 +202,7 @@ function StoreCallsOverviewContent({
   copy: CallsOverviewCopy;
   data: StoreCallAnalytics;
   storeId: string;
+  portalRole: "STORE_MANAGER" | "BUSINESS_OWNER";
   deltaPeriod: string;
   periodLabel: string;
   logDashboardBase?: string;
@@ -231,6 +244,11 @@ function StoreCallsOverviewContent({
 
       <TabsContent value="segments" className="space-y-4">
         <div className={CHART_GRID_CLASS}>
+          <VisitLogOutcomesChart
+            copy={copy}
+            rows={data.visitLogByPurchaseStatus}
+            visitsHref={portalSectionPath("visits", portalRole, storeId)}
+          />
           <SegmentBreakdownChart
             title={copy.charts.byCustomerType}
             rows={data.byCustomerType}
@@ -239,6 +257,7 @@ function StoreCallsOverviewContent({
           />
           <SegmentBreakdownChart
             title={copy.charts.byPurchaseStatus}
+            description="Based on follow-up calls only"
             rows={data.byPurchaseStatus}
             kind="purchaseStatus"
             onBarClick={(label) => navigate(resolveSegmentFilters("purchaseStatus", label))}
@@ -408,11 +427,13 @@ function CallHighlights({
 
 function SegmentBreakdownChart({
   title,
+  description = "Click a bar to view matching call records",
   rows,
   kind,
   onBarClick,
 }: {
   title: string;
+  description?: string;
   rows: StoreCallBreakdownRow[];
   kind: SegmentChartKind;
   onBarClick: (label: string) => void;
@@ -431,7 +452,7 @@ function SegmentBreakdownChart({
     <Card className={CHART_CARD_CLASS}>
       <CardHeader className={CHART_CARD_HEADER_CLASS}>
         <CardTitle className="text-base">{title}</CardTitle>
-        <CardDescription>Click a bar to view matching call records</CardDescription>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent className={CHART_CARD_CONTENT_CLASS}>
         <ChartContainer config={volumeChartConfig} className="h-[220px] w-full cursor-pointer">
@@ -469,6 +490,61 @@ function SegmentBreakdownChart({
                 )
               }
             />
+          </BarChart>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
+const visitOutcomeChartConfig = {
+  count: { label: "Visits", color: "var(--brand-gold)" },
+} as const;
+
+function VisitLogOutcomesChart({
+  copy,
+  rows,
+  visitsHref,
+}: {
+  copy: CallsOverviewCopy;
+  rows: Array<{ label: string; count: number; status: PurchaseStatus }>;
+  visitsHref: string;
+}) {
+  const categoryWidth = useChartCategoryAxisWidth(110, 76);
+  const chartData = rows.filter((row) => row.count > 0);
+  if (chartData.length === 0) return null;
+
+  return (
+    <Card className={CHART_CARD_CLASS}>
+      <CardHeader className={CHART_CARD_HEADER_CLASS}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle className="text-base">{copy.charts.visitLogByPurchaseStatus}</CardTitle>
+            <CardDescription>{copy.charts.visitLogByPurchaseStatusHint}</CardDescription>
+          </div>
+          <Link
+            href={visitsHref}
+            className="shrink-0 text-xs font-medium text-brand-gold hover:underline"
+          >
+            {copy.viewInLog} →
+          </Link>
+        </div>
+      </CardHeader>
+      <CardContent className={CHART_CARD_CONTENT_CLASS}>
+        <ChartContainer config={visitOutcomeChartConfig} className="h-[220px] w-full">
+          <BarChart data={chartData} layout="vertical" margin={VERTICAL_BAR_CHART_MARGIN}>
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+            <XAxis type="number" fontSize={10} fontFamily={NUMERIC_FONT_FAMILY} />
+            <YAxis
+              type="category"
+              dataKey="label"
+              width={categoryWidth}
+              fontSize={10}
+              tickLine={false}
+              tickFormatter={(value: string) => truncateChartLabel(value)}
+            />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            <Bar dataKey="count" fill="var(--color-count)" radius={[0, 4, 4, 0]} />
           </BarChart>
         </ChartContainer>
       </CardContent>

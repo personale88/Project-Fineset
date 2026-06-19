@@ -1,20 +1,19 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Bell, Cake, Heart, PhoneOutgoing } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { content } from "@/content/en";
-import { useBusinessOwnerStoreNotifications } from "@/hooks/useBusinessOwnerStoreNotifications";
-import { BUSINESS_OWNER_DASHBOARD_PATH } from "@/lib/auth/routes";
-import { defaultStaffCallsParams } from "@/lib/query/initial-data";
 import {
-  type StaffMissedSummary,
-} from "@/lib/services/store-dashboard-notifications.types";
+  CustomerProfileDialog,
+  type CustomerProfileLookup,
+} from "@/components/customers/CustomerProfileDialog";
+import { content } from "@/content/en";
+import type { PeriodValue } from "@/components/shared/PeriodSwitcher";
+import { useBusinessOwnerStoreNotifications } from "@/hooks/useBusinessOwnerStoreNotifications";
+import type { OverdueAlertItem } from "@/lib/services/store-dashboard-notifications.types";
 import { cn } from "@/lib/utils";
-import { buildStaffCallsSearchParams } from "@/lib/utils/staff-calls-url";
-import type { GetStaffCallsParams } from "@/types";
+import { formatDate, maskPhone } from "@/lib/utils/formatters";
 import type { LucideIcon } from "lucide-react";
 
 type OverdueFilter = "calls" | "birthdays" | "anniversaries";
@@ -29,57 +28,8 @@ const FILTER_OPTIONS: readonly {
   { key: "anniversaries", labelKey: "anniversaries", icon: Heart },
 ];
 
-function ownerCallsHref(
-  storeId: string,
-  overrides: Partial<GetStaffCallsParams>,
-): string {
-  const params = {
-    ...defaultStaffCallsParams(),
-    storeId,
-    ...overrides,
-  };
-  const qs = buildStaffCallsSearchParams(params);
-  return `${BUSINESS_OWNER_DASHBOARD_PATH}/calls?${qs}`;
-}
-
-function matchesFilter(item: StaffMissedSummary, filter: OverdueFilter): boolean {
-  switch (filter) {
-    case "calls":
-      return item.missedCalls > 0;
-    case "birthdays":
-      return item.missedBirthdays > 0;
-    case "anniversaries":
-      return item.missedAnniversaries > 0;
-  }
-}
-
-function countForFilter(item: StaffMissedSummary, filter: OverdueFilter): number {
-  switch (filter) {
-    case "calls":
-      return item.missedCalls;
-    case "birthdays":
-      return item.missedBirthdays;
-    case "anniversaries":
-      return item.missedAnniversaries;
-  }
-}
-
-function categoryTotal(
-  items: StaffMissedSummary[],
-  filter: OverdueFilter,
-): number {
-  return items.reduce((sum, item) => sum + countForFilter(item, filter), 0);
-}
-
-function itemHref(item: StaffMissedSummary, filter: OverdueFilter): string {
-  switch (filter) {
-    case "calls":
-      return ownerCallsHref(item.storeId, {});
-    case "birthdays":
-      return ownerCallsHref(item.storeId, { birthday: "THIS_MONTH" });
-    case "anniversaries":
-      return ownerCallsHref(item.storeId, { anniversary: "THIS_MONTH" });
-  }
+function categoryTotal(items: OverdueAlertItem[], filter: OverdueFilter): number {
+  return items.filter((item) => item.category === filter).length;
 }
 
 function itemIcon(filter: OverdueFilter): LucideIcon {
@@ -94,34 +44,63 @@ function itemIcon(filter: OverdueFilter): LucideIcon {
 }
 
 function formatOverdueDescription(
-  item: StaffMissedSummary,
-  filter: OverdueFilter,
+  item: OverdueAlertItem,
   copy: (typeof content)["dashboardNotifications"]["businessOwner"]["overdueDetail"],
 ): string {
-  switch (filter) {
-    case "calls":
-      return copy.calls.replace("{count}", String(item.missedCalls));
-    case "birthdays":
-      return copy.birthdays.replace("{count}", String(item.missedBirthdays));
-    case "anniversaries":
-      return copy.anniversaries.replace("{count}", String(item.missedAnniversaries));
+  const date = formatDate(item.missedDate);
+
+  switch (item.reason) {
+    case "FOLLOW_UP_OVERDUE":
+      return copy.followUpOverdue.replace("{date}", date);
+    case "NOT_ANSWERED":
+      return copy.notAnswered.replace("{date}", date);
+    case "OPEN_FOLLOW_UP":
+      return copy.openFollowUp.replace("{date}", date);
+    case "BIRTHDAY":
+      return copy.birthday.replace("{date}", date);
+    case "ANNIVERSARY":
+      return copy.anniversary.replace("{date}", date);
   }
 }
 
-export function BusinessOwnerStoreNotifications() {
+function alertProfileLookup(item: OverdueAlertItem): CustomerProfileLookup | null {
+  if (!item.recordId) return null;
+
+  if (item.masterSource === "FIELD_SALE") {
+    return {
+      fieldSaleId: item.recordId,
+      customerName: item.customerName,
+      storeId: item.storeId,
+    };
+  }
+
+  return {
+    visitId: item.recordId,
+    customerName: item.customerName,
+    storeId: item.storeId,
+  };
+}
+
+export function BusinessOwnerStoreNotifications({ period }: { period: PeriodValue }) {
   const ownerCopy = content.dashboardNotifications.businessOwner;
   const filterCopy = ownerCopy.filters;
-  const { data, isLoading, isError } = useBusinessOwnerStoreNotifications();
+  const visitCopy = content.store.visits;
+  const fieldLabels = content.visitForm.fields;
+  const productLabels = fieldLabels.productsExplored.options;
+  const { data, isLoading, isFetching, isError } = useBusinessOwnerStoreNotifications(period);
   const items = data?.data ?? [];
   const [activeFilter, setActiveFilter] = useState<OverdueFilter | null>(null);
+  const [profileLookup, setProfileLookup] = useState<CustomerProfileLookup | null>(null);
 
   const filteredItems = useMemo(
     () =>
       activeFilter === null
         ? []
-        : items.filter((item) => matchesFilter(item, activeFilter)),
+        : items.filter((item) => item.category === activeFilter),
     [activeFilter, items],
   );
+
+  const loading = isLoading || isFetching;
 
   const filterOptions = FILTER_OPTIONS.map((option) => ({
     key: option.key,
@@ -153,7 +132,7 @@ export function BusinessOwnerStoreNotifications() {
           </div>
         </div>
 
-        {!isLoading ? (
+        {!loading ? (
           <div
             className="mt-4 grid grid-cols-3 gap-2"
             role="tablist"
@@ -226,7 +205,7 @@ export function BusinessOwnerStoreNotifications() {
         )}
       </div>
 
-      {isLoading && activeFilter !== null ? (
+      {loading && activeFilter !== null ? (
         <div className="space-y-3 p-4 sm:p-5">
           {Array.from({ length: 3 }).map((_, index) => (
             <Skeleton key={index} className="h-16 w-full rounded-input" />
@@ -234,10 +213,10 @@ export function BusinessOwnerStoreNotifications() {
         </div>
       ) : isError ? (
         <p className="px-4 py-6 text-sm text-status-warning sm:px-5">{ownerCopy.loadError}</p>
-      ) : !isLoading && items.length === 0 ? (
+      ) : !loading && items.length === 0 ? (
         <p className="px-4 py-6 text-sm text-text-secondary sm:px-5">{ownerCopy.empty}</p>
       ) : activeFilter === null ? (
-        !isLoading ? (
+        !loading ? (
           <p className="px-4 py-6 text-sm text-text-secondary sm:px-5">
             {filterCopy.selectPrompt}
           </p>
@@ -248,35 +227,49 @@ export function BusinessOwnerStoreNotifications() {
         <ul className="divide-y divide-border">
           {filteredItems.map((item) => {
             const Icon = itemIcon(activeFilter);
-            const count = countForFilter(item, activeFilter);
-            const description = formatOverdueDescription(
-              item,
-              activeFilter,
-              ownerCopy.overdueDetail,
-            );
+            const description = formatOverdueDescription(item, ownerCopy.overdueDetail);
+            const maskedPhone = item.customerPhone ? maskPhone(item.customerPhone) : null;
+            const canOpenProfile = alertProfileLookup(item) !== null;
 
             return (
-              <li key={`${item.storeId}-${item.staffId}`}>
-                <Link
-                  href={itemHref(item, activeFilter)}
+              <li key={item.id}>
+                <button
+                  type="button"
+                  disabled={!canOpenProfile}
+                  onClick={() => {
+                    const lookup = alertProfileLookup(item);
+                    if (lookup) setProfileLookup(lookup);
+                  }}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3.5 transition-colors sm:px-5",
-                    "hover:bg-surface-secondary/40",
+                    "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors sm:px-5",
+                    canOpenProfile
+                      ? "cursor-pointer hover:bg-surface-secondary/40"
+                      : "cursor-default opacity-80",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/50 focus-visible:ring-inset",
                   )}
+                  aria-label={
+                    canOpenProfile
+                      ? `${visitCopy.customerProfile.title}: ${item.customerName}`
+                      : item.customerName
+                  }
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-card bg-brand-gold/10 text-brand-gold">
                     <Icon className="h-4 w-4" aria-hidden />
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium text-text-primary">
-                      {item.staffName}
+                      {item.customerName}
                     </span>
+                    {maskedPhone ? (
+                      <span className="mt-0.5 block truncate text-sm text-text-secondary">
+                        {maskedPhone}
+                      </span>
+                    ) : null}
                     <span className="mt-0.5 block truncate text-sm text-text-secondary">
-                      <span className="text-brand-gold">{item.storeName}</span>
+                      {ownerCopy.assignedTo.replace("{staff}", item.staffName)}
                       <span className="text-text-muted">
                         {" "}
-                        · {item.storeCity}, {item.storeState}
+                        · {item.storeName} · {item.storeCity}, {item.storeState}
                       </span>
                     </span>
                     <span className="mt-0.5 block text-xs text-text-muted">{description}</span>
@@ -285,14 +278,23 @@ export function BusinessOwnerStoreNotifications() {
                     variant="outline"
                     className="shrink-0 border-status-warning/30 bg-status-warning/10 font-semibold text-status-warning"
                   >
-                    {count}
+                    {formatDate(item.missedDate)}
                   </Badge>
-                </Link>
+                </button>
               </li>
             );
           })}
         </ul>
       )}
+
+      <CustomerProfileDialog
+        visit={null}
+        lookup={profileLookup}
+        copy={visitCopy.customerProfile}
+        fieldLabels={fieldLabels}
+        productLabels={productLabels}
+        onClose={() => setProfileLookup(null)}
+      />
     </section>
   );
 }

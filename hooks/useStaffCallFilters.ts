@@ -22,6 +22,8 @@ interface UseStaffCallFiltersOptions {
   initialParams?: GetStaffCallsParams;
   pageSize?: number;
   fixedStoreId?: string;
+  fixedPersonalScope?: boolean;
+  fixedViewStaffId?: string;
 }
 
 function searchParamsRecord(
@@ -100,9 +102,14 @@ export function useStaffCallFilters(options: UseStaffCallFiltersOptions = {}) {
     setPage(next.page);
   }, [searchParams, pageSize]);
 
+  const viewStaffId = options.fixedViewStaffId ?? resolvedFilters.viewStaffId;
+  const personalScope = options.fixedPersonalScope ?? resolvedFilters.personalScope;
+
   const queryParams = useMemo<GetStaffCallsParams>(
     () => ({
       ...(options.fixedStoreId ? { storeId: options.fixedStoreId } : {}),
+      ...(personalScope ? { personalScope: true } : {}),
+      ...(viewStaffId ? { viewStaffId } : {}),
       year,
       month,
       segment,
@@ -116,6 +123,8 @@ export function useStaffCallFilters(options: UseStaffCallFiltersOptions = {}) {
     }),
     [
       options.fixedStoreId,
+      personalScope,
+      viewStaffId,
       year,
       month,
       segment,
@@ -144,6 +153,8 @@ export function useStaffCallFilters(options: UseStaffCallFiltersOptions = {}) {
     (patch: Partial<GetStaffCallsParams>, resetPage = true) => {
       const next: GetStaffCallsParams = {
         ...(options.fixedStoreId ? { storeId: options.fixedStoreId } : {}),
+        ...(personalScope ? { personalScope: true } : {}),
+        ...(viewStaffId ? { viewStaffId } : {}),
         year: patch.year ?? year,
         month: patch.month ?? month,
         segment: patch.segment ?? segment,
@@ -180,6 +191,8 @@ export function useStaffCallFilters(options: UseStaffCallFiltersOptions = {}) {
       valueTier,
       year,
       options.fixedStoreId,
+      personalScope,
+      viewStaffId,
     ],
   );
 

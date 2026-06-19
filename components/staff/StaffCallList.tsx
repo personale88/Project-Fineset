@@ -19,6 +19,7 @@ import { CallLogList, StaffCallCard, StaffCallFilterPanel } from "@/components/s
 import { Button } from "@/components/ui/button";
 import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { content } from "@/content/en";
+import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { getStaffCallsErrorMessage } from "@/lib/utils/staff-calls-errors";
 import type { Content } from "@/content/en";
 import type { GetStaffCallsParams, StaffCallListItem, StaffCallListResponse } from "@/types";
@@ -33,8 +34,12 @@ interface StaffCallListProps {
   initialData?: StaffCallListResponse;
   initialParams?: GetStaffCallsParams;
   backHref?: string;
+  backLabel?: string;
+  pageTitle?: string;
+  pageSubtitle?: string;
   showImport?: boolean;
   canAssign?: boolean;
+  personalScope?: boolean;
 }
 
 export function StaffCallList({
@@ -45,10 +50,14 @@ export function StaffCallList({
   initialData,
   initialParams,
   backHref = STAFF_DASHBOARD_PATH,
+  backLabel,
+  pageTitle,
+  pageSubtitle,
   showImport = false,
   canAssign: canAssignProp,
+  personalScope = false,
 }: StaffCallListProps) {
-  const canAssign = canAssignProp ?? Boolean(storeId);
+  const canAssign = canAssignProp ?? Boolean(storeId && !personalScope);
   const {
     filters,
     ui,
@@ -59,6 +68,7 @@ export function StaffCallList({
   } = useStaffCallFilters({
     initialParams: initialCallsParams,
     fixedStoreId: storeId,
+    fixedPersonalScope: personalScope,
   });
 
   const { data, isLoading, isError, error, refetch } = useStaffCalls(queryParams, {
@@ -102,11 +112,19 @@ export function StaffCallList({
     setActiveItem(item);
     setDialogOpen(true);
     revealPhone.reset();
-    await revealPhone.mutateAsync({
-      recordId: item.recordId,
-      masterSource: item.masterSource,
-      storeId,
-    });
+    try {
+      await revealPhone.mutateAsync({
+        recordId: item.recordId,
+        masterSource: item.masterSource,
+        storeId,
+        ...(personalScope ? { personalScope: true } : {}),
+      });
+    } catch (error) {
+      handleCloseDialog(false);
+      toast({
+        title: getPortalErrorMessage(error, content.errors),
+      });
+    }
   }
 
   function handleCloseDialog(open: boolean) {
@@ -126,6 +144,7 @@ export function StaffCallList({
           recordId: activeItem.recordId,
           masterSource: activeItem.masterSource,
           storeId,
+          ...(personalScope ? { personalScope: true } : {}),
         },
         payload,
       },
@@ -134,8 +153,10 @@ export function StaffCallList({
           toast({ title: copy.calls.dialog.feedbackSaved });
           handleCloseDialog(false);
         },
-        onError: () => {
-          toast({ title: content.errors.generic, description: copy.calls.loadError });
+        onError: (error) => {
+          toast({
+            title: getPortalErrorMessage(error, content.errors),
+          });
         },
       },
     );
@@ -149,8 +170,10 @@ export function StaffCallList({
         toast({ title: copy.calls.manualCall.saved });
         setManualDialogOpen(false);
       },
-      onError: () => {
-        toast({ title: content.errors.generic, description: copy.calls.loadError });
+      onError: (error) => {
+        toast({
+          title: getPortalErrorMessage(error, content.errors),
+        });
       },
     });
   }
@@ -172,14 +195,14 @@ export function StaffCallList({
           className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary transition-colors hover:text-brand-gold"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />
-          {copy.calls.back}
+          {backLabel ?? copy.calls.back}
         </Link>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold text-text-primary">
-              {copy.calls.title}
+              {pageTitle ?? copy.calls.title}
             </h1>
-            <p className="text-sm text-text-secondary">{copy.calls.subtitle}</p>
+            <p className="text-sm text-text-secondary">{pageSubtitle ?? copy.calls.subtitle}</p>
           </div>
           <div className="flex shrink-0 flex-wrap gap-2">
             {showImport && storeId ? (
@@ -208,6 +231,8 @@ export function StaffCallList({
 
       <StaffCallFilterPanel
         copy={copy.calls}
+        scopeHint={copy.calls.scopeHint}
+        queuePriorityHint={copy.calls.queuePriorityHint}
         year={filters.year}
         month={filters.month}
         segment={filters.segment}

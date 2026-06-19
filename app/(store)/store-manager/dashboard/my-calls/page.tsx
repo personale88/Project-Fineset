@@ -20,10 +20,14 @@ export default async function StoreManagerMyCallsPage({
   return (
     <StaffCallList
       copy={content.staff}
+      pageTitle={content.store.managerDashboard.actions.personal.callUsers.title}
+      pageSubtitle={content.store.managerDashboard.actions.personal.callUsers.description}
+      backLabel={content.store.storeDetail.backToPortal}
       emptyMessage={content.empty.staffCalls}
       storeId={session.storeId}
-      showImport
-      initialCallsParams={urlFilters}
+      personalScope
+      canAssign={false}
+      initialCallsParams={initial?.params ?? { personalScope: true }}
       initialData={initial?.data}
       initialParams={initial?.params}
       backHref={STORE_MANAGER_DASHBOARD_PATH}

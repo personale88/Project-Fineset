@@ -19,7 +19,7 @@
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:auth": "dotenv -e .env.local -- vitest run --config vitest.integration.config.ts tests/integration/auth-flows.test.ts tests/integration/auth-security.test.ts",
-    "test:e2e": "playwright test e2e/smoke.spec.ts",
+    "test:e2e": "playwright test e2e/smoke.spec.ts e2e/store-manager-portal.spec.ts",
     "test:pwa": "playwright test e2e/pwa.spec.ts e2e/pwa-performance.spec.ts",
     "test:e2e:all": "playwright test",
     "test:perf": "vitest run --config vitest.integration.config.ts tests/integration/performance-*.test.ts && playwright test e2e/performance.spec.ts e2e/pwa-performance.spec.ts",

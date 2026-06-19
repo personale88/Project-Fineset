@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db/prisma";
 import { logAuthEvent } from "@/lib/auth/audit";
 import { appSessionFromProfile } from "@/lib/auth/app-session-from-profile";
 import { touchLastLogin } from "@/lib/auth/get-app-session";
@@ -8,6 +7,15 @@ import type { AppSession } from "@/types";
 export type CompleteLoginResult =
   | { ok: true; session: AppSession }
   | { ok: false; reason: "inactive_or_missing_profile" | "deactivated" };
+
+function isDeactivatedProfile(profile: AppUserWithRelations): boolean {
+  if (!profile.isActive && profile.activatedAt !== null) {
+    return true;
+  }
+
+  const staff = profile.staff as { isActive?: boolean } | null | undefined;
+  return staff?.isActive === false;
+}
 
 /**
  * Resolve AppUser profile after credential auth, activating invited users on first login.
@@ -20,7 +28,7 @@ export async function completeLoginForAppUser(
     return { ok: false, reason: "inactive_or_missing_profile" };
   }
 
-  if (!profile.isActive) {
+  if (isDeactivatedProfile(profile)) {
     void logAuthEvent({
       event: "LOGIN_FAILED",
       email,

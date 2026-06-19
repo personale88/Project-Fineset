@@ -7,13 +7,14 @@ import {
   requireRole,
   unauthorized,
 } from "@/lib/auth/session";
+import { requireStaffContext } from "@/lib/auth/resolve-staff";
 import { listCustomers } from "@/lib/services/customers";
 import { getCustomersQuerySchema } from "@/lib/validations/analytics.schema";
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN"])) {
+    if (!requireRole(session, ["STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN", "STAFF"])) {
       return unauthorized();
     }
 
@@ -24,8 +25,16 @@ export async function GET(req: Request) {
     if (!query.success) return badRequest(query.error.flatten());
 
     let storeId: string | undefined;
+    let staffId: string | undefined;
 
-    if (session.role === "MASTER_ADMIN") {
+    if (session.role === "STAFF") {
+      const staff = await requireStaffContext(session);
+      if (!staff) return unauthorized();
+      storeId = staff.storeId;
+      if (query.data.scope === "mine") {
+        staffId = staff.staffId;
+      }
+    } else if (session.role === "MASTER_ADMIN") {
       storeId = query.data.storeId;
     } else {
       const resolved = await resolvePortalStoreIdForSession(
@@ -38,6 +47,7 @@ export async function GET(req: Request) {
 
     const { data, total } = await listCustomers({
       storeId,
+      staffId,
       page: query.data.page,
       pageSize: query.data.pageSize,
       search: query.data.search,

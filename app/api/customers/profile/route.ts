@@ -8,16 +8,14 @@ import {
   unauthorized,
 } from "@/lib/auth/session";
 import { handleRouteError } from "@/lib/api/route-handler";
-import {
-  getCustomerProfile,
-  resolveCustomerId,
-} from "@/lib/services/customer-profile";
+import { getCustomerProfileForRequest } from "@/lib/services/customer-profile";
 import { getCustomerProfileQuerySchema } from "@/lib/validations/customer.schema";
+import { requireStaffContext } from "@/lib/auth/resolve-staff";
 
 export async function GET(req: Request) {
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN"])) {
+    if (!requireRole(session, ["STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN", "STAFF"])) {
       return unauthorized();
     }
 
@@ -28,7 +26,11 @@ export async function GET(req: Request) {
     if (!query.success) return badRequest(query.error.flatten());
 
     let storeId: string;
-    if (session.role === "MASTER_ADMIN") {
+    if (session.role === "STAFF") {
+      const staff = await requireStaffContext(session);
+      if (!staff) return unauthorized();
+      storeId = staff.storeId;
+    } else if (session.role === "MASTER_ADMIN") {
       const adminStoreId = searchParams.get("storeId") ?? undefined;
       if (!adminStoreId) {
         return badRequest({ message: "storeId is required for admin profile lookup" });
@@ -43,15 +45,12 @@ export async function GET(req: Request) {
       storeId = resolved;
     }
 
-    const customerId = await resolveCustomerId({
+    const profile = await getCustomerProfileForRequest({
       customerId: query.data.customerId,
       visitId: query.data.visitId,
+      fieldSaleId: query.data.fieldSaleId,
       storeId,
     });
-
-    if (!customerId) return notFound();
-
-    const profile = await getCustomerProfile(customerId, storeId);
     if (!profile) return notFound();
 
     return NextResponse.json(profile);

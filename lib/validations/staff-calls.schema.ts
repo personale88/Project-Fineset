@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { personalScopeQuerySchema } from "@/lib/validations/personal-scope.schema";
 import { phoneSchema } from "@/lib/validations/common.schema";
 
 export const staffCallSegmentSchema = z.enum([
@@ -24,6 +25,8 @@ export const staffCallMasterFilterSchema = z.enum([
 
 export const staffCallListQuerySchema = z.object({
   storeId: z.string().cuid().optional(),
+  personalScope: personalScopeQuerySchema,
+  viewStaffId: z.string().cuid().optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(15),
   segment: staffCallSegmentSchema.default("ALL"),

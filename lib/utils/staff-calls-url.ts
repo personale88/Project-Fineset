@@ -2,6 +2,17 @@ import { staffCallListQuerySchema } from "@/lib/validations/staff-calls.schema";
 import { defaultStaffCallsParams } from "@/lib/query/initial-data";
 import type { GetStaffCallsParams } from "@/types";
 
+export function buildTeamCallsHref(
+  basePath: string,
+  staffId: string,
+): string {
+  const qs = buildStaffCallsSearchParams({
+    ...defaultStaffCallsParams(),
+    viewStaffId: staffId,
+  });
+  return qs ? `${basePath}?${qs}` : basePath;
+}
+
 export function parseStaffCallsSearchParams(
   searchParams: Record<string, string | string[] | undefined>,
 ): GetStaffCallsParams {
@@ -47,6 +58,12 @@ export function buildStaffCallsSearchParams(params: GetStaffCallsParams): string
   }
   if (params.storeId) {
     qs.set("storeId", params.storeId);
+  }
+  if (params.personalScope) {
+    qs.set("personalScope", "true");
+  }
+  if (params.viewStaffId) {
+    qs.set("viewStaffId", params.viewStaffId);
   }
 
   return qs.toString();

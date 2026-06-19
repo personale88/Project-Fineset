@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   assignCustomerToStaff,
+  bulkAssignFollowUps,
   CustomerAssignmentError,
 } from "@/lib/services/customer-assignment";
 
 const mockStaffFindFirst = vi.fn();
 const mockVisitFindFirst = vi.fn();
 const mockVisitUpdate = vi.fn();
+const mockFollowUpFindFirst = vi.fn();
 const mockFollowUpUpdate = vi.fn();
 const mockTransaction = vi.fn();
 
@@ -20,6 +22,7 @@ vi.mock("@/lib/db/prisma", () => ({
       update: (...args: unknown[]) => mockVisitUpdate(...args),
     },
     followUp: {
+      findFirst: (...args: unknown[]) => mockFollowUpFindFirst(...args),
       update: (...args: unknown[]) => mockFollowUpUpdate(...args),
     },
     $transaction: (callback: (tx: unknown) => Promise<void>) => mockTransaction(callback),
@@ -84,5 +87,57 @@ describe("assignCustomerToStaff", () => {
     ).rejects.toMatchObject({
       code: "SAME_STAFF",
     } satisfies Partial<CustomerAssignmentError>);
+  });
+});
+
+describe("bulkAssignFollowUps", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStaffFindFirst.mockResolvedValue({ id: "staff-2", name: "Priya" });
+    mockTransaction.mockImplementation(async (callback) => {
+      await callback({
+        visit: { update: mockVisitUpdate },
+        followUp: { update: mockFollowUpUpdate },
+      });
+    });
+  });
+
+  it("counts assigned and skipped follow-ups", async () => {
+    mockFollowUpFindFirst
+      .mockResolvedValueOnce({
+        id: "follow-1",
+        assignedStaffId: "staff-1",
+        status: "OPEN",
+        visit: { id: "visit-1", staffId: "staff-1", customerName: "Asha" },
+        fieldSale: null,
+      })
+      .mockResolvedValueOnce({
+        id: "follow-2",
+        assignedStaffId: "staff-2",
+        status: "OPEN",
+        visit: { id: "visit-2", staffId: "staff-2", customerName: "Riya" },
+        fieldSale: null,
+      });
+
+    const result = await bulkAssignFollowUps({
+      storeId: "store-1",
+      targetStaffId: "staff-2",
+      followUpIds: ["follow-1", "follow-2"],
+    });
+
+    expect(result).toEqual({ assigned: 1, skipped: 1 });
+    expect(mockFollowUpUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("rethrows non-SAME_STAFF errors", async () => {
+    mockFollowUpFindFirst.mockResolvedValueOnce(null);
+
+    await expect(
+      bulkAssignFollowUps({
+        storeId: "store-1",
+        targetStaffId: "staff-2",
+        followUpIds: ["missing"],
+      }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
   });
 });

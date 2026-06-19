@@ -396,6 +396,16 @@ export function StaffManagement({
                 <th className="px-4 py-3 font-medium text-text-secondary">
                   {store.staff.columns.visits}
                 </th>
+                {readOnly ? (
+                  <>
+                    <th className="px-4 py-3 font-medium text-text-secondary">
+                      {store.staff.columns.conversionRate}
+                    </th>
+                    <th className="px-4 py-3 font-medium text-text-secondary">
+                      {store.staff.managerColumns.openFollowUps}
+                    </th>
+                  </>
+                ) : null}
                 <th className="px-4 py-3 font-medium text-text-secondary">
                   {store.staff.columns.status}
                 </th>
@@ -416,6 +426,16 @@ export function StaffManagement({
                     <td className="px-4 py-3">{member.email ?? "—"}</td>
                     <td className="px-4 py-3">{formatDate(member.createdAt)}</td>
                     <td className="px-4 py-3">{member.monthlyVisits}</td>
+                    {readOnly ? (
+                      <>
+                        <td className="px-4 py-3 font-numeric tabular-nums">
+                          {member.conversionRate}%
+                        </td>
+                        <td className="px-4 py-3 font-numeric tabular-nums">
+                          {member.openFollowUps}
+                        </td>
+                      </>
+                    ) : null}
                     <td className="px-4 py-3">
                       <Badge variant={member.isActive ? "success" : "secondary"}>
                         {member.isActive ? store.staff.active : store.staff.inactive}

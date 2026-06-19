@@ -4,8 +4,8 @@ import { content } from "@/content/en";
 import { StoreScopedSection } from "@/components/store/StoreScopedSection";
 import { StoreVisitsLog } from "@/components/store/StoreVisitsLog";
 import {
+  portalListBackHref,
   storeDetailBackLabel,
-  storeDetailPathForRole,
 } from "@/lib/utils/store-dashboard-url";
 import type { GetVisitsParams, PaginatedResponse, VisitListItem } from "@/types";
 import type { getStaff } from "@/lib/api/staff";
@@ -16,6 +16,7 @@ interface StoreVisitsPageClientProps {
   initialVisitsParams?: GetVisitsParams;
   initialStaff?: Awaited<ReturnType<typeof getStaff>>;
   urlStoreId?: string;
+  highlightRecordId?: string;
 }
 
 export function StoreVisitsPageClient({
@@ -24,6 +25,7 @@ export function StoreVisitsPageClient({
   initialVisitsParams,
   initialStaff,
   urlStoreId,
+  highlightRecordId,
 }: StoreVisitsPageClientProps) {
   const store = content.store;
   const backLabel = storeDetailBackLabel(portalRole, store.storeDetail);
@@ -45,12 +47,13 @@ export function StoreVisitsPageClient({
             initialVisits={canUseInitialData ? initialVisits : undefined}
             initialVisitsParams={canUseInitialData ? initialVisitsParams : undefined}
             initialStaff={canUseInitialData ? initialStaff : undefined}
-            backHref={storeDetailPathForRole(storeId, portalRole)}
+            backHref={portalListBackHref(portalRole, storeId)}
             backLabel={backLabel}
-            showImport
+            showImport={portalRole === "BUSINESS_OWNER"}
             viewOnlySubtitle={
               portalRole === "BUSINESS_OWNER" ? store.visits.viewOnlySubtitle : undefined
             }
+            highlightRecordId={highlightRecordId}
           />
         );
       }}

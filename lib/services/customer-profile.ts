@@ -97,6 +97,7 @@ function uniqueEnum<T extends string>(values: Array<T | null | undefined>): T[] 
 export async function resolveCustomerId(params: {
   customerId?: string;
   visitId?: string;
+  fieldSaleId?: string;
   storeId: string;
 }): Promise<string | null> {
   if (params.customerId) {
@@ -107,25 +108,122 @@ export async function resolveCustomerId(params: {
     return exists?.id ?? null;
   }
 
-  if (!params.visitId) return null;
+  if (params.visitId) {
+    const visit = await prisma.visit.findFirst({
+      where: { id: params.visitId, storeId: params.storeId },
+      select: { customerId: true, customerPhoneHash: true, storeId: true },
+    });
+    if (!visit) return null;
+    if (visit.customerId) return visit.customerId;
 
-  const visit = await prisma.visit.findFirst({
-    where: { id: params.visitId, storeId: params.storeId },
+    const customer = await prisma.customer.findUnique({
+      where: {
+        phoneHash_storeId: {
+          phoneHash: visit.customerPhoneHash,
+          storeId: visit.storeId,
+        },
+      },
+      select: { id: true },
+    });
+    return customer?.id ?? null;
+  }
+
+  if (!params.fieldSaleId) return null;
+
+  const fieldSale = await prisma.fieldSale.findFirst({
+    where: { id: params.fieldSaleId, storeId: params.storeId },
     select: { customerId: true, customerPhoneHash: true, storeId: true },
   });
-  if (!visit) return null;
-  if (visit.customerId) return visit.customerId;
+  if (!fieldSale?.customerPhoneHash) return null;
+  if (fieldSale.customerId) return fieldSale.customerId;
 
   const customer = await prisma.customer.findUnique({
     where: {
       phoneHash_storeId: {
-        phoneHash: visit.customerPhoneHash,
-        storeId: visit.storeId,
+        phoneHash: fieldSale.customerPhoneHash,
+        storeId: fieldSale.storeId,
       },
     },
     select: { id: true },
   });
   return customer?.id ?? null;
+}
+
+interface ProfileIdentity {
+  id: string;
+  name: string;
+  phone: string;
+  area: string | null;
+  address: string | null;
+  gender: string | null;
+  ageGroup: string | null;
+  profession: string | null;
+  dateOfBirth: Date | null;
+  anniversary: Date | null;
+  ghsEnrolled: boolean;
+  activeScheme: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+async function resolveProfilePhoneAnchor(params: {
+  visitId?: string;
+  fieldSaleId?: string;
+  storeId: string;
+}): Promise<{ phoneHash: string; identity: ProfileIdentity } | null> {
+  if (params.visitId) {
+    const visit = await prisma.visit.findFirst({
+      where: { id: params.visitId, storeId: params.storeId },
+    });
+    if (!visit) return null;
+    const decrypted = decryptVisitPii(visit);
+    return {
+      phoneHash: visit.customerPhoneHash,
+      identity: {
+        id: visit.id,
+        name: decrypted.customerName,
+        phone: decrypted.customerPhone,
+        area: visit.area,
+        address: visit.address,
+        gender: visit.gender,
+        ageGroup: visit.ageGroup,
+        profession: visit.profession,
+        dateOfBirth: visit.dateOfBirth,
+        anniversary: visit.anniversary,
+        ghsEnrolled: false,
+        activeScheme: null,
+        createdAt: visit.createdAt,
+        updatedAt: visit.updatedAt,
+      },
+    };
+  }
+
+  if (!params.fieldSaleId) return null;
+
+  const fieldSale = await prisma.fieldSale.findFirst({
+    where: { id: params.fieldSaleId, storeId: params.storeId },
+  });
+  if (!fieldSale?.customerPhoneHash) return null;
+  const decrypted = decryptFieldSalePii(fieldSale);
+  return {
+    phoneHash: fieldSale.customerPhoneHash,
+    identity: {
+      id: fieldSale.id,
+      name: decrypted.customerName,
+      phone: decrypted.customerPhone,
+      area: fieldSale.area,
+      address: null,
+      gender: fieldSale.gender,
+      ageGroup: fieldSale.ageGroup,
+      profession: fieldSale.profession,
+      dateOfBirth: null,
+      anniversary: null,
+      ghsEnrolled: false,
+      activeScheme: null,
+      createdAt: fieldSale.createdAt,
+      updatedAt: fieldSale.updatedAt,
+    },
+  };
 }
 
 const visitProfileInclude = {
@@ -145,6 +243,23 @@ const fieldSaleProfileInclude = {
 /** Recent events shown in profile dialog; full history via dedicated export later. */
 const PROFILE_TIMELINE_LIMIT = 40;
 
+export async function getCustomerProfileForRequest(params: {
+  customerId?: string;
+  visitId?: string;
+  fieldSaleId?: string;
+  storeId: string;
+}): Promise<CustomerProfile | null> {
+  const customerId = await resolveCustomerId(params);
+  if (customerId) {
+    return getCustomerProfile(customerId, params.storeId);
+  }
+
+  const anchor = await resolveProfilePhoneAnchor(params);
+  if (!anchor) return null;
+
+  return assembleCustomerProfile(params.storeId, anchor.phoneHash, anchor.identity);
+}
+
 export async function getCustomerProfile(
   customerId: string,
   storeId: string,
@@ -155,19 +270,37 @@ export async function getCustomerProfile(
 
   if (!customer) return null;
 
+  const decryptedCustomer = decryptCustomerFields(customer);
+  return assembleCustomerProfile(storeId, customer.phoneHash, {
+    id: customer.id,
+    name: decryptedCustomer.name,
+    phone: decryptedCustomer.phone,
+    area: customer.area,
+    address: customer.address,
+    gender: customer.gender,
+    ageGroup: customer.ageGroup,
+    profession: customer.profession,
+    dateOfBirth: customer.dateOfBirth,
+    anniversary: customer.anniversary,
+    ghsEnrolled: customer.ghsEnrolled,
+    activeScheme: customer.activeScheme,
+    createdAt: customer.createdAt,
+    updatedAt: customer.updatedAt,
+  });
+}
+
+async function assembleCustomerProfile(
+  storeId: string,
+  phoneHash: string,
+  identity: ProfileIdentity,
+): Promise<CustomerProfile> {
   const visitWhere: Prisma.VisitWhereInput = {
     storeId,
-    OR: [
-      { customerId: customer.id },
-      { customerPhoneHash: customer.phoneHash },
-    ],
+    customerPhoneHash: phoneHash,
   };
   const fieldSaleWhere: Prisma.FieldSaleWhereInput = {
     storeId,
-    OR: [
-      { customerId: customer.id },
-      { customerPhoneHash: customer.phoneHash },
-    ],
+    customerPhoneHash: phoneHash,
   };
 
   const [visitRows, fieldSaleRows, visitCount, fieldSaleCount, purchaseAgg] =
@@ -193,7 +326,6 @@ export async function getCustomerProfile(
       }),
     ]);
 
-  const decryptedCustomer = decryptCustomerFields(customer);
   type VisitRow = (typeof visitRows)[number];
   type FieldSaleRow = (typeof fieldSaleRows)[number];
 
@@ -327,29 +459,29 @@ export async function getCustomerProfile(
   const callCount = visits.reduce((sum, v) => sum + v.callLogs.length, 0);
   const lastSeenAt =
     timeline[0]?.date ??
-    (latestVisit?.visitDate.toISOString() ?? customer.updatedAt.toISOString());
+    (latestVisit?.visitDate.toISOString() ?? identity.updatedAt.toISOString());
 
   const memberSince = earliestActivityDate(
     [
       ...visits.map((v) => v.visitDate),
       ...fieldSales.map((s) => s.activityDate),
-      customer.createdAt,
+      identity.createdAt,
     ],
-    customer.createdAt,
+    identity.createdAt,
   ).toISOString();
 
   return {
     customer: {
-      id: customer.id,
-      name: decryptedCustomer.name,
-      phone: decryptedCustomer.phone,
-      area: customer.area,
-      address: customer.address,
-      gender: customer.gender,
-      ageGroup: customer.ageGroup,
-      profession: customer.profession,
-      dateOfBirth: customer.dateOfBirth?.toISOString() ?? null,
-      anniversary: customer.anniversary?.toISOString() ?? null,
+      id: identity.id,
+      name: identity.name,
+      phone: identity.phone,
+      area: identity.area,
+      address: identity.address,
+      gender: identity.gender,
+      ageGroup: identity.ageGroup,
+      profession: identity.profession,
+      dateOfBirth: identity.dateOfBirth?.toISOString() ?? null,
+      anniversary: identity.anniversary?.toISOString() ?? null,
       customerType,
       latestVisitCustomerType: customerTypesDiffer(
         customerType,
@@ -357,8 +489,8 @@ export async function getCustomerProfile(
       )
         ? latestVisitCustomerType
         : null,
-      ghsEnrolled: customer.ghsEnrolled,
-      activeScheme: customer.activeScheme,
+      ghsEnrolled: identity.ghsEnrolled,
+      activeScheme: identity.activeScheme,
       memberSince,
       lastSeenAt,
     },

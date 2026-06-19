@@ -2,38 +2,114 @@
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useMemo, useState } from "react";
 import { content } from "@/content/en";
-import { useFollowUps } from "@/hooks/useFollowUps";
+import { useFollowUps, type FollowUpFilter } from "@/hooks/useFollowUps";
+import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
-import { formatDate } from "@/lib/utils/formatters";
+import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
+import { cn } from "@/lib/utils";
 import { QueryLoadState } from "@/components/shared/QueryLoadState";
-import { AssignStaffButton } from "@/components/shared/AssignStaffDialog";
-import { Badge } from "@/components/ui/badge";
-import type { FollowUpListItem } from "@/types";
+import { FollowUpCard } from "@/components/staff/FollowUpCard";
+import { FollowUpBulkReassignBar } from "@/components/staff/FollowUpBulkReassignBar";
+import { CallFeedbackDialog } from "@/components/staff/CallFeedbackDialog";
+import { useStaffCallFlow } from "@/hooks/useStaffCallFlow";
 
-function followUpAssignTarget(item: FollowUpListItem) {
-  if (item.visitId) return { visitId: item.visitId };
-  if (item.fieldSaleId) return { fieldSaleId: item.fieldSaleId };
-  return { followUpId: item.id };
+interface FollowUpCopy {
+  title: string;
+  subtitle: string;
+  guide: string;
+  filters: Record<FollowUpFilter, string>;
+  empty: string;
+  emptyDueToday: string;
+  emptyOpen: string;
+  emptyMismatched: string;
 }
 
 interface FollowUpListProps {
   storeId?: string;
   canAssign?: boolean;
   backHref?: string;
+  filter?: FollowUpFilter;
+  personalScope?: boolean;
+  copy?: FollowUpCopy;
 }
 
 export function FollowUpList({
   storeId,
   canAssign: canAssignProp,
   backHref = STAFF_DASHBOARD_PATH,
+  filter = "overdue",
+  personalScope = false,
+  copy: copyOverride,
 }: FollowUpListProps) {
-  const canAssign = canAssignProp ?? Boolean(storeId);
-  const { data, isLoading, isError, refetch } = useFollowUps({
-    overdue: true,
-    storeId,
-  });
-  const copy = content.staff.followUps;
+  const canAssign = canAssignProp ?? Boolean(storeId && !personalScope);
+  const copy = copyOverride ?? content.staff.followUps;
+  const followUpsBasePath = personalScope
+    ? `${backHref}/my-follow-ups`
+    : `${backHref}/follow-ups`;
+
+  const filters = useMemo((): FollowUpFilter[] => {
+    const base: FollowUpFilter[] = ["overdue", "due_today", "open"];
+    return personalScope ? base : [...base, "mismatched"];
+  }, [personalScope]);
+
+  const queryParams = useMemo(() => {
+    if (filter === "mismatched") {
+      return { mismatched: true as const, storeId };
+    }
+    if (filter === "overdue") {
+      return {
+        overdue: true as const,
+        ...(personalScope ? { personalScope: true as const } : { storeId }),
+      };
+    }
+    if (filter === "due_today") {
+      return {
+        filter: "due_today" as const,
+        ...(personalScope ? { personalScope: true as const } : { storeId }),
+      };
+    }
+    return {
+      filter: "open" as const,
+      ...(personalScope ? { personalScope: true as const } : { storeId }),
+    };
+  }, [filter, personalScope, storeId]);
+
+  const { data, isLoading, isError, error, refetch } = useFollowUps(queryParams);
+  const callFlow = useStaffCallFlow(storeId);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const showBulkReassign = canAssign && filter === "mismatched" && Boolean(storeId);
+  const bulkCopy = content.store.managerDashboard.followUps.store.bulkReassign;
+
+  const followUpIds = useMemo(() => (data ?? []).map((item) => item.id), [data]);
+
+  function toggleSelected(id: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (!data?.length) return;
+    if (selectedIds.size === data.length) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(data.map((item) => item.id)));
+  }
+
+  const emptyMessage =
+    filter === "due_today"
+      ? copy.emptyDueToday
+      : filter === "open"
+        ? copy.emptyOpen
+        : filter === "mismatched"
+          ? copy.emptyMismatched
+          : copy.empty;
 
   return (
     <div className="space-y-4">
@@ -48,57 +124,104 @@ export function FollowUpList({
         <div>
           <h1 className="font-display text-2xl font-bold text-text-primary">{copy.title}</h1>
           <p className="text-text-secondary">{copy.subtitle}</p>
+          <p className="mt-2 text-sm text-text-muted">{copy.guide}</p>
         </div>
       </div>
+
+      <div className="flex flex-wrap gap-2" aria-label={copy.title}>
+        {filters.map((item) => {
+          const isActive = filter === item;
+          const href = buildFollowUpsHref(followUpsBasePath, item);
+          return (
+            <Link
+              key={item}
+              href={href}
+              aria-current={isActive ? "page" : undefined}
+              className={cn(
+                "rounded-chip px-3 py-1.5 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-brand-gold text-white"
+                  : "bg-surface-secondary text-text-secondary hover:text-brand-gold",
+              )}
+            >
+              {copy.filters[item]}
+            </Link>
+          );
+        })}
+      </div>
+
+      {showBulkReassign && storeId ? (
+        <FollowUpBulkReassignBar
+          storeId={storeId}
+          followUpIds={followUpIds}
+          selectedIds={selectedIds}
+          onToggle={toggleSelected}
+          onToggleAll={toggleAll}
+          onComplete={() => {
+            setSelectedIds(new Set());
+            void refetch();
+          }}
+        />
+      ) : null}
 
       <QueryLoadState
         isLoading={isLoading}
         isError={isError}
-        errorLabel={content.common.noResults}
-        retryLabel={content.common.confirm}
+        errorLabel={getPortalErrorMessage(error, content.errors)}
+        retryLabel={content.errors.tryAgain}
         onRetry={() => void refetch()}
       >
         {!data?.length ? (
-          <p className="text-sm text-text-secondary">{copy.empty}</p>
+          <p className="text-sm text-text-secondary">{emptyMessage}</p>
         ) : (
           <ul className="space-y-3">
             {data.map((item) => (
-              <li
-                key={item.id}
-                className="rounded-card border border-border bg-surface-card p-4 shadow-card"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-text-primary">{item.customerName}</p>
-                    <p className="text-sm text-text-secondary">{item.customerPhone}</p>
-                    <p className="mt-1 text-xs text-text-muted">
-                      {copy.assignedLabel}: {item.assignedStaffName}
-                    </p>
+              <li key={item.id} className="flex gap-3">
+                {showBulkReassign ? (
+                  <div className="pt-4">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-border accent-brand-gold"
+                      checked={selectedIds.has(item.id)}
+                      onChange={() => toggleSelected(item.id)}
+                      aria-label={bulkCopy.selected.replace("{count}", "1")}
+                    />
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">{item.status}</Badge>
-                    {canAssign && storeId ? (
-                      <AssignStaffButton
-                        storeId={storeId}
-                        target={followUpAssignTarget(item)}
-                        customerName={item.customerName}
-                        currentStaffId={item.assignedStaffId}
-                        currentStaffName={item.assignedStaffName}
-                        onAssigned={() => void refetch()}
-                        size="sm"
-                      />
-                    ) : null}
-                  </div>
+                ) : null}
+                <div className="min-w-0 flex-1">
+                  <FollowUpCard
+                  item={item}
+                  storeId={storeId}
+                  canAssign={canAssign}
+                  listParams={queryParams}
+                  onUpdated={() => void refetch()}
+                  onCall={(followUp) =>
+                    void callFlow.openCallForRecord({
+                      visitId: followUp.visitId ?? undefined,
+                      fieldSaleId: followUp.fieldSaleId ?? undefined,
+                      storeId,
+                      callingKey: followUp.id,
+                    })
+                  }
+                  isCalling={callFlow.isCalling(item.id)}
+                />
                 </div>
-                <p className="mt-2 text-sm text-text-muted">
-                  {copy.dueLabel}: {formatDate(item.followUpDate)}
-                </p>
-                <p className="text-sm text-text-secondary">{item.reason}</p>
               </li>
             ))}
           </ul>
         )}
       </QueryLoadState>
+
+      <CallFeedbackDialog
+        copy={content.staff.calls}
+        item={callFlow.activeItem}
+        open={callFlow.dialogOpen}
+        onOpenChange={callFlow.closeDialog}
+        dialInfo={callFlow.revealPhone.data ?? null}
+        isDialLoading={callFlow.revealPhone.isPending}
+        isSubmitting={callFlow.submitOutcome.isPending}
+        onSubmit={(payload) => callFlow.submitCallOutcome(payload, () => void refetch())}
+      />
     </div>
   );
 }

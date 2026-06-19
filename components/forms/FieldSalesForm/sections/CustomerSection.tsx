@@ -1,6 +1,6 @@
 "use client";
 
-import type { Control } from "react-hook-form";
+import type { Control, UseFormSetValue, UseFormWatch } from "react-hook-form";
 import {
   FormControl,
   FormField,
@@ -17,15 +17,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FormSection } from "@/components/forms/VisitForm/FormSection";
+import { useCustomerLookupPrefill } from "@/hooks/useCustomerLookupPrefill";
+import type { VisitFormValues } from "@/components/forms/VisitForm/VisitForm.types";
 import type { FieldSalesFormCopy, FieldSalesFormValues } from "../FieldSalesForm.types";
 
 interface CustomerSectionProps {
   copy: FieldSalesFormCopy;
   control: Control<FieldSalesFormValues>;
+  watch: UseFormWatch<FieldSalesFormValues>;
+  setValue: UseFormSetValue<FieldSalesFormValues>;
 }
 
-export function CustomerSection({ copy, control }: CustomerSectionProps) {
+export function CustomerSection({ copy, control, watch, setValue }: CustomerSectionProps) {
   const fields = copy.fields;
+  const { lookupStatus } = useCustomerLookupPrefill({
+    watch: watch as unknown as import("react-hook-form").UseFormWatch<VisitFormValues>,
+    setValue: setValue as unknown as import("react-hook-form").UseFormSetValue<VisitFormValues>,
+  });
 
   return (
     <FormSection title={copy.sections.customer} id="section-customer">
@@ -46,6 +54,16 @@ export function CustomerSection({ copy, control }: CustomerSectionProps) {
                   value={field.value ?? ""}
                 />
               </FormControl>
+              {lookupStatus === "loading" && (
+                <p className="text-xs text-text-muted" aria-live="polite">
+                  Looking up customer…
+                </p>
+              )}
+              {lookupStatus === "found" && (
+                <p className="text-xs text-status-success" aria-live="polite">
+                  Existing customer found — details prefilled.
+                </p>
+              )}
               <FormMessage />
             </FormItem>
           )}

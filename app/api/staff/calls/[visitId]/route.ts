@@ -11,6 +11,7 @@ import {
   STAFF_CALLS_ROLES,
   requireStaffCallsContext,
 } from "@/lib/auth/resolve-staff";
+import { resolveStaffCallsStoreScope } from "@/lib/auth/resolve-personal-scope";
 import {
   ManualStaffCallError,
   recordStaffCallOutcome,
@@ -38,17 +39,22 @@ function parseMasterSource(value: string | null): StaffCallMasterSource | null {
   return parsed.data;
 }
 
+function parsePersonalScope(url: URL): boolean {
+  return url.searchParams.get("personalScope") === "true";
+}
+
 export async function POST(req: Request, { params }: RouteParams) {
   try {
     const { visitId: recordId } = await params;
     const session = await getServerSession();
     if (!requireRole(session, STAFF_CALLS_ROLES)) return unauthorized();
 
-    const storeId = new URL(req.url).searchParams.get("storeId") ?? undefined;
+    const url = new URL(req.url);
+    const storeId = url.searchParams.get("storeId") ?? undefined;
     const staff = await requireStaffCallsContext(session, storeId);
     if (!staff) return unauthorized();
 
-    const masterSource = parseMasterSource(new URL(req.url).searchParams.get("masterSource"));
+    const masterSource = parseMasterSource(url.searchParams.get("masterSource"));
     if (!masterSource) {
       return badRequest("masterSource is required");
     }
@@ -57,11 +63,17 @@ export async function POST(req: Request, { params }: RouteParams) {
     const parsed = staffCallOutcomeSchema.safeParse(body);
     if (!parsed.success) return badRequest(parsed.error.flatten());
 
+    const storeScope = resolveStaffCallsStoreScope(
+      session.role,
+      parsePersonalScope(url),
+    );
+
     const result = await recordStaffCallOutcome({
       recordId,
       masterSource,
       staffId: staff.staffId,
       storeId: staff.storeId,
+      storeScope,
       ...parsed.data,
     });
 
@@ -82,11 +94,12 @@ export async function GET(req: Request, { params }: RouteParams) {
     const session = await getServerSession();
     if (!requireRole(session, STAFF_CALLS_ROLES)) return unauthorized();
 
-    const storeId = new URL(req.url).searchParams.get("storeId") ?? undefined;
+    const url = new URL(req.url);
+    const storeId = url.searchParams.get("storeId") ?? undefined;
     const staff = await requireStaffCallsContext(session, storeId);
     if (!staff) return unauthorized();
 
-    const masterSource = parseMasterSource(new URL(req.url).searchParams.get("masterSource"));
+    const masterSource = parseMasterSource(url.searchParams.get("masterSource"));
     if (!masterSource) {
       return badRequest("masterSource is required");
     }
@@ -103,11 +116,17 @@ export async function GET(req: Request, { params }: RouteParams) {
       );
     }
 
+    const storeScope = resolveStaffCallsStoreScope(
+      session.role,
+      parsePersonalScope(url),
+    );
+
     const result = await revealStaffCallPhone({
       recordId,
       masterSource,
       staffId: staff.staffId,
       storeId: staff.storeId,
+      storeScope,
     });
 
     if (!result) return notFound("Phone number unavailable for this customer");

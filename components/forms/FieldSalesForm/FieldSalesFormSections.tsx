@@ -1,6 +1,6 @@
 "use client";
 
-import type { Control, UseFormWatch } from "react-hook-form";
+import type { Control, UseFormSetValue, UseFormWatch } from "react-hook-form";
 import { calculateDurationMins, formatDurationMins } from "@/lib/utils/formatters";
 import { SchemePitchOutcomeSection } from "@/components/forms/shared/SchemePitchOutcomeSection";
 import type {
@@ -19,6 +19,7 @@ interface FieldSalesFormSectionsProps {
   copy: FieldSalesFormCopy;
   control: Control<FieldSalesFormValues>;
   watch: UseFormWatch<FieldSalesFormValues>;
+  setValue: UseFormSetValue<FieldSalesFormValues>;
   activeSection?: FieldSalesFormSectionId;
   mode: "wizard" | "full";
 }
@@ -27,6 +28,7 @@ export function FieldSalesFormSections({
   copy,
   control,
   watch,
+  setValue,
   activeSection,
   mode,
 }: FieldSalesFormSectionsProps) {
@@ -44,7 +46,7 @@ export function FieldSalesFormSections({
   return (
     <div className="space-y-4 lg:space-y-6">
       {shouldShowSection("customer", activeSection, mode) && (
-        <CustomerSection copy={copy} control={control} />
+        <CustomerSection copy={copy} control={control} watch={watch} setValue={setValue} />
       )}
 
       {shouldShowSection("activity", activeSection, mode) && (

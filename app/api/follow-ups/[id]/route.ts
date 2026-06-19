@@ -9,7 +9,7 @@ import {
   unauthorized,
 } from "@/lib/auth/session";
 import { requireStaffContext } from "@/lib/auth/resolve-staff";
-import { updateFollowUpStatus } from "@/lib/services/follow-ups";
+import { updateFollowUp } from "@/lib/services/follow-ups";
 import { updateFollowUpSchema } from "@/lib/validations/follow-ups.schema";
 
 interface RouteParams {
@@ -27,9 +27,6 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     const body: unknown = await req.json();
     const parsed = updateFollowUpSchema.safeParse(body);
     if (!parsed.success) return badRequest(parsed.error.flatten());
-    if (!parsed.data.status) {
-      return badRequest({ status: ["status is required"] });
-    }
 
     let storeId: string;
     let staffId: string | undefined;
@@ -49,12 +46,12 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       storeId = resolved;
     }
 
-    const updated = await updateFollowUpStatus(
-      id,
+    const updated = await updateFollowUp({
+      followUpId: id,
       storeId,
-      parsed.data.status,
       staffId,
-    );
+      input: parsed.data,
+    });
     if (!updated) return notFound("Follow-up not found");
 
     return NextResponse.json(updated);

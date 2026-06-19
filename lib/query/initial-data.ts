@@ -43,7 +43,8 @@ export function fieldSalesParamsMatch(
     (current.storeId ?? "") === (initial.storeId ?? "") &&
     (current.staffId ?? "") === (initial.staffId ?? "") &&
     (current.enrollmentOutcome ?? "") === (initial.enrollmentOutcome ?? "") &&
-    (current.activityType ?? "") === (initial.activityType ?? "")
+    (current.activityType ?? "") === (initial.activityType ?? "") &&
+    Boolean(current.allTime) === Boolean(initial.allTime)
   );
 }
 
@@ -159,7 +160,9 @@ export function staffCallsParamsMatch(
     (current.queue ?? "ALL") === (initial.queue ?? "ALL") &&
     (current.master ?? "ALL") === (initial.master ?? "ALL") &&
     (current.birthday ?? "ALL") === (initial.birthday ?? "ALL") &&
-    (current.anniversary ?? "ALL") === (initial.anniversary ?? "ALL")
+    (current.anniversary ?? "ALL") === (initial.anniversary ?? "ALL") &&
+    Boolean(current.personalScope) === Boolean(initial.personalScope) &&
+    (current.viewStaffId ?? "") === (initial.viewStaffId ?? "")
   );
 }
 

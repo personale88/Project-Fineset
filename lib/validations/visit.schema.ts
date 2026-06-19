@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { personalScopeQuerySchema } from "@/lib/validations/personal-scope.schema";
 import { PRODUCT_CATEGORY_VALUES } from "@/lib/constants/product-categories";
 import { paginationQuerySchema, phoneSchema, sortOrderSchema } from "./common.schema";
 import {
@@ -53,6 +54,7 @@ const metalKtPrefSchema = z.enum([
   "GOLD_14KT",
   "GOLD_18KT",
   "GOLD_22KT",
+  "GOLD_24KT",
   "DIAMOND",
   "SILVER",
 ]);
@@ -216,6 +218,7 @@ export const getVisitsQuerySchema = paginationQuerySchema
   visitType: optionalQueryEnum(visitTypeSchema),
   customerType: optionalQueryEnum(customerTypeSchema),
   sourceChannel: optionalQueryEnum(sourceChannelSchema),
+  personalScope: personalScopeQuerySchema,
 })
   .superRefine((data, ctx) => {
     if (data.startDate && data.endDate && data.startDate > data.endDate) {

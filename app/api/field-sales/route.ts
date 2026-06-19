@@ -8,9 +8,11 @@ import {
 } from "@/lib/auth/session";
 import { handleRouteError } from "@/lib/api/route-handler";
 import { resolveStorePortalStoreId } from "@/lib/auth/resolve-manager-store-id";
+import { resolvePersonalStaffId } from "@/lib/auth/resolve-personal-scope";
 import {
   PORTAL_ACTOR_ROLES,
   requirePortalActorContext,
+  requireStaffContext,
 } from "@/lib/auth/resolve-staff";
 import { createFieldSale, listFieldSales } from "@/lib/services/field-sales";
 import {
@@ -22,7 +24,7 @@ export async function GET(req: Request) {
   const startedAt = Date.now();
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN"])) {
+    if (!requireRole(session, ["STAFF", "STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN"])) {
       return unauthorized();
     }
 
@@ -33,13 +35,22 @@ export async function GET(req: Request) {
     if (!query.success) return badRequest(query.error.flatten());
 
     let storeId: string | undefined;
-    if (session.role === "STORE_MANAGER" || session.role === "BUSINESS_OWNER") {
+    let staffId = query.data.staffId;
+
+    if (session.role === "STAFF") {
+      const staff = await requireStaffContext(session);
+      if (!staff) return unauthorized();
+      storeId = staff.storeId;
+      staffId = staff.staffId;
+    } else if (session.role === "STORE_MANAGER" || session.role === "BUSINESS_OWNER") {
       const resolved = await resolveStorePortalStoreId(
         session,
         query.data.storeId,
       );
       if (resolved instanceof NextResponse) return resolved;
       storeId = resolved;
+      const personalStaffId = await resolvePersonalStaffId(session, query.data.personalScope);
+      if (personalStaffId) staffId = personalStaffId;
     } else if (query.data.storeId) {
       storeId = query.data.storeId;
     }
@@ -47,6 +58,7 @@ export async function GET(req: Request) {
     const result = await listFieldSales({
       ...query.data,
       storeId,
+      staffId,
     });
 
     return NextResponse.json(result);

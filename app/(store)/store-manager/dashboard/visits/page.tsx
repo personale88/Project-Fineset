@@ -3,13 +3,13 @@ import { fetchInitialStoreStaff } from "@/lib/data/staff";
 import { fetchInitialVisits } from "@/lib/data/visits";
 
 interface StoreManagerVisitsPageProps {
-  searchParams: Promise<{ storeId?: string }>;
+  searchParams: Promise<{ storeId?: string; highlight?: string }>;
 }
 
 export default async function StoreManagerVisitsPage({
   searchParams,
 }: StoreManagerVisitsPageProps) {
-  const { storeId } = await searchParams;
+  const { storeId, highlight } = await searchParams;
   let initialVisits: Awaited<ReturnType<typeof fetchInitialVisits>> = null;
   let initialStaff: Awaited<ReturnType<typeof fetchInitialStoreStaff>> = null;
   try {
@@ -30,6 +30,7 @@ export default async function StoreManagerVisitsPage({
       initialVisits={initialVisits?.data}
       initialVisitsParams={initialVisits?.params}
       initialStaff={initialStaff?.data}
+      highlightRecordId={typeof highlight === "string" ? highlight : undefined}
     />
   );
 }

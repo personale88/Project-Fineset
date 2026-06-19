@@ -3,7 +3,6 @@ import {
   computeVisitValueTier,
   matchesCallQueue,
   matchesCallSegment,
-  matchesVisitPeriod,
 } from "@/lib/services/call-list-utils";
 import { EXTERNAL_SOURCE_CHANNELS } from "@/lib/services/staff-call-master";
 import {
@@ -11,6 +10,7 @@ import {
   shouldQueryVisits,
   type StaffCallsDbQueryParams,
 } from "@/lib/services/staff-calls-query";
+import { matchesStaffCallActivityPeriod } from "@/lib/services/staff-calls-scope";
 import type {
   StaffCallFilterCounts,
   StaffCallMasterFilter,
@@ -21,6 +21,7 @@ import type {
 } from "@/types";
 import type {
   CallValueTier,
+  CallAnswerStatus,
   Prisma,
   SchemeEnrollmentOutcome,
   SourceChannel,
@@ -33,6 +34,7 @@ const ENROLLED_OUTCOMES: SchemeEnrollmentOutcome[] = [
 ];
 
 const staffCallVisitCountSelect = {
+  id: true,
   staffId: true,
   visitDate: true,
   sourceChannel: true,
@@ -53,6 +55,7 @@ const staffCallVisitCountSelect = {
 } satisfies Prisma.VisitSelect;
 
 const staffCallFieldSaleCountSelect = {
+  id: true,
   staffId: true,
   activityDate: true,
   customerType: true,
@@ -119,6 +122,82 @@ export async function fetchStaffCallYearRecords(
   ]);
 
   return { visits, fieldSales };
+}
+
+function buildPendingActionQueueWhere(
+  staffId: string,
+  storeId: string,
+  storeScope: boolean,
+): Prisma.VisitWhereInput {
+  const staffFilter = storeScope ? {} : { staffId };
+  const followUpFilter = storeScope
+    ? { followUp: { status: "OPEN" as const } }
+    : { followUp: { status: "OPEN" as const, assignedStaffId: staffId } };
+
+  return {
+    ...staffFilter,
+    storeId,
+    OR: [{ lastCallAnswered: "NOT_ANSWERED" }, followUpFilter],
+  };
+}
+
+function buildPendingFieldSaleActionQueueWhere(
+  staffId: string,
+  storeId: string,
+  storeScope: boolean,
+): Prisma.FieldSaleWhereInput {
+  const staffFilter = storeScope ? {} : { staffId };
+  const followUpFilter = storeScope
+    ? { followUp: { status: "OPEN" as const } }
+    : { followUp: { status: "OPEN" as const, assignedStaffId: staffId } };
+
+  return {
+    ...staffFilter,
+    storeId,
+    OR: [{ lastCallAnswered: "NOT_ANSWERED" }, followUpFilter],
+  };
+}
+
+/** Pending action-queue rows from any year — merged into filter counts. */
+export async function fetchStaffCallPendingActionRecords(
+  staffId: string,
+  storeId: string,
+  storeScope = false,
+): Promise<StaffCallYearRecords> {
+  const [visits, fieldSales] = await Promise.all([
+    prisma.visit.findMany({
+      where: buildPendingActionQueueWhere(staffId, storeId, storeScope),
+      select: staffCallVisitCountSelect,
+    }),
+    prisma.fieldSale.findMany({
+      where: buildPendingFieldSaleActionQueueWhere(staffId, storeId, storeScope),
+      select: staffCallFieldSaleCountSelect,
+    }),
+  ]);
+
+  return { visits, fieldSales };
+}
+
+export function mergeStaffCallYearRecords(
+  yearRecords: StaffCallYearRecords,
+  extraRecords: StaffCallYearRecords,
+): StaffCallYearRecords {
+  const visitMap = new Map(yearRecords.visits.map((visit) => [visit.id, visit]));
+  for (const visit of extraRecords.visits) {
+    visitMap.set(visit.id, visit);
+  }
+
+  const fieldSaleMap = new Map(
+    yearRecords.fieldSales.map((fieldSale) => [fieldSale.id, fieldSale]),
+  );
+  for (const fieldSale of extraRecords.fieldSales) {
+    fieldSaleMap.set(fieldSale.id, fieldSale);
+  }
+
+  return {
+    visits: Array.from(visitMap.values()),
+    fieldSales: Array.from(fieldSaleMap.values()),
+  };
 }
 
 function resolveVisitValueTier(visit: StaffCallVisitCountRow): Exclude<StaffCallValueTier, "ALL"> {
@@ -192,6 +271,17 @@ function matchesOccasionMonth(
   return storedMonth === activeMonth;
 }
 
+function matchesOccasionStillNeedsCall(
+  lastCallAnswered: CallAnswerStatus | null,
+  params: StaffCallsDbQueryParams,
+): boolean {
+  if (params.queue !== "ALL") return true;
+  const hasOccasion =
+    params.birthday === "THIS_MONTH" || params.anniversary === "THIS_MONTH";
+  if (!hasOccasion) return true;
+  return lastCallAnswered !== "ANSWERED";
+}
+
 function visitMatchesFilters(
   visit: StaffCallVisitCountRow,
   params: StaffCallsDbQueryParams,
@@ -199,7 +289,7 @@ function visitMatchesFilters(
 ): boolean {
   if (!shouldQueryVisits(master)) return false;
   if (!matchesVisitMasterSource(visit.sourceChannel, master)) return false;
-  if (!matchesVisitPeriod(visit.visitDate, params.year, params.month)) return false;
+  if (!matchesStaffCallActivityPeriod(visit.visitDate, params)) return false;
   if (!matchesCallSegment(visit, params.segment)) return false;
   if (
     !matchesValueTier(visit.callValueTier, resolveVisitValueTier(visit), params.valueTier)
@@ -225,6 +315,7 @@ function visitMatchesFilters(
   if (!matchesOccasionMonth(params.anniversary, visit.anniversaryMonth, params.month)) {
     return false;
   }
+  if (!matchesOccasionStillNeedsCall(visit.lastCallAnswered, params)) return false;
   return true;
 }
 
@@ -234,7 +325,7 @@ function fieldSaleMatchesFilters(
   master: StaffCallMasterFilter,
 ): boolean {
   if (!shouldQueryFieldSales(master)) return false;
-  if (!matchesVisitPeriod(fieldSale.activityDate, params.year, params.month)) return false;
+  if (!matchesStaffCallActivityPeriod(fieldSale.activityDate, params)) return false;
   if (!matchesFieldSaleSegment(fieldSale, params.segment)) return false;
   if (
     !matchesValueTier(
@@ -264,6 +355,7 @@ function fieldSaleMatchesFilters(
   if (!matchesOccasionMonth(params.anniversary, fieldSale.anniversaryMonth, params.month)) {
     return false;
   }
+  if (!matchesOccasionStillNeedsCall(fieldSale.lastCallAnswered, params)) return false;
   return true;
 }
 
