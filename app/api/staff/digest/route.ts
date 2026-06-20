@@ -12,7 +12,9 @@ export async function GET() {
     if (!requireRole(session, DIGEST_ROLES)) return unauthorized();
 
     const staff = await requirePortalActorContext(session);
-    if (!staff) return unauthorized();
+    if (!staff) {
+      return NextResponse.json({ overdue: 0, dueToday: 0, total: 0, topNames: [] });
+    }
 
     const digest = await getStaffWorkQueueDigest({
       staffId: staff.staffId,

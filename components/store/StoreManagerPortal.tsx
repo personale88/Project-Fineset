@@ -1,10 +1,6 @@
-import { StoreCorrectionRequests } from "@/components/store/StoreCorrectionRequests";
-import { StoreManagerActionCards } from "@/components/store/StoreManagerActionCards";
-import { StoreManagerAssignmentOverview } from "@/components/store/StoreManagerAssignmentOverview";
-import { ManagerActorSetupBanner, ManagerActorSetupGate } from "@/components/store/ManagerActorSetupGate";
-import { StoreManagerPersonalWorkQueue } from "@/components/store/StoreManagerPersonalWorkQueue";
-import { StoreManagerTeamActivity } from "@/components/store/StoreManagerTeamActivity";
-import { StoreManagerTeamWorkload } from "@/components/store/StoreManagerTeamWorkload";
+import { Suspense } from "react";
+import { ManagerActorSetupBanner } from "@/components/store/ManagerActorSetupGate";
+import { StoreManagerHomeQueues } from "@/components/store/StoreManagerHomeQueues";
 import type { Content } from "@/content/en";
 
 type StoreContent = Content["store"];
@@ -24,24 +20,13 @@ export function StoreManagerPortal({ copy, storeId }: StoreManagerPortalProps) {
           {dashboardCopy.title}
         </h1>
         <p className="text-text-secondary">{dashboardCopy.subtitle}</p>
-        <p className="mt-2 text-sm text-text-muted">{dashboardCopy.guide}</p>
       </header>
 
       <ManagerActorSetupBanner />
 
-      <ManagerActorSetupGate requireLink>
-        <StoreManagerPersonalWorkQueue storeId={storeId} />
-      </ManagerActorSetupGate>
-
-      <StoreManagerTeamWorkload storeId={storeId} />
-
-      <StoreManagerTeamActivity storeId={storeId} />
-
-      <StoreManagerActionCards copy={copy} storeId={storeId} />
-
-      <StoreManagerAssignmentOverview storeId={storeId} />
-
-      <StoreCorrectionRequests storeId={storeId} />
+      <Suspense fallback={null}>
+        <StoreManagerHomeQueues storeId={storeId} />
+      </Suspense>
     </div>
   );
 }

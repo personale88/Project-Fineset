@@ -34,7 +34,11 @@ export async function GET(req: Request) {
     );
     if (!query.success) return badRequest(query.error.flatten());
 
-    const staff = await requireStaffCallsContext(session, query.data.storeId);
+    const staff = await requireStaffCallsContext(
+      session,
+      query.data.storeId,
+      query.data.personalScope,
+    );
     if (!staff) return unauthorized();
 
     if (query.data.viewStaffId) {

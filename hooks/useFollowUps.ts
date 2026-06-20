@@ -10,6 +10,7 @@ export type FollowUpFilter = "overdue" | "due_today" | "open" | "mismatched";
 
 export interface FollowUpQuery {
   storeId?: string;
+  viewStaffId?: string;
   status?: FollowUpListItem["status"];
   overdue?: boolean;
   dueToday?: boolean;
@@ -27,6 +28,7 @@ interface UpdateFollowUpVariables {
 export function useFollowUps(params: FollowUpQuery = {}) {
   const qs = buildQueryString({
     storeId: params.storeId,
+    viewStaffId: params.viewStaffId,
     status: params.status,
     overdue: params.overdue ? "true" : undefined,
     dueToday: params.dueToday ? "true" : undefined,

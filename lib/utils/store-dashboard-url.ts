@@ -62,7 +62,14 @@ export function storeDetailHrefForRole(
 }
 
 export function portalSectionPath(
-  section: "visits" | "calls" | "field-sales" | "staff",
+  section:
+    | "visits"
+    | "calls"
+    | "field-sales"
+    | "staff"
+    | "follow-ups"
+    | "audit"
+    | "activity",
   role: "STORE_MANAGER" | "BUSINESS_OWNER",
   storeId?: string | null,
 ): string {
@@ -70,17 +77,31 @@ export function portalSectionPath(
   return appendStoreQuery(base, storeId);
 }
 
+export function storeManagerDashboardHref(): string {
+  return STORE_MANAGER_DASHBOARD_PATH;
+}
+
+export type ManagerHomeHub = "team" | "my-work";
+
+export function storeManagerHomeHubHref(hub: ManagerHomeHub): string {
+  return `${STORE_MANAGER_DASHBOARD_PATH}?hub=${hub}`;
+}
+
+export function storeManagerMyWorkHubHref(): string {
+  return storeManagerHomeHubHref("my-work");
+}
+
+export function storeManagerTeamHubHref(): string {
+  return storeManagerHomeHubHref("team");
+}
+
 export function portalListBackHref(
   role: "STORE_MANAGER" | "BUSINESS_OWNER",
   storeId: string,
 ): string {
   return role === "STORE_MANAGER"
-    ? storeManagerDashboardHref()
+    ? storeManagerTeamHubHref()
     : storeDetailPathForRole(storeId, role);
-}
-
-export function storeManagerDashboardHref(): string {
-  return STORE_MANAGER_DASHBOARD_PATH;
 }
 
 export function storeDetailBackLabel(

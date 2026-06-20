@@ -1,5 +1,6 @@
 import type { Content } from "@/content/en";
 import type { CreateFieldSaleInput } from "@/lib/validations/field-sale.schema";
+import type { PortalFormSuccessPaths } from "@/lib/utils/portal-form-paths";
 import {
   formatDateForInput,
   formatTimeForInput,
@@ -15,6 +16,7 @@ export interface FieldSalesFormProps {
   copy: FieldSalesFormCopy;
   common: CommonCopy;
   errors: ErrorsCopy;
+  successPaths?: PortalFormSuccessPaths;
 }
 
 export type FieldSalesFormValues = CreateFieldSaleInput;

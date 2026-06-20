@@ -80,7 +80,14 @@ export function useRealtimeSync(): void {
             const entities =
               data.entities.length > 0
                 ? data.entities
-                : (["visits", "fieldSales", "staff", "callLogs", "stores"] as SyncEntity[]);
+                : ([
+                    "visits",
+                    "fieldSales",
+                    "staff",
+                    "followUps",
+                    "callLogs",
+                    "stores",
+                  ] as SyncEntity[]);
             for (const entity of entities) {
               debouncedInvalidateRef.current.add(entity);
             }

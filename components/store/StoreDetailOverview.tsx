@@ -174,14 +174,6 @@ export function StoreDetailOverview({
               {detail.viewCalls}
             </Link>
           </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link
-              href={portalSectionPath("field-sales", portalRole, storeId)}
-              prefetch={false}
-            >
-              {detail.viewFieldSales}
-            </Link>
-          </Button>
           {showStaffNav ? (
             <Button asChild size="sm" variant="outline">
               <Link
@@ -194,11 +186,22 @@ export function StoreDetailOverview({
           ) : null}
           {portalRole === "BUSINESS_OWNER" ? (
             <Button asChild size="sm" variant="outline">
-              <Link href="/business-owner/dashboard/audit" prefetch={false}>
+              <Link
+                href={portalSectionPath("audit", "BUSINESS_OWNER", storeId)}
+                prefetch={false}
+              >
                 {detail.viewAudit}
               </Link>
             </Button>
           ) : null}
+          <Button asChild size="sm" variant="outline">
+            <Link
+              href={portalSectionPath("field-sales", portalRole, storeId)}
+              prefetch={false}
+            >
+              {detail.viewFieldSales}
+            </Link>
+          </Button>
         </nav>
       </div>
 
@@ -224,16 +227,6 @@ export function StoreDetailOverview({
         initialParams={bundleHydrated ? analyticsParams : undefined}
       />
 
-      <StoreFieldSalesOverviewSection
-        copy={store.fieldSalesOverview}
-        period={period}
-        periodLabel={periodLabel}
-        deltaPeriod={store.deltaPeriod}
-        storeId={storeId}
-        initialData={bundleHydrated ? overview?.fieldSales : undefined}
-        initialParams={bundleHydrated ? analyticsParams : undefined}
-      />
-
       <StoreRsoPerformanceSection
         copy={store.rsoPerformance}
         periodLabels={store.period}
@@ -241,6 +234,16 @@ export function StoreDetailOverview({
         emptyMessage={store.rsoPerformance.empty}
         storeId={storeId}
         initialData={bundleHydrated ? overview?.rsoPerformance : undefined}
+        initialParams={bundleHydrated ? analyticsParams : undefined}
+      />
+
+      <StoreFieldSalesOverviewSection
+        copy={store.fieldSalesOverview}
+        period={period}
+        periodLabel={periodLabel}
+        deltaPeriod={store.deltaPeriod}
+        storeId={storeId}
+        initialData={bundleHydrated ? overview?.fieldSales : undefined}
         initialParams={bundleHydrated ? analyticsParams : undefined}
       />
     </div>

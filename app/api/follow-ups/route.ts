@@ -8,9 +8,10 @@ import {
   unauthorized,
 } from "@/lib/auth/session";
 import { requireStaffContext } from "@/lib/auth/resolve-staff";
-import { resolvePersonalStaffId } from "@/lib/auth/resolve-personal-scope";
+import { resolvePersonalStaffId, isUnlinkedManagerPersonalScope } from "@/lib/auth/resolve-personal-scope";
 import { listFollowUps } from "@/lib/services/follow-ups";
 import { followUpQuerySchema } from "@/lib/validations/follow-ups.schema";
+import { prisma } from "@/lib/db/prisma";
 
 export async function GET(req: Request) {
   try {
@@ -41,7 +42,19 @@ export async function GET(req: Request) {
       if (resolved instanceof NextResponse) return resolved;
       storeId = resolved;
       const personalStaffId = await resolvePersonalStaffId(session, query.data.personalScope);
-      if (personalStaffId) staffId = personalStaffId;
+      if (isUnlinkedManagerPersonalScope(session, query.data.personalScope, personalStaffId)) {
+        return NextResponse.json([]);
+      }
+      if (query.data.viewStaffId) {
+        const member = await prisma.staff.findFirst({
+          where: { id: query.data.viewStaffId, storeId, isActive: true },
+          select: { id: true },
+        });
+        if (!member) return badRequest("Invalid staff filter");
+        staffId = query.data.viewStaffId;
+      } else if (personalStaffId) {
+        staffId = personalStaffId;
+      }
     }
 
     const data = await listFollowUps({

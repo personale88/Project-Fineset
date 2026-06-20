@@ -10,10 +10,11 @@ export function useStaffWorkQueue(limit = 15) {
   });
 }
 
-export function useStaffDigest() {
+export function useStaffDigest(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ["staff-digest"],
     queryFn: getStaffDigest,
+    enabled: options?.enabled ?? true,
     ...LIVE_QUERY_OPTIONS,
   });
 }

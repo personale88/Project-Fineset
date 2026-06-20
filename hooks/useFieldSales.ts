@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFieldSale } from "@/lib/api/field-sales";
-import { invalidatePortalData } from "@/lib/sync/invalidate-portal-data";
+import { invalidateEntities } from "@/lib/sync/invalidate-portal-data";
 import type { CreateFieldSaleInput } from "@/lib/validations/field-sale.schema";
 
 export function useCreateFieldSale() {
@@ -9,7 +9,7 @@ export function useCreateFieldSale() {
   return useMutation({
     mutationFn: (payload: CreateFieldSaleInput) => createFieldSale(payload),
     onSuccess: () => {
-      void invalidatePortalData(queryClient);
+      void invalidateEntities(queryClient, ["fieldSales", "followUps"]);
     },
   });
 }

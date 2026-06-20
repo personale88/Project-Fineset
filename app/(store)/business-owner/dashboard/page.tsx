@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { content } from "@/content/en";
-import { StorePortfolio } from "@/components/store/StorePortfolio";
+import { BusinessOwnerPortal } from "@/components/store/BusinessOwnerPortal";
 import { getRedirectForRole } from "@/lib/auth/routes";
 import { getAppSession } from "@/lib/auth/get-app-session";
 import { fetchInitialStoreManagerPortfolio } from "@/lib/data/analytics";
@@ -35,11 +35,10 @@ export default async function StoreDashboardPage({
 
   return (
     <Suspense fallback={null}>
-      <StorePortfolio
-        store={content.store}
+      <BusinessOwnerPortal
+        copy={content.store}
         initialPortfolio={initial?.data}
         initialParams={initial?.params}
-        initialPeriod={period}
       />
     </Suspense>
   );

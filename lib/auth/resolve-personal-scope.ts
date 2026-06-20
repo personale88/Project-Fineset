@@ -13,6 +13,17 @@ export async function resolvePersonalStaffId(
   return actor?.staffId;
 }
 
+/** When true, personal-scope list APIs should return empty results (not store-wide data). */
+export function isUnlinkedManagerPersonalScope(
+  session: AppSession,
+  personalScope: boolean | undefined,
+  personalStaffId: string | undefined,
+): boolean {
+  return Boolean(
+    personalScope && session.role === "STORE_MANAGER" && !personalStaffId,
+  );
+}
+
 export function resolveStaffCallsStoreScope(
   role: string,
   personalScope?: boolean,

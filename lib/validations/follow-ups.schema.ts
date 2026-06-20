@@ -26,6 +26,7 @@ export const followUpQuerySchema = z.object({
     .optional()
     .transform((v) => v === "true"),
   filter: z.enum(["overdue", "due_today", "open"]).optional(),
+  viewStaffId: z.string().min(1).optional(),
 });
 
 export const followUpActionSchema = z.enum(["open", "close", "schedule"]);

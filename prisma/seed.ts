@@ -670,6 +670,53 @@ async function main(): Promise<void> {
     },
   });
 
+  const piiLakshmi = customerPii("Lakshmi Devi", "9810001042");
+  const managerVisitDate = daysAgo(10);
+  const managerVisit = await prisma.visit.create({
+    data: {
+      storeId: storeAlpha.id,
+      staffId: managerAlpha.id,
+      customerName: piiLakshmi.name,
+      customerPhone: piiLakshmi.phone,
+      customerPhoneHash: piiLakshmi.phoneHash,
+      customerNameSearch: piiLakshmi.nameSearch,
+      phoneLast4: piiLakshmi.phoneLast4,
+      visitDate: managerVisitDate,
+      inTime: visitTime(11, 30, managerVisitDate),
+      outTime: visitTime(12, 15, managerVisitDate),
+      durationMins: 45,
+      customerType: "REPEAT",
+      visitType: "WALK_IN",
+      purchaseStatus: "NOT_PURCHASED",
+      productsExplored: ["FINGER_RINGS", "NECKLACE"],
+      productsPurchased: [],
+      intentTier: "WARM",
+      reasonNoPurchase: "WILL_VISIT_AGAIN",
+      budgetStated: "K15_50K",
+      followUpNeeded: true,
+      followUpDate: daysAgo(7),
+      sourceChannel: "ORGANIC_WALK_IN",
+      area: "Banjara Hills",
+      ...visitDenormFields({
+        transactionAmount: null,
+        budgetStated: "K15_50K",
+        purchaseStatus: "NOT_PURCHASED",
+        dateOfBirth: null,
+        anniversary: null,
+      }),
+    },
+  });
+
+  await prisma.followUp.create({
+    data: {
+      visitId: managerVisit.id,
+      assignedStaffId: managerAlpha.id,
+      followUpDate: daysAgo(7),
+      reason: "Ring resizing follow-up — customer asked to call back",
+      status: "OPEN",
+    },
+  });
+
   const piiField2 = customerPii("Sneha Gupta", "9810002002");
   const fieldSale2Date = dayInCurrentMonth(10);
   await prisma.fieldSale.create({
@@ -712,7 +759,8 @@ async function main(): Promise<void> {
     visitsForStaffA: 8,
     visitsTotal: 10,
     fieldSalesForStaffA: 2,
-    followUps: 3,
+    followUps: 4,
+    managerOverdueFollowUpVisitId: managerVisit.id,
     callLogs: 2,
     loginHint: "Run npm run auth:bootstrap-dev && npm run db:seed:mock for 300+ edge-case mock records",
     sampleVisitId: visitAnita.id,

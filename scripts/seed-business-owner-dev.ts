@@ -339,6 +339,69 @@ async function seedVisit(spec: SeedVisitSpec) {
   return prisma.visit.create({ data: baseVisit });
 }
 
+async function seedMismatchedFollowUp(
+  store: Awaited<ReturnType<typeof upsertDevStore>>,
+  storeCode: string,
+  staff: Awaited<ReturnType<typeof ensureStaffMember>>[],
+  manager: Awaited<ReturnType<typeof ensureStoreManager>>,
+) {
+  const phone = customerPhone(storeCode, 9);
+  if (await visitExists(store.id, phone)) {
+    return false;
+  }
+
+  const pii = prepareCustomerPii(`${store.name} Mismatch Customer`, phone);
+  const visitDate = dayInCurrentMonth(20);
+
+  const visit = await prisma.visit.create({
+    data: {
+      storeId: store.id,
+      staffId: staff[0].id,
+      customerName: pii.name,
+      customerPhone: pii.phone,
+      customerPhoneHash: pii.phoneHash,
+      customerNameSearch: pii.nameSearch,
+      phoneLast4: pii.phoneLast4,
+      visitDate,
+      inTime: visitTime(11, 0, visitDate),
+      outTime: visitTime(11, 45, visitDate),
+      durationMins: 45,
+      customerType: "NEW",
+      visitType: "WALK_IN",
+      purchaseStatus: "NOT_PURCHASED",
+      productsExplored: ["RINGS"],
+      productsPurchased: [],
+      transactionAmount: null,
+      intentTier: "WARM",
+      reasonNoPurchase: "EXPLORING",
+      budgetStated: "K15_50K",
+      sourceChannel: "ORGANIC_WALK_IN",
+      area: "Central",
+      followUpNeeded: true,
+      followUpDate: daysAgo(1),
+      ...visitDenormFields({
+        transactionAmount: null,
+        budgetStated: "K15_50K",
+        purchaseStatus: "NOT_PURCHASED",
+        dateOfBirth: null,
+        anniversary: null,
+      }),
+    },
+  });
+
+  await prisma.followUp.create({
+    data: {
+      visitId: visit.id,
+      assignedStaffId: manager.id,
+      followUpDate: daysAgo(1),
+      reason: "Mismatched assignment for owner dashboard testing",
+      status: "OPEN",
+    },
+  });
+
+  return true;
+}
+
 async function seedStoreActivity(
   store: Awaited<ReturnType<typeof upsertDevStore>>,
   storeCode: string,
@@ -348,7 +411,7 @@ async function seedStoreActivity(
   for (let i = 0; i < staffNames.length; i += 1) {
     staff.push(await ensureStaffMember(store.id, store.name, staffNames[i], i));
   }
-  await ensureStoreManager(store.id, store.name);
+  const manager = await ensureStoreManager(store.id, store.name);
 
   const scenarios: Array<{
     scenario: SeedVisitSpec["scenario"];
@@ -420,6 +483,10 @@ async function seedStoreActivity(
       scenario: item.scenario,
     });
     if (visit) created += 1;
+  }
+
+  if (await seedMismatchedFollowUp(store, storeCode, staff, manager)) {
+    created += 1;
   }
 
   if (store.name !== "Store Alpha") {
@@ -524,6 +591,7 @@ async function main() {
   console.log("\nDone.");
   console.log(`Sign in as ${OWNER_EMAIL} and open /business-owner/dashboard`);
   console.log("You should see 4 stores in the carousel with pending calls and reminders.");
+  console.log("Each store also has a mismatched follow-up for work queue testing.");
   console.log("Dev password (after auth:bootstrap-dev): FineSet#1dev");
 }
 

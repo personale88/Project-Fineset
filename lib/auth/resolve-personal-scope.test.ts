@@ -1,6 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { resolveStaffCallsStoreScope } from "@/lib/auth/resolve-personal-scope";
-import { resolvePersonalStaffId } from "@/lib/auth/resolve-personal-scope";
+import { resolveStaffCallsStoreScope, resolvePersonalStaffId, isUnlinkedManagerPersonalScope } from "@/lib/auth/resolve-personal-scope";
 import type { StoreSession } from "@/types";
 
 vi.mock("@/lib/auth/resolve-staff", () => ({
@@ -68,5 +67,16 @@ describe("resolvePersonalStaffId", () => {
   it("returns undefined when manager has no linked staff", async () => {
     vi.mocked(requirePortalActorContext).mockResolvedValue(null);
     await expect(resolvePersonalStaffId(managerSession, true)).resolves.toBeUndefined();
+  });
+});
+
+describe("isUnlinkedManagerPersonalScope", () => {
+  it("is true for manager personal scope without linked staff", () => {
+    expect(isUnlinkedManagerPersonalScope(managerSession, true, undefined)).toBe(true);
+  });
+
+  it("is false when staff is linked or scope is not personal", () => {
+    expect(isUnlinkedManagerPersonalScope(managerSession, true, "staff-1")).toBe(false);
+    expect(isUnlinkedManagerPersonalScope(managerSession, false, undefined)).toBe(false);
   });
 });

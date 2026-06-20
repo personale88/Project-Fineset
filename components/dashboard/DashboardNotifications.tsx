@@ -27,6 +27,7 @@ import {
   STAFF_DASHBOARD_PATH,
   STORE_MANAGER_DASHBOARD_PATH,
 } from "@/lib/auth/routes";
+import { portalSectionPath } from "@/lib/utils/store-dashboard-url";
 import { defaultStaffCallsParams } from "@/lib/query/initial-data";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { cn } from "@/lib/utils";
@@ -46,10 +47,12 @@ import type {
 import type { LucideIcon } from "lucide-react";
 
 interface DashboardNotificationsProps {
-  variant: "staff" | "store_manager" | "store_manager_personal";
+  variant: "staff" | "store_manager" | "store_manager_personal" | "business_owner";
   storeId?: string;
   /** Embedded inside StaffWorkQueue browse mode — no standalone header/footer chrome. */
   presentation?: "standalone" | "embedded";
+  /** View-only mode for oversight portals — links only, no call/assign actions. */
+  readOnly?: boolean;
 }
 
 type NotificationFilter =
@@ -164,6 +167,7 @@ export function DashboardNotifications({
   variant,
   storeId,
   presentation = "standalone",
+  readOnly = false,
 }: DashboardNotificationsProps) {
   const embedded = presentation === "embedded";
   const copy = content.dashboardNotifications;
@@ -185,6 +189,7 @@ export function DashboardNotifications({
     refetch: refetchFollowUps,
   } = useFollowUps({
     ...(variant === "store_manager" && storeId ? { storeId } : {}),
+    ...(variant === "business_owner" && storeId ? { storeId } : {}),
     ...(variant === "store_manager_personal" ? { personalScope: true } : {}),
     status: "OPEN",
   });
@@ -203,7 +208,10 @@ export function DashboardNotifications({
   const revealPhone = useRevealStaffCallPhone();
   const submitOutcome = useSubmitStaffCallOutcome();
 
-  const canAssign = variant === "store_manager" && Boolean(storeId);
+  const canAssign =
+    !readOnly &&
+    (variant === "store_manager" || variant === "business_owner") &&
+    Boolean(storeId);
   const callsCopy = content.staff.calls;
 
   const cardLabels = useMemo(
@@ -223,18 +231,22 @@ export function DashboardNotifications({
   );
 
   const callsBasePath =
-    variant === "staff" || variant === "store_manager_personal"
-      ? variant === "store_manager_personal"
-        ? `${STORE_MANAGER_DASHBOARD_PATH}/my-calls`
-        : `${STAFF_DASHBOARD_PATH}/calls`
-      : `${STORE_MANAGER_DASHBOARD_PATH}/calls`;
+    variant === "business_owner"
+      ? portalSectionPath("calls", "BUSINESS_OWNER", storeId)
+      : variant === "staff" || variant === "store_manager_personal"
+        ? variant === "store_manager_personal"
+          ? `${STORE_MANAGER_DASHBOARD_PATH}/my-calls`
+          : `${STAFF_DASHBOARD_PATH}/calls`
+        : `${STORE_MANAGER_DASHBOARD_PATH}/calls`;
 
   const followUpsHref =
-    variant === "staff"
-      ? `${STAFF_DASHBOARD_PATH}/follow-ups`
-      : variant === "store_manager_personal"
-        ? `${STORE_MANAGER_DASHBOARD_PATH}/my-follow-ups`
-        : `${STORE_MANAGER_DASHBOARD_PATH}/follow-ups`;
+    variant === "business_owner"
+      ? portalSectionPath("follow-ups", "BUSINESS_OWNER", storeId)
+      : variant === "staff"
+        ? `${STAFF_DASHBOARD_PATH}/follow-ups`
+        : variant === "store_manager_personal"
+          ? `${STORE_MANAGER_DASHBOARD_PATH}/my-follow-ups`
+          : `${STORE_MANAGER_DASHBOARD_PATH}/follow-ups`;
 
   const followUps = openFollowUps ?? [];
   const overdueFollowUps = useMemo(
@@ -697,8 +709,12 @@ export function DashboardNotifications({
                       canAssign={canAssign}
                       listParams={followUpListParams}
                       onUpdated={() => void refetchFollowUps()}
-                      onCall={(followUp) => void handleCallFromFollowUp(followUp)}
-                      isCalling={callingFollowUpId === entry.item.id}
+                      onCall={
+                        readOnly
+                          ? undefined
+                          : (followUp) => void handleCallFromFollowUp(followUp)
+                      }
+                      isCalling={!readOnly && callingFollowUpId === entry.item.id}
                     />
                   );
                 }
@@ -709,7 +725,7 @@ export function DashboardNotifications({
                     key={`${item.masterSource}:${item.recordId}`}
                     item={item}
                     labels={cardLabels}
-                    onCall={(callItem) => void handleOpenCall(callItem)}
+                    onCall={readOnly ? undefined : (callItem) => void handleOpenCall(callItem)}
                     canAssign={canAssign}
                     storeId={storeId}
                     onAssigned={() => void refetchCalls()}
@@ -731,16 +747,18 @@ export function DashboardNotifications({
         )
       ) : null}
 
-      <CallFeedbackDialog
-        copy={callsCopy}
-        item={activeCallItem}
-        open={callDialogOpen}
-        onOpenChange={handleCloseCallDialog}
-        dialInfo={revealPhone.data ?? null}
-        isDialLoading={revealPhone.isPending}
-        isSubmitting={submitOutcome.isPending}
-        onSubmit={handleSubmitCallOutcome}
-      />
+      {!readOnly ? (
+        <CallFeedbackDialog
+          copy={callsCopy}
+          item={activeCallItem}
+          open={callDialogOpen}
+          onOpenChange={handleCloseCallDialog}
+          dialInfo={revealPhone.data ?? null}
+          isDialLoading={revealPhone.isPending}
+          isSubmitting={submitOutcome.isPending}
+          onSubmit={handleSubmitCallOutcome}
+        />
+      ) : null}
 
       {activeFilter === null && !countsLoading && !embedded ? (
         <p className="px-4 py-6 text-sm text-text-secondary sm:px-5">

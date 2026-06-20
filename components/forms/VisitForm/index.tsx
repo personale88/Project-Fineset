@@ -13,8 +13,7 @@ import { ProgressIndicator } from "./FormSection";
 import { VisitFormSections } from "./VisitFormSections";
 import { VisitFormSuccess } from "./VisitFormSuccess";
 import { buildClientVisitFormValues, clearVisitDraft, loadVisitDraft, useVisitDraft } from "./useVisitDraft";
-import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
-import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
+import { buildPortalFormSuccessPaths, type PortalFormSuccessPaths } from "@/lib/utils/portal-form-paths";
 import {
   buildSections,
   getDefaultVisitValues,
@@ -23,7 +22,7 @@ import {
   type VisitFormValues,
 } from "./VisitForm.types";
 
-export function VisitForm({ copy, common, errors }: VisitFormProps) {
+export function VisitForm({ copy, common, errors, successPaths }: VisitFormProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -128,14 +127,15 @@ export function VisitForm({ copy, common, errors }: VisitFormProps) {
   }
 
   if (isSuccess) {
+    const paths = successPaths ?? buildPortalFormSuccessPaths();
     const secondaryActions = [
-      { label: copy.actions.viewMyVisits, href: `${STAFF_DASHBOARD_PATH}/my-visits` },
-      { label: copy.actions.viewCalls, href: `${STAFF_DASHBOARD_PATH}/calls` },
+      { label: copy.actions.viewMyVisits, href: paths.myVisits },
+      { label: copy.actions.viewCalls, href: paths.calls },
       ...(lastSubmittedFollowUp
         ? [
             {
               label: copy.actions.viewFollowUps,
-              href: buildFollowUpsHref(`${STAFF_DASHBOARD_PATH}/follow-ups`, "open"),
+              href: paths.followUps,
             },
           ]
         : []),

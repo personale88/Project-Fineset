@@ -18,9 +18,11 @@ import { Button } from "@/components/ui/button";
 
 export function StaffMyVisits({
   portalBasePath = STAFF_DASHBOARD_PATH,
+  backHref,
   personalScope = false,
 }: {
   portalBasePath?: string;
+  backHref?: string;
   personalScope?: boolean;
 } = {}) {
   const copy = content.staff.myVisits;
@@ -45,7 +47,7 @@ export function StaffMyVisits({
     <div className="space-y-4">
       <div className="space-y-3">
         <Link
-          href={portalBasePath}
+          href={backHref ?? portalBasePath}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary transition-colors hover:text-brand-gold"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden />

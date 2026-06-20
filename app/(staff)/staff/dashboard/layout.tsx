@@ -3,6 +3,7 @@ import { PortalShell } from "@/components/layout/PortalShell";
 import { RealtimeSyncProvider } from "@/components/layout/RealtimeSyncProvider";
 import { RoleOnboardingModalGate } from "@/components/onboarding/RoleOnboardingModalGate";
 import { GlobalSearchDialog } from "@/components/search/GlobalSearchDialog";
+import { buildStaffDesktopNav } from "@/components/store/staff-desktop-nav";
 import { StaffBottomNav } from "@/components/staff/StaffBottomNav";
 import { StaffNotificationBell } from "@/components/staff/StaffNotificationBell";
 import { requirePortalSession } from "@/lib/auth/require-portal-session";
@@ -30,6 +31,8 @@ export default async function StaffLayout({
     <PortalShell
       title={content.staff.shell.title}
       homeHref={STAFF_DASHBOARD_PATH}
+      navItems={buildStaffDesktopNav()}
+      showDesktopNav
       signOutLabel={content.common.signOut}
       headerActions={
         <>

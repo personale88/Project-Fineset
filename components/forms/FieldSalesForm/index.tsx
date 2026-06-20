@@ -7,8 +7,7 @@ import { createFieldSaleSchema } from "@/lib/validations/field-sale.schema";
 import { useCreateFieldSale } from "@/hooks/useFieldSales";
 import { toast } from "@/hooks/useToast";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
-import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
-import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
+import { buildPortalFormSuccessPaths, type PortalFormSuccessPaths } from "@/lib/utils/portal-form-paths";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { ProgressIndicator } from "@/components/forms/VisitForm/FormSection";
@@ -27,7 +26,7 @@ import {
   type FieldSalesFormValues,
 } from "./FieldSalesForm.types";
 
-export function FieldSalesForm({ copy, common, errors }: FieldSalesFormProps) {
+export function FieldSalesForm({ copy, common, errors, successPaths }: FieldSalesFormProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [lastSubmittedFollowUp, setLastSubmittedFollowUp] = useState(false);
@@ -129,17 +128,18 @@ export function FieldSalesForm({ copy, common, errors }: FieldSalesFormProps) {
   }
 
   if (isSuccess) {
+    const paths = successPaths ?? buildPortalFormSuccessPaths();
     const secondaryActions = [
       {
         label: copy.actions.viewMyFieldSales,
-        href: `${STAFF_DASHBOARD_PATH}/my-field-sales`,
+        href: paths.myFieldSales,
       },
-      { label: copy.actions.viewCalls, href: `${STAFF_DASHBOARD_PATH}/calls` },
+      { label: copy.actions.viewCalls, href: paths.calls },
       ...(lastSubmittedFollowUp
         ? [
             {
               label: copy.actions.viewFollowUps,
-              href: buildFollowUpsHref(`${STAFF_DASHBOARD_PATH}/follow-ups`, "open"),
+              href: paths.followUps,
             },
           ]
         : []),

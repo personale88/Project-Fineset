@@ -20,24 +20,23 @@ interface RoleOnboardingModalProps {
 
 const STORAGE_KEY = "fineset-onboarding-seen";
 
-const copyByRole: Record<string, { title: string; body: string }> = {
-  STORE_MANAGER: {
-    title: "Welcome, store manager",
-    body: "Log activity for your store and review performance from the store dashboard.",
-  },
-  BUSINESS_OWNER: {
-    title: "Welcome, business owner",
-    body: "Review portfolio performance, manage staff, and import data across your stores.",
-  },
-  MASTER_ADMIN: {
-    title: "Welcome, admin",
-    body: "Manage stores, users, and chain-wide analytics from the admin dashboard.",
-  },
-};
-
 function readOnboardingOpen(role: string): boolean {
   if (typeof window === "undefined") return false;
   return !window.localStorage.getItem(`${STORAGE_KEY}:${role}`);
+}
+
+function managerOnboardingSteps(userName?: string) {
+  const copy = content.store.managerShell.onboarding;
+  return [
+    {
+      title:
+        userName?.trim() ? `Welcome, ${userName.trim()}` : copy.step1Title,
+      body: copy.step1Body,
+    },
+    { title: copy.step2Title, body: copy.step2Body },
+    { title: copy.step3Title, body: copy.step3Body },
+    { title: copy.step4Title, body: copy.step4Body },
+  ];
 }
 
 export function RoleOnboardingModal({ role, userName }: RoleOnboardingModalProps) {
@@ -98,6 +97,54 @@ export function RoleOnboardingModal({ role, userName }: RoleOnboardingModalProps
       </Dialog>
     );
   }
+
+  if (role === "STORE_MANAGER") {
+    const steps = managerOnboardingSteps(userName);
+    const current = steps[step]!;
+
+    return (
+      <Dialog open onOpenChange={(next) => !next && dismiss()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{current.title}</DialogTitle>
+            <DialogDescription>{current.body}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <span className="text-xs text-text-muted">
+              {step + 1} / {steps.length}
+            </span>
+            <div className="flex gap-2">
+              {step > 0 ? (
+                <Button type="button" variant="outline" onClick={() => setStep((s) => s - 1)}>
+                  {content.common.previous}
+                </Button>
+              ) : null}
+              {step < steps.length - 1 ? (
+                <Button type="button" onClick={() => setStep((s) => s + 1)}>
+                  {content.common.next}
+                </Button>
+              ) : (
+                <Button type="button" onClick={dismiss}>
+                  Got it
+                </Button>
+              )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  const copyByRole: Record<string, { title: string; body: string }> = {
+    BUSINESS_OWNER: {
+      title: "Welcome, business owner",
+      body: "Review portfolio performance, manage staff, and import data across your stores.",
+    },
+    MASTER_ADMIN: {
+      title: "Welcome, admin",
+      body: "Manage stores, users, and chain-wide analytics from the admin dashboard.",
+    },
+  };
 
   const copy = copyByRole[role] ?? {
     title: "Welcome",

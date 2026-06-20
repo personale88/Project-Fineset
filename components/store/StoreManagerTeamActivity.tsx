@@ -6,7 +6,7 @@ import { content } from "@/content/en";
 import { useManagerDashboard } from "@/hooks/useManagerDashboard";
 import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { buildTeamCallsHref } from "@/lib/utils/staff-calls-url";
-import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
+import { buildTeamFollowUpsHref } from "@/lib/utils/follow-ups-url";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { QueryLoadState } from "@/components/shared/QueryLoadState";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,10 @@ interface StoreManagerTeamActivityProps {
 
 function staffCallsHref(staffId: string): string {
   return buildTeamCallsHref(`${STORE_MANAGER_DASHBOARD_PATH}/calls`, staffId);
+}
+
+function staffFollowUpsHref(staffId: string): string {
+  return buildTeamFollowUpsHref(`${STORE_MANAGER_DASHBOARD_PATH}/follow-ups`, staffId, "open");
 }
 
 export function StoreManagerTeamActivity({ storeId }: StoreManagerTeamActivityProps) {
@@ -112,10 +116,7 @@ export function StoreManagerTeamActivity({ storeId }: StoreManagerTeamActivityPr
                               {copy.viewCalls}
                             </Link>
                             <Link
-                              href={buildFollowUpsHref(
-                                `${STORE_MANAGER_DASHBOARD_PATH}/follow-ups`,
-                                "open",
-                              )}
+                              href={staffFollowUpsHref(row.staffId)}
                               className="text-sm font-medium text-brand-gold hover:underline"
                             >
                               {copy.viewFollowUps}

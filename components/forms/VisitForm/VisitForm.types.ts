@@ -1,5 +1,6 @@
 import type { Content } from "@/content/en";
 import type { CreateVisitInput } from "@/lib/validations/visit.schema";
+import type { PortalFormSuccessPaths } from "@/lib/utils/portal-form-paths";
 import { formatCalendarDate, parseCalendarDate } from "@/lib/utils/calendar-date";
 
 export type VisitFormCopy = Content["visitForm"];
@@ -10,6 +11,7 @@ export interface VisitFormProps {
   copy: VisitFormCopy;
   common: CommonCopy;
   errors: ErrorsCopy;
+  successPaths?: PortalFormSuccessPaths;
 }
 
 export type VisitFormValues = CreateVisitInput;

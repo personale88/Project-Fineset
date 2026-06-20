@@ -33,7 +33,7 @@ interface StaffCallCardLabels {
 interface StaffCallCardProps {
   item: StaffCallListItem;
   labels: StaffCallCardLabels;
-  onCall: (item: StaffCallListItem) => void;
+  onCall?: (item: StaffCallListItem) => void;
   canAssign?: boolean;
   storeId?: string;
   onAssigned?: () => void;
@@ -83,17 +83,19 @@ export function StaffCallCard({
                 variant="outline"
               />
             ) : null}
-            <Button
-              type="button"
-              size="icon"
-              className="h-10 w-10 shrink-0 rounded-full"
-              disabled={!item.canCall}
-              aria-label={item.canCall ? labels.call : labels.noPhone}
-              title={item.canCall ? labels.call : labels.noPhone}
-              onClick={() => onCall(item)}
-            >
-              <Phone className="h-4 w-4" aria-hidden />
-            </Button>
+            {onCall ? (
+              <Button
+                type="button"
+                size="icon"
+                className="h-10 w-10 shrink-0 rounded-full"
+                disabled={!item.canCall}
+                aria-label={item.canCall ? labels.call : labels.noPhone}
+                title={item.canCall ? labels.call : labels.noPhone}
+                onClick={() => onCall(item)}
+              >
+                <Phone className="h-4 w-4" aria-hidden />
+              </Button>
+            ) : null}
           </div>
         </div>
 

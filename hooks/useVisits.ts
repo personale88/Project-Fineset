@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { createVisit, getVisits, importVisitsCsv } from "@/lib/api/visits";
 import { visitsParamsMatch } from "@/lib/query/initial-data";
-import { invalidatePortalData } from "@/lib/sync/invalidate-portal-data";
+import { invalidateEntities } from "@/lib/sync/invalidate-portal-data";
 import { LIVE_QUERY_OPTIONS, queryOptionsForHydration } from "@/lib/sync/constants";
 import type { CreateVisitInput } from "@/lib/validations/visit.schema";
 import type {
@@ -43,7 +43,7 @@ export function useCreateVisit() {
   return useMutation({
     mutationFn: (payload: CreateVisitInput) => createVisit(payload),
     onSuccess: () => {
-      void invalidatePortalData(queryClient);
+      void invalidateEntities(queryClient, ["visits", "followUps"]);
     },
   });
 }
@@ -54,7 +54,7 @@ export function useImportVisitsCsv(storeId?: string) {
   return useMutation<VisitsImportResult, Error, File>({
     mutationFn: (file) => importVisitsCsv(file, storeId),
     onSuccess: () => {
-      void invalidatePortalData(queryClient);
+      void invalidateEntities(queryClient, ["visits", "followUps"]);
     },
   });
 }

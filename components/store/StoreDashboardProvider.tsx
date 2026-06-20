@@ -14,11 +14,15 @@ import {
   parseStoreIdFromPath,
   SELECTED_STORE_STORAGE_KEY,
 } from "@/lib/utils/store-dashboard-url";
-import type { MyStoresResponse, StorePortalSession } from "@/types";
+import type { MyStoresResponse, StorePortalSession, ManagerStoreOption } from "@/types";
 
 interface StoreDashboardContextValue {
   storeId: string | null;
   setStoreId: (id: string) => void;
+  /** When set, portfolio widgets (work queue, notifications) scope to one store; null = all stores. */
+  portfolioWorkQueueStoreId: string | null;
+  setPortfolioWorkQueueStoreId: (id: string | null) => void;
+  stores: ManagerStoreOption[];
   hasMultipleStores: boolean;
   isSingleStoreManager: boolean;
 }
@@ -45,6 +49,9 @@ function SingleStoreDashboardProvider({
     () => ({
       storeId: assignedStoreId,
       setStoreId: () => {},
+      portfolioWorkQueueStoreId: null,
+      setPortfolioWorkQueueStoreId: () => {},
+      stores: [],
       hasMultipleStores: false,
       isSingleStoreManager: true,
     }),
@@ -56,6 +63,18 @@ function SingleStoreDashboardProvider({
       {children}
     </StoreDashboardContext.Provider>
   );
+}
+
+function resolveStoreId(
+  stores: ManagerStoreOption[],
+  candidates: (string | null | undefined)[],
+  fallback: string,
+): string {
+  const allowedIds = new Set(stores.map((store) => store.id));
+  for (const id of candidates) {
+    if (id && allowedIds.has(id)) return id;
+  }
+  return fallback;
 }
 
 function MultiStoreDashboardProvider({
@@ -73,31 +92,41 @@ function MultiStoreDashboardProvider({
   const pathStoreId = parseStoreIdFromPath(pathname);
   const queryStoreId = searchParams.get("storeId");
   const [manualStoreId, setManualStoreId] = useState<string | null>(null);
+  const [persistedStoreId, setPersistedStoreId] = useState<string | null>(null);
+  const [portfolioWorkQueueStoreId, setPortfolioWorkQueueStoreIdState] =
+    useState<string | null>(null);
 
-  const resolvedStoreId = useMemo(() => {
-    const allowedIds = new Set(stores.map((s) => s.id));
-    const candidates = [
+  useEffect(() => {
+    const stored = window.localStorage.getItem(SELECTED_STORE_STORAGE_KEY);
+    if (stored) {
+      setPersistedStoreId(stored);
+    }
+  }, []);
+
+  const resolvedStoreId = useMemo(
+    () =>
+      resolveStoreId(
+        stores,
+        [
+          pathStoreId,
+          manualStoreId,
+          queryStoreId,
+          persistedStoreId,
+          initialMyStores.selectedStoreId,
+          stores[0]?.id,
+        ],
+        pathStoreId ?? queryStoreId ?? assignedStoreId,
+      ),
+    [
+      assignedStoreId,
       pathStoreId,
       manualStoreId,
       queryStoreId,
-      typeof window !== "undefined"
-        ? window.localStorage.getItem(SELECTED_STORE_STORAGE_KEY)
-        : null,
+      persistedStoreId,
       initialMyStores.selectedStoreId,
-      stores[0]?.id,
-    ];
-    for (const id of candidates) {
-      if (id && allowedIds.has(id)) return id;
-    }
-    return pathStoreId ?? queryStoreId ?? assignedStoreId;
-  }, [
-    assignedStoreId,
-    pathStoreId,
-    manualStoreId,
-    queryStoreId,
-    initialMyStores.selectedStoreId,
-    stores,
-  ]);
+      stores,
+    ],
+  );
 
   useEffect(() => {
     if (resolvedStoreId) {
@@ -107,17 +136,34 @@ function MultiStoreDashboardProvider({
 
   const setStoreId = useCallback((id: string) => {
     setManualStoreId(id);
+    setPersistedStoreId(id);
     window.localStorage.setItem(SELECTED_STORE_STORAGE_KEY, id);
   }, []);
+
+  const setPortfolioWorkQueueStoreId = useCallback((id: string | null) => {
+    setPortfolioWorkQueueStoreIdState(id);
+    if (id) {
+      setStoreId(id);
+    }
+  }, [setStoreId]);
 
   const value = useMemo(
     () => ({
       storeId: resolvedStoreId,
       setStoreId,
+      portfolioWorkQueueStoreId,
+      setPortfolioWorkQueueStoreId,
+      stores,
       hasMultipleStores: stores.length > 1,
       isSingleStoreManager: false,
     }),
-    [resolvedStoreId, setStoreId, stores.length],
+    [
+      portfolioWorkQueueStoreId,
+      resolvedStoreId,
+      setPortfolioWorkQueueStoreId,
+      setStoreId,
+      stores,
+    ],
   );
 
   return (

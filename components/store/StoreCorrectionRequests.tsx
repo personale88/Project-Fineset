@@ -7,7 +7,7 @@ import {
   useCorrectionRequests,
   useResolveCorrectionRequest,
 } from "@/hooks/useCorrectionRequests";
-import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
+import { portalSectionPath } from "@/lib/utils/store-dashboard-url";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { formatDate } from "@/lib/utils/formatters";
 import { QueryLoadState } from "@/components/shared/QueryLoadState";
@@ -19,12 +19,15 @@ interface StoreCorrectionRequestsProps {
   storeId: string;
 }
 
-function correctionRecordHref(request: CorrectionRequestItem): string | null {
+function correctionRecordHref(
+  request: CorrectionRequestItem,
+  storeId: string,
+): string | null {
   if (request.visit) {
-    return `${STORE_MANAGER_DASHBOARD_PATH}/visits?highlight=${request.visit.id}`;
+    return `${portalSectionPath("visits", "STORE_MANAGER", storeId)}?highlight=${request.visit.id}`;
   }
   if (request.fieldSale) {
-    return `${STORE_MANAGER_DASHBOARD_PATH}/field-sales?highlight=${request.fieldSale.id}`;
+    return `${portalSectionPath("field-sales", "STORE_MANAGER", storeId)}?highlight=${request.fieldSale.id}`;
   }
   return null;
 }
@@ -60,7 +63,7 @@ export function StoreCorrectionRequests({ storeId }: StoreCorrectionRequestsProp
                   request.visit?.customerName ?? request.fieldSale?.customerName ?? copy.unknownCustomer;
                 const recordType = request.visit ? copy.visitRecord : copy.fieldSaleRecord;
 
-                const recordHref = correctionRecordHref(request);
+                const recordHref = correctionRecordHref(request, storeId);
 
                 return (
                   <li

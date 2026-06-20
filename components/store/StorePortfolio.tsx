@@ -1,15 +1,12 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useMemo } from "react";
+import { useBusinessOwnerPeriod } from "@/components/store/BusinessOwnerPeriodProvider";
 import { useStoreManagerPortfolio } from "@/hooks/useStoreManagerPortfolio";
 import { StorePerformanceCard } from "@/components/admin/overview/StorePerformanceCard";
-import { PeriodSwitcher, type PeriodValue } from "@/components/shared/PeriodSwitcher";
-import { BusinessOwnerStoreNotifications } from "@/components/dashboard/BusinessOwnerStoreNotifications";
 import { Skeleton } from "@/components/ui/skeleton";
 import { storeDetailPath } from "@/lib/utils/store-dashboard-url";
 import type { Content } from "@/content/en";
-import { buildPeriodSwitcherOptions, isPeriodValue } from "@/lib/utils/analytics-period-url";
 import type { GetAnalyticsParams, StoreManagerPortfolio } from "@/types";
 
 type StoreContent = Content["store"];
@@ -26,45 +23,20 @@ interface StorePortfolioProps {
   store: StoreContent;
   initialPortfolio?: StoreManagerPortfolio;
   initialParams?: GetAnalyticsParams;
-  initialPeriod?: PeriodValue;
 }
 
 export function StorePortfolio({
   store,
   initialPortfolio,
   initialParams,
-  initialPeriod,
 }: StorePortfolioProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  const period = useMemo<PeriodValue>(() => {
-    const fromUrl = searchParams.get("period");
-    if (isPeriodValue(fromUrl)) return fromUrl;
-    if (initialPeriod && isPeriodValue(initialPeriod)) return initialPeriod;
-    const fromInitial = initialParams?.period ?? null;
-    if (isPeriodValue(fromInitial)) return fromInitial;
-    return "today";
-  }, [initialParams?.period, initialPeriod, searchParams]);
-
-  const setPeriod = useCallback(
-    (value: PeriodValue) => {
-      const next = new URLSearchParams(searchParams.toString());
-      next.set("period", value);
-      router.replace(`${pathname}?${next.toString()}`, { scroll: false });
-    },
-    [pathname, router, searchParams],
-  );
-
+  const { period } = useBusinessOwnerPeriod();
   const params = useMemo(() => ({ period }), [period]);
 
   const { data, isLoading, isFetching } = useStoreManagerPortfolio(params, {
     initialData: initialPortfolio,
     initialParams,
   });
-
-  const periodOptions = buildPeriodSwitcherOptions(store.period);
 
   const stores = data?.stores ?? [];
   const loading = isLoading || isFetching;
@@ -91,25 +63,12 @@ export function StorePortfolio({
 
   return (
     <div className="min-w-0 space-y-6">
-      <div className="space-y-4">
-        <div className="min-w-0">
-          <h1 className="font-display text-2xl font-bold text-text-primary">
-            {store.portfolio.title}
-          </h1>
-          <p className="mt-1 text-sm text-text-secondary">{store.portfolio.subtitle}</p>
-          {store.portfolio.viewOnlyHint ? (
-            <p className="mt-2 text-xs text-text-muted">{store.portfolio.viewOnlyHint}</p>
-          ) : null}
-        </div>
-        <PeriodSwitcher
-          options={periodOptions}
-          value={period}
-          onChange={setPeriod}
-          className="mt-1"
-        />
-      </div>
-
-      <BusinessOwnerStoreNotifications period={period} />
+      <header className="min-w-0 space-y-1">
+        <h2 className="font-display text-2xl font-bold text-text-primary">
+          {store.portfolio.title}
+        </h2>
+        <p className="text-sm text-text-muted">{store.portfolio.subtitle}</p>
+      </header>
 
       {loading ? (
         <div className={STORE_CAROUSEL_CLASS} aria-live="polite">

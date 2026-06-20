@@ -171,7 +171,7 @@ export async function computeSyncVersionLight(
   });
 
   const lastChangedAt = agg._max.updatedAt ?? new Date(0);
-  const entities: SyncEntity[] = ["visits", "fieldSales", "staff", "callLogs", "stores"];
+  const entities: SyncEntity[] = ["visits", "fieldSales", "staff", "followUps", "callLogs", "stores"];
   const version = [scope, lastChangedAt.getTime(), "light"].join(":");
 
   return {

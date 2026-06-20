@@ -19,6 +19,25 @@ export function buildDefaultFollowUpsHref(
   return buildFollowUpsHref(basePath, "open");
 }
 
+export function buildTeamFollowUpsHref(
+  basePath: string,
+  staffId: string,
+  filter: FollowUpFilter = "open",
+): string {
+  const params = new URLSearchParams({ viewStaffId: staffId });
+  if (filter !== "overdue") {
+    params.set("filter", filter);
+  }
+  return `${basePath}?${params.toString()}`;
+}
+
+export function parseViewStaffId(
+  value: string | string[] | undefined,
+): string | undefined {
+  const raw = typeof value === "string" ? value : value?.[0];
+  return raw && raw.length > 0 ? raw : undefined;
+}
+
 export function parseFollowUpFilter(
   value: string | string[] | undefined,
 ): FollowUpFilter {

@@ -34,6 +34,8 @@ export default async function StoreManagerLayout({
           <StoreDashboardShell
             title={content.store.managerShell.title}
             signOutLabel={content.common.signOut}
+            portalRole="STORE_MANAGER"
+            storeId={session.storeId}
           >
             <RealtimeSyncProvider>
               {children}

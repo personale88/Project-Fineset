@@ -42,11 +42,25 @@ export async function resolveStoreManagerStaffForStore(
 export async function requireStaffCallsContext(
   session: AppSession | null,
   requestedStoreId?: string,
+  personalScope?: boolean,
 ): Promise<ResolvedStaffContext | null> {
   if (!session) return null;
 
-  if (session.role === "STAFF" || session.role === "STORE_MANAGER") {
+  if (session.role === "STAFF") {
     return requirePortalActorContext(session);
+  }
+
+  if (session.role === "STORE_MANAGER") {
+    if (personalScope) {
+      return requirePortalActorContext(session);
+    }
+    if (!isStorePortalSession(session)) return null;
+    try {
+      const storeId = await resolveAccessibleStoreId(session, requestedStoreId);
+      return resolveStoreManagerStaffForStore(storeId);
+    } catch {
+      return null;
+    }
   }
 
   if (session.role === "MASTER_ADMIN") {

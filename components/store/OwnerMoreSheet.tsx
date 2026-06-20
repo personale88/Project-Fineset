@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { content } from "@/content/en";
-import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { useStoreDashboard } from "@/components/store/StoreDashboardProvider";
-import { storeManagerDetailPath } from "@/lib/utils/store-dashboard-url";
+import {
+  portalSectionPath,
+  storeDetailPathForRole,
+} from "@/lib/utils/store-dashboard-url";
 import {
   Dialog,
   DialogContent,
@@ -13,25 +15,30 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-interface ManagerMoreSheetProps {
+interface OwnerMoreSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-export function ManagerMoreSheet({ open, onOpenChange }: ManagerMoreSheetProps) {
-  const copy = content.store.managerShell.moreSheet;
+export function OwnerMoreSheet({ open, onOpenChange }: OwnerMoreSheetProps) {
+  const copy = content.store.ownerShell.moreSheet;
   const { storeId } = useStoreDashboard();
 
   const links = [
-    { href: `${STORE_MANAGER_DASHBOARD_PATH}/my-visits`, label: copy.myVisits },
-    { href: `${STORE_MANAGER_DASHBOARD_PATH}/my-field-sales`, label: copy.myFieldSales },
-    { href: `${STORE_MANAGER_DASHBOARD_PATH}/my-follow-ups`, label: copy.myFollowUps },
-    { href: `${STORE_MANAGER_DASHBOARD_PATH}/follow-ups`, label: copy.teamFollowUps },
-    { href: `${STORE_MANAGER_DASHBOARD_PATH}/visits`, label: copy.visitsLog },
-    { href: `${STORE_MANAGER_DASHBOARD_PATH}/field-sales`, label: copy.fieldSalesLog },
-    { href: `${STORE_MANAGER_DASHBOARD_PATH}/staff`, label: copy.staff },
+    { href: portalSectionPath("visits", "BUSINESS_OWNER", storeId), label: copy.visitsLog },
+    { href: portalSectionPath("staff", "BUSINESS_OWNER", storeId), label: copy.staff },
+    { href: portalSectionPath("audit", "BUSINESS_OWNER"), label: copy.auditLog },
+    {
+      href: portalSectionPath("field-sales", "BUSINESS_OWNER", storeId),
+      label: copy.fieldSalesLog,
+    },
     ...(storeId
-      ? [{ href: storeManagerDetailPath(storeId), label: copy.analytics }]
+      ? [
+          {
+            href: storeDetailPathForRole(storeId, "BUSINESS_OWNER"),
+            label: copy.analytics,
+          },
+        ]
       : []),
   ];
 

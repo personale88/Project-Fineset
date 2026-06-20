@@ -7,7 +7,7 @@ import { content } from "@/content/en";
 import { useFollowUps, type FollowUpFilter } from "@/hooks/useFollowUps";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
-import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
+import { buildFollowUpsHref, buildTeamFollowUpsHref } from "@/lib/utils/follow-ups-url";
 import { cn } from "@/lib/utils";
 import { QueryLoadState } from "@/components/shared/QueryLoadState";
 import { FollowUpCard } from "@/components/staff/FollowUpCard";
@@ -19,17 +19,24 @@ interface FollowUpCopy {
   title: string;
   subtitle: string;
   guide: string;
-  filters: Record<FollowUpFilter, string>;
+  filters: Partial<Record<FollowUpFilter, string>> & {
+    overdue: string;
+    due_today: string;
+    open: string;
+  };
   empty: string;
   emptyDueToday: string;
   emptyOpen: string;
-  emptyMismatched: string;
+  emptyMismatched?: string;
 }
 
 interface FollowUpListProps {
   storeId?: string;
+  viewStaffId?: string;
   canAssign?: boolean;
   backHref?: string;
+  /** Route used for filter tab links (separate from back navigation). */
+  followUpsBasePath?: string;
   filter?: FollowUpFilter;
   personalScope?: boolean;
   copy?: FollowUpCopy;
@@ -37,17 +44,21 @@ interface FollowUpListProps {
 
 export function FollowUpList({
   storeId,
+  viewStaffId,
   canAssign: canAssignProp,
   backHref = STAFF_DASHBOARD_PATH,
+  followUpsBasePath: followUpsBasePathProp,
   filter = "overdue",
   personalScope = false,
   copy: copyOverride,
 }: FollowUpListProps) {
   const canAssign = canAssignProp ?? Boolean(storeId && !personalScope);
   const copy = copyOverride ?? content.staff.followUps;
-  const followUpsBasePath = personalScope
-    ? `${backHref}/my-follow-ups`
-    : `${backHref}/follow-ups`;
+  const followUpsBasePath =
+    followUpsBasePathProp ??
+    (personalScope
+      ? `${STAFF_DASHBOARD_PATH}/my-follow-ups`
+      : `${STAFF_DASHBOARD_PATH}/follow-ups`);
 
   const filters = useMemo((): FollowUpFilter[] => {
     const base: FollowUpFilter[] = ["overdue", "due_today", "open"];
@@ -55,26 +66,27 @@ export function FollowUpList({
   }, [personalScope]);
 
   const queryParams = useMemo(() => {
+    const staffFilter = viewStaffId ? { viewStaffId } : {};
     if (filter === "mismatched") {
-      return { mismatched: true as const, storeId };
+      return { mismatched: true as const, storeId, ...staffFilter };
     }
     if (filter === "overdue") {
       return {
         overdue: true as const,
-        ...(personalScope ? { personalScope: true as const } : { storeId }),
+        ...(personalScope ? { personalScope: true as const } : { storeId, ...staffFilter }),
       };
     }
     if (filter === "due_today") {
       return {
         filter: "due_today" as const,
-        ...(personalScope ? { personalScope: true as const } : { storeId }),
+        ...(personalScope ? { personalScope: true as const } : { storeId, ...staffFilter }),
       };
     }
     return {
       filter: "open" as const,
-      ...(personalScope ? { personalScope: true as const } : { storeId }),
+      ...(personalScope ? { personalScope: true as const } : { storeId, ...staffFilter }),
     };
-  }, [filter, personalScope, storeId]);
+  }, [filter, personalScope, storeId, viewStaffId]);
 
   const { data, isLoading, isError, error, refetch } = useFollowUps(queryParams);
   const callFlow = useStaffCallFlow(storeId);
@@ -131,7 +143,10 @@ export function FollowUpList({
       <div className="flex flex-wrap gap-2" aria-label={copy.title}>
         {filters.map((item) => {
           const isActive = filter === item;
-          const href = buildFollowUpsHref(followUpsBasePath, item);
+          const href =
+            viewStaffId && item !== "mismatched"
+              ? buildTeamFollowUpsHref(followUpsBasePath, viewStaffId, item)
+              : buildFollowUpsHref(followUpsBasePath, item);
           return (
             <Link
               key={item}
@@ -144,7 +159,7 @@ export function FollowUpList({
                   : "bg-surface-secondary text-text-secondary hover:text-brand-gold",
               )}
             >
-              {copy.filters[item]}
+              {copy.filters[item] ?? item}
             </Link>
           );
         })}

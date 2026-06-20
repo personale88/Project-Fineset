@@ -87,27 +87,6 @@ export const content = {
       birthdays: "Customers with a birthday this month who still need a call.",
       anniversaries: "Customers with an anniversary this month who still need a call.",
     },
-    businessOwner: {
-      title: "Alerts and reminders",
-      subtitle: "Overdue calls, birthdays, and anniversaries your staff still need to complete",
-      empty: "Everyone is on track — nothing overdue.",
-      loadError: "Could not load alerts. Please refresh and try again.",
-      filters: {
-        calls: "Calls",
-        birthdays: "Birthdays",
-        anniversaries: "Anniversaries",
-        empty: "Nothing overdue in this category.",
-        selectPrompt: "Select a category above to view overdue items.",
-      },
-      overdueDetail: {
-        followUpOverdue: "Follow-up overdue · due {date}",
-        notAnswered: "Not answered · last call {date}",
-        openFollowUp: "Follow-up due {date}",
-        birthday: "Birthday {date} · no successful call",
-        anniversary: "Anniversary {date} · no successful call",
-      },
-      assignedTo: "Assigned to {staff}",
-    },
   },
   auth: {
     login: {
@@ -554,6 +533,12 @@ export const content = {
   staff: {
     shell: {
       title: "Staff Portal",
+      nav: {
+        home: "Home",
+        calls: "Calls",
+        followUps: "Follow-ups",
+        logVisit: "Log visit",
+      },
     },
     portal: {
       title: "What would you like to do?",
@@ -632,6 +617,7 @@ export const content = {
       sections: {
         overdue_task: "Overdue tasks",
         due_today_task: "Due today",
+        mismatched_assignment: "Needs reassignment",
         not_answered: "Did not answer",
         follow_up_call: "Follow-up calls",
         birthday: "Birthdays this month",
@@ -913,6 +899,62 @@ export const content = {
     shell: {
       title: "Store Dashboard",
     },
+    ownerShell: {
+      title: "Business Owner Portal",
+      notifications: {
+        title: "Notifications",
+        subtitle:
+          "Pending follow-ups, calls, and reminders for the selected store.",
+        empty: "All stores are caught up right now.",
+        overdue: "{count} overdue task(s)",
+        dueToday: "{count} due today",
+        notAnswered: "{count} not answered call(s)",
+        followUpCalls: "{count} follow-up call(s)",
+        openPanel: "View all notifications",
+        openDashboard: "Open dashboard",
+        storeFilter: {
+          label: "Filter by store",
+        },
+      },
+      nav: {
+        home: "Home",
+        calls: "Calls",
+        followUps: "Follow-ups",
+        staff: "Staff",
+        activity: "Activity",
+      },
+      activityLog: {
+        title: "Store activity",
+        subtitle: "Correction requests, imports, and staff changes for the selected store.",
+        loading: "Loading activity…",
+        empty: "No recent activity recorded yet.",
+        error: "Could not load store activity.",
+        storeFilterLabel: "Filter by store",
+        storeHint: "Showing activity for {store}.",
+        storeFallback: "this store",
+        columns: {
+          time: "Time",
+          event: "Event",
+          actor: "By",
+        },
+      },
+      bottomNav: {
+        label: "Business owner navigation",
+        home: "Home",
+        calls: "Calls",
+        followUps: "Follow-ups",
+        more: "More",
+      },
+      moreSheet: {
+        title: "More",
+        subtitle: "Store logs, staff, and account activity",
+        visitsLog: "Visits log",
+        fieldSalesLog: "Field sales log",
+        staff: "Staff roster",
+        auditLog: "Store activity",
+        analytics: "Store analytics",
+      },
+    },
     managerShell: {
       title: "Store Manager Portal",
       nav: {
@@ -923,6 +965,7 @@ export const content = {
         fieldSales: "Field sales",
         followUps: "Follow-ups",
         staff: "Staff",
+        activity: "Activity",
         analytics: "Analytics",
       },
       bottomNav: {
@@ -930,15 +973,50 @@ export const content = {
         home: "Home",
         myWork: "My work",
         team: "Team",
-        more: "More",
+        analytics: "Analytics",
         log: "Log",
+      },
+      onboarding: {
+        step1Title: "Welcome, store manager",
+        step1Body:
+          "This portal is scoped to your assigned store. Use Home for today's priorities and Team for store-wide tools.",
+        step2Title: "Manage your team",
+        step2Body:
+          "Open Team for calls, follow-ups, visits, correction requests, and the store activity log.",
+        step3Title: "Do your own RSO work",
+        step3Body:
+          "My work covers your personal calls, visits, and logging. You need a staff profile linked to your login — ask your business owner if it is missing.",
+        step4Title: "Team tools in one place",
+        step4Body:
+          "Open Team for store calls, follow-ups, visits, staff roster, and correction requests.",
       },
       actorSetup: {
         title: "RSO profile not linked",
         subtitle: "Your manager account is not linked to a staff record in this store.",
-        body: "Personal work — calls, visits, field sales, and your work queue — needs a staff profile on this store. Ask your business owner to link your login to a store manager staff record.",
-        hint: "You can still view team calls, visits, staff roster, and store follow-ups.",
+        body: "Personal work — calls, visits, field sales, and your work queue — needs a staff profile on this store.",
+        hint: "You can still use Team for store calls, follow-ups, visits, and correction requests.",
+        viewStaffRoster: "View staff roster",
         dashboardHint: "Link your account to a staff record to unlock your personal work queue and logging.",
+        stepsTitle: "What to ask your business owner",
+        steps: [
+          "Open Staff roster and confirm your manager staff record exists.",
+          "Link your login email to that staff record.",
+          "Sign out and back in, then return to My work.",
+        ],
+      },
+      activityLog: {
+        title: "Store activity",
+        hubDescription: "Recent correction requests, imports, and account changes for your store.",
+        cta: "View activity",
+        subtitle: "Recent operational events for your store.",
+        loading: "Loading activity…",
+        empty: "No recent activity recorded yet.",
+        error: "Could not load store activity.",
+        columns: {
+          time: "Time",
+          event: "Event",
+          actor: "By",
+        },
       },
       hubs: {
         myWork: {
@@ -953,6 +1031,7 @@ export const content = {
       notifications: {
         title: "Notifications",
         empty: "No pending items today.",
+        unlinked: "Link your staff profile to see personal notifications.",
         overdue: "{count} overdue task(s)",
         dueToday: "{count} due today",
         openHome: "Open dashboard",
@@ -966,21 +1045,146 @@ export const content = {
       moreSheet: {
         title: "More",
         subtitle: "Personal work and store management",
+        personalSection: "My work",
+        teamSection: "Team",
         myVisits: "My visits",
         myFieldSales: "My field sales",
         myFollowUps: "My follow-ups",
         teamFollowUps: "Store follow-ups",
+        correctionRequests: "Correction requests",
+        activityLog: "Store activity",
         visitsLog: "Store visits log",
         fieldSalesLog: "Store field sales log",
         staff: "Staff roster",
         analytics: "Store analytics",
       },
     },
+    ownerDashboard: {
+      title: "Business owner dashboard",
+      subtitle:
+        "Track store performance, pending tasks, and team activity across your portfolio.",
+      guide:
+        "Review KPIs by store, spot overdue work, and drill into calls, follow-ups, and staff performance.",
+      workQueue: {
+        title: "Store work queue",
+        subtitle: "Pending follow-ups, missed calls, and reminders across your portfolio.",
+        empty: "All stores are caught up right now.",
+        previewHint: "Showing {shown} of {total} pending items.",
+        viewFollowUps: "Open follow-ups",
+        viewCalls: "Open team calls",
+        viewAllCategory: "View all {count} in follow-ups",
+        browseSelectPrompt: "Select a category above to review pending items.",
+        browseEmpty: "No preview items in this category. Use the store links below.",
+        browseCategoryHint: "{count} pending item(s)",
+        storeFilter: {
+          label: "Filter by store",
+          allStores: "All stores",
+        },
+        storeSummary: "{store}: {count} pending",
+        sections: {
+          mismatchedAssignment: "Needs reassignment",
+        },
+        oversight: {
+          storeLabel: "Store",
+          assigneeLabel: "Assigned to",
+          dueLabel: "Due",
+          reviewItem: "Review",
+        },
+      },
+      teamWorkload: {
+        title: "Urgent team workload",
+        subtitle: "Staff with pending, overdue, or due-today work across your stores.",
+        empty: "All teams are caught up right now.",
+        pending: "{count} pending",
+        overdue: "{count} overdue",
+        dueToday: "{count} due today",
+        viewCalls: "Calls",
+        viewFollowUps: "Follow-ups",
+      },
+      teamActivity: {
+        title: "Team activity",
+        subtitle: "Pending tasks and performance by staff member across your stores.",
+        empty: "No active staff in your portfolio yet.",
+        viewStaff: "View staff roster",
+        viewCalls: "Calls",
+        viewFollowUps: "Follow-ups",
+        overdueHint: "{count} overdue",
+        dueTodayHint: "{count} due today",
+        statusNeedsAttention: "Needs attention",
+        statusOnTrack: "On track",
+        columns: {
+          store: "Store",
+          staff: "Staff",
+          visits: "Visits",
+          conversion: "Conversion",
+          openFollowUps: "Open follow-ups",
+          pendingWork: "Pending work",
+          status: "Status",
+          actions: "Actions",
+        },
+      },
+      actions: {
+        teamSectionTitle: "Manage your stores",
+        teamSectionSubtitle:
+          "Team-wide logs, follow-ups, staff roster, and store analytics.",
+        teamCalls: {
+          title: "Team Calls",
+          description: "Store-wide call queues — track outcomes across stores",
+          cta: "Open team calls",
+        },
+        visitsLog: {
+          title: "Visit Log",
+          description: "All store visits — review activity and reassign customers",
+          cta: "View visit log",
+        },
+        fieldSalesLog: {
+          title: "Field Sales Log",
+          description: "Outdoor activity and enrollments across your stores",
+          cta: "View field sales",
+        },
+        followUps: {
+          title: "Follow-ups",
+          description: "Open follow-up tasks — review assignments across stores",
+          cta: "View follow-ups",
+        },
+        staffRoster: {
+          title: "Staff Roster",
+          description: "RSO performance, open follow-ups, and workload",
+          cta: "View staff",
+        },
+        auditLog: {
+          title: "Audit Log",
+          description: "Recent imports, staff changes, and account activity",
+          cta: "View audit log",
+        },
+        storeAnalytics: {
+          title: "Store Analytics",
+          description: "KPIs, call performance, and RSO leaderboard for a store",
+          cta: "Open analytics",
+        },
+      },
+    },
     managerDashboard: {
       title: "Store manager dashboard",
       subtitle: "Track your team, assign customers, and complete your own RSO work.",
-      guide:
-        "Use the sections below to monitor staff activity, reassign customers, and work your personal call queue.",
+      personalWorkQueue: {
+        title: "Your work queue",
+        subtitle: "Your overdue calls, follow-ups, and reminders for today.",
+      },
+      storeWorkQueue: {
+        title: "Store work queue",
+        subtitle: "Pending follow-ups, missed calls, and reminders across your store.",
+        empty: "Your store is caught up right now.",
+        previewHint: "Showing {shown} of {total} pending items.",
+      },
+      homeQueues: {
+        tabListLabel: "Work queue view",
+        storeTab: "Store tasks",
+        personalTab: "Your tasks",
+        hubTabListLabel: "Tools view",
+        teamHubTab: "Team",
+        myWorkHubTab: "My work",
+      },
       assignment: {
         title: "Store workload",
         subtitle: "Open follow-ups and staffing across your store.",
@@ -1011,17 +1215,16 @@ export const content = {
           empty: "No overdue follow-ups right now.",
           emptyDueToday: "No follow-ups due today.",
           emptyOpen: "No open follow-ups right now.",
-          emptyMismatched: "No mismatched assignments right now.",
           filters: {
             overdue: "Overdue",
             due_today: "Due today",
             open: "All open",
-            mismatched: "Needs reassignment",
           },
         },
         store: {
           title: "Store follow-up tasks",
           subtitle: "All open follow-ups across your store",
+          cta: "View follow-ups",
           guide: "Reassign tasks when the owner and assignee do not match.",
           empty: "No overdue follow-ups right now.",
           emptyDueToday: "No follow-ups due today.",
@@ -1064,10 +1267,6 @@ export const content = {
           status: "Status",
           actions: "Actions",
         },
-      },
-      personalWorkQueue: {
-        title: "Your work queue",
-        subtitle: "Your personal tasks and calls as an RSO.",
       },
       actions: {
         personalSectionTitle: "Your work as RSO",
@@ -1157,9 +1356,9 @@ export const content = {
           cta: "Log field sale",
         },
         storeDashboard: {
-          title: "Store dashboard",
+          title: "Store analytics",
           description: "Open KPIs, analytics, and performance for your store",
-          cta: "Open dashboard",
+          cta: "Open analytics",
         },
       },
     },
@@ -1201,10 +1400,8 @@ export const content = {
     portfolio: {
       title: "Your Stores",
       subtitle:
-        "Each store is tracked separately. Select a store to review analytics, visits, calls, and staff. Logging visits and field sales is done by store staff and managers.",
+        "Visits, revenue, and conversion for each store in the selected period.",
       viewOnlyBadge: "View only",
-      viewOnlyHint:
-        "Business owners review store activity. Store managers and RSO staff log visits, calls, and field sales.",
       viewDetails: "Open store dashboard",
       emptyStores: "No stores are linked to your account yet.",
       selectStorePrompt:

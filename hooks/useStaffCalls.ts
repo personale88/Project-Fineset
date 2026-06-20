@@ -8,7 +8,7 @@ import {
   type StaffCallRecordRef,
 } from "@/lib/api/staff-calls";
 import { staffCallsParamsMatch } from "@/lib/query/initial-data";
-import { invalidatePortalData } from "@/lib/sync/invalidate-portal-data";
+import { invalidateEntities } from "@/lib/sync/invalidate-portal-data";
 import {
   LIVE_QUERY_OPTIONS,
   STAFF_FILTER_QUERY_OPTIONS,
@@ -73,7 +73,7 @@ export function useSubmitStaffCallOutcome() {
       payload: StaffCallOutcomeInput;
     }) => submitStaffCallOutcome(ref, payload),
     onSuccess: () => {
-      void invalidatePortalData(queryClient);
+      void invalidateEntities(queryClient, ["callLogs", "followUps"]);
     },
   });
 }
@@ -85,7 +85,7 @@ export function useSubmitManualStaffCall(storeId?: string) {
     mutationFn: (payload: ManualStaffCallInput) =>
       submitManualStaffCall(payload, storeId),
     onSuccess: () => {
-      void invalidatePortalData(queryClient);
+      void invalidateEntities(queryClient, ["callLogs", "followUps"]);
     },
   });
 }

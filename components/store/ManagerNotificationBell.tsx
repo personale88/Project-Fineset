@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Bell } from "lucide-react";
 import { content } from "@/content/en";
+import { useManagerActor } from "@/components/store/ManagerActorProvider";
 import { useStaffDigest } from "@/hooks/useStaffWorkQueue";
 import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
@@ -18,14 +19,22 @@ import {
 
 export function ManagerNotificationBell() {
   const copy = content.store.managerShell.notifications;
-  const { data } = useStaffDigest();
+  const actorCopy = content.store.managerShell.actorSetup;
+  const { staffLinked } = useManagerActor();
+  const { data } = useStaffDigest({ enabled: staffLinked });
 
-  const count = (data?.overdue ?? 0) + (data?.dueToday ?? 0);
+  const count = staffLinked ? (data?.overdue ?? 0) + (data?.dueToday ?? 0) : 0;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline" size="sm" className="relative gap-1.5" aria-label={copy.title}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="relative gap-1.5"
+          aria-label={copy.title}
+        >
           <Bell className="h-4 w-4" aria-hidden />
           <span className="hidden sm:inline">{copy.title}</span>
           {count > 0 ? (
@@ -38,7 +47,17 @@ export function ManagerNotificationBell() {
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuLabel>{copy.title}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {!data || data.total === 0 ? (
+        {!staffLinked ? (
+          <>
+            <DropdownMenuItem disabled>{copy.unlinked}</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href={`${STORE_MANAGER_DASHBOARD_PATH}/staff`}>
+                {actorCopy.viewStaffRoster}
+              </Link>
+            </DropdownMenuItem>
+          </>
+        ) : !data || data.total === 0 ? (
           <DropdownMenuItem disabled>{copy.empty}</DropdownMenuItem>
         ) : (
           <>

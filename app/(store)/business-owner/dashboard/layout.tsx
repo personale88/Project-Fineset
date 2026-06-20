@@ -3,13 +3,14 @@ import { Suspense } from "react";
 import { content } from "@/content/en";
 import { RealtimeSyncProvider } from "@/components/layout/RealtimeSyncProvider";
 import { RoleOnboardingModalGate } from "@/components/onboarding/RoleOnboardingModalGate";
+import { BusinessOwnerPeriodProvider } from "@/components/store/BusinessOwnerPeriodProvider";
 import { StoreDashboardProvider } from "@/components/store/StoreDashboardProvider";
 import { StoreDashboardShell } from "@/components/store/StoreDashboardShell";
 import { requirePortalSession } from "@/lib/auth/require-portal-session";
 import { listAccessibleStores } from "@/lib/services/manager-stores";
 
 export const metadata: Metadata = {
-  title: "Store Dashboard",
+  title: "Business Owner Portal",
   robots: { index: false, follow: false },
 };
 
@@ -34,15 +35,18 @@ export default async function StoreLayout({
         assignedStoreId={session.storeId}
         initialMyStores={initialMyStores}
       >
-        <StoreDashboardShell
-          title={content.store.shell.title}
-          signOutLabel={content.common.signOut}
-        >
-          <RealtimeSyncProvider>
-            {children}
-            <RoleOnboardingModalGate role="BUSINESS_OWNER" />
-          </RealtimeSyncProvider>
-        </StoreDashboardShell>
+        <BusinessOwnerPeriodProvider>
+          <StoreDashboardShell
+            title={content.store.ownerShell.title}
+            signOutLabel={content.common.signOut}
+            portalRole="BUSINESS_OWNER"
+          >
+            <RealtimeSyncProvider>
+              {children}
+              <RoleOnboardingModalGate role="BUSINESS_OWNER" />
+            </RealtimeSyncProvider>
+          </StoreDashboardShell>
+        </BusinessOwnerPeriodProvider>
       </StoreDashboardProvider>
     </Suspense>
   );

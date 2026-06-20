@@ -18,7 +18,7 @@ export function OfflineQueueBanner() {
       role="status"
     >
       {!isOnline ? (
-        <span>You are offline. Changes will sync when connection returns.</span>
+        <span>You are offline. Some actions may be unavailable until your connection returns.</span>
       ) : (
         <span className="flex flex-wrap items-center gap-2">
           {pendingCount} pending {pendingCount === 1 ? "change" : "changes"} waiting to sync.

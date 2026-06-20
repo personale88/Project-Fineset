@@ -2,11 +2,11 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { SyncEntity } from "@/lib/sync/version";
 
 const ENTITY_QUERY_KEYS: Record<SyncEntity, string[][]> = {
-  visits: [["visits"], ["analytics"], ["correction-requests"], ["manager-dashboard"]],
-  fieldSales: [["field-sales"], ["analytics"], ["manager-dashboard"]],
-  staff: [["staff"], ["manager-dashboard"]],
+  visits: [["visits"], ["analytics"], ["correction-requests"], ["manager-dashboard"], ["owner-dashboard"], ["store-work-queue"], ["store-activity"]],
+  fieldSales: [["field-sales"], ["analytics"], ["manager-dashboard"], ["owner-dashboard"], ["store-work-queue"], ["store-activity"]],
+  staff: [["staff"], ["manager-dashboard"], ["owner-dashboard"], ["manager-actor-status"], ["store-activity"]],
   customers: [["customers"]],
-  followUps: [["follow-ups"], ["analytics"], ["staff-work-queue"], ["staff-digest"], ["manager-dashboard"]],
+  followUps: [["follow-ups"], ["analytics"], ["staff-work-queue"], ["staff-digest"], ["manager-dashboard"], ["owner-dashboard"], ["store-work-queue"], ["store-activity"]],
   callLogs: [
     ["staff-calls"],
     ["staff-calls-filters"],
@@ -16,6 +16,9 @@ const ENTITY_QUERY_KEYS: Record<SyncEntity, string[][]> = {
     ["staff-work-queue"],
     ["staff-digest"],
     ["manager-dashboard"],
+    ["owner-dashboard"],
+    ["store-work-queue"],
+    ["store-activity"],
   ],
   stores: [["stores"], ["analytics"]],
 };
