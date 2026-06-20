@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
+import { listOwnedStoresForBusinessOwner, normalizeManagerEmail } from "@/lib/services/manager-stores";
 import type { AppSession } from "@/types";
 import type { Prisma } from "@prisma/client";
 
@@ -153,26 +154,79 @@ export async function computeSyncVersion(
 }
 
 /**
- * Fast sync fingerprint (1 DB round-trip). Used for /api/sync/state and SSE open.
- * Full computeSyncVersion remains for rare cases needing all entity timestamps.
+ * Fast sync fingerprint used for SSE open + heartbeat polling.
+ * Aggregates latest change timestamps across all portal entities.
  */
 export async function computeSyncVersionLight(
   session: AppSession,
 ): Promise<SyncVersionPayload> {
-  const storeId = resolveStoreScope(session);
-  const scope = storeId ?? "all";
-  const visitWhere: Prisma.VisitWhereInput | undefined = storeId
-    ? { storeId }
-    : undefined;
+  const scopeFilter = await resolveSyncScopeFilters(session);
+  const scope = scopeFilter.scope;
 
-  const agg = await prisma.visit.aggregate({
-    where: visitWhere,
-    _max: { updatedAt: true },
-  });
+  const [
+    visitAgg,
+    fieldSaleAgg,
+    staffAgg,
+    customerAgg,
+    followUpAgg,
+    callLogAgg,
+    storeAgg,
+  ] = await Promise.all([
+    prisma.visit.aggregate({
+      where: scopeFilter.visitWhere,
+      _max: { updatedAt: true },
+    }),
+    prisma.fieldSale.aggregate({
+      where: scopeFilter.fieldSaleWhere,
+      _max: { updatedAt: true },
+    }),
+    prisma.staff.aggregate({
+      where: scopeFilter.staffWhere,
+      _max: { updatedAt: true },
+    }),
+    prisma.customer.aggregate({
+      where: scopeFilter.customerWhere,
+      _max: { updatedAt: true },
+    }),
+    prisma.followUp.aggregate({
+      where: scopeFilter.followUpWhere,
+      _max: { updatedAt: true },
+    }),
+    prisma.staffCallLog.aggregate({
+      where: scopeFilter.callLogWhere,
+      _max: { createdAt: true },
+    }),
+    prisma.store.aggregate({
+      where: scopeFilter.storeWhere,
+      _max: { updatedAt: true },
+    }),
+  ]);
 
-  const lastChangedAt = agg._max.updatedAt ?? new Date(0);
-  const entities: SyncEntity[] = ["visits", "fieldSales", "staff", "followUps", "callLogs", "stores"];
-  const version = [scope, lastChangedAt.getTime(), "light"].join(":");
+  const timestamps = [
+    visitAgg._max.updatedAt,
+    fieldSaleAgg._max.updatedAt,
+    staffAgg._max.updatedAt,
+    customerAgg._max.updatedAt,
+    followUpAgg._max.updatedAt,
+    callLogAgg._max.createdAt,
+    storeAgg._max.updatedAt,
+  ].filter((value): value is Date => value instanceof Date);
+
+  const lastChangedAt =
+    timestamps.length > 0
+      ? new Date(Math.max(...timestamps.map((value) => value.getTime())))
+      : new Date(0);
+
+  const entities: SyncEntity[] = [
+    "visits",
+    "fieldSales",
+    "staff",
+    "customers",
+    "followUps",
+    "callLogs",
+    "stores",
+  ];
+  const version = [scope, lastChangedAt.getTime(), "light-v2"].join(":");
 
   return {
     version,
@@ -202,3 +256,61 @@ export async function getSyncState(session: AppSession) {
 }
 
 export { getMaxTimestamp };
+
+interface SyncScopeFilters {
+  scope: string;
+  visitWhere?: Prisma.VisitWhereInput;
+  fieldSaleWhere?: Prisma.FieldSaleWhereInput;
+  staffWhere?: Prisma.StaffWhereInput;
+  customerWhere?: Prisma.CustomerWhereInput;
+  followUpWhere?: Prisma.FollowUpWhereInput;
+  callLogWhere?: Prisma.StaffCallLogWhereInput;
+  storeWhere?: Prisma.StoreWhereInput;
+}
+
+async function resolveSyncScopeFilters(session: AppSession): Promise<SyncScopeFilters> {
+  if (session.role === "MASTER_ADMIN") {
+    return { scope: "all" };
+  }
+
+  if (session.role === "BUSINESS_OWNER") {
+    const stores = await listOwnedStoresForBusinessOwner(
+      session.email,
+      session.storeId,
+    );
+    const storeIds = stores.map((store) => store.id);
+    if (storeIds.length === 0) {
+      storeIds.push(session.storeId);
+    }
+
+    return {
+      scope: `owner:${normalizeManagerEmail(session.email)}`,
+      visitWhere: { storeId: { in: storeIds } },
+      fieldSaleWhere: { storeId: { in: storeIds } },
+      staffWhere: { storeId: { in: storeIds } },
+      customerWhere: { storeId: { in: storeIds } },
+      followUpWhere: {
+        OR: [
+          { visit: { storeId: { in: storeIds } } },
+          { fieldSale: { storeId: { in: storeIds } } },
+        ],
+      },
+      callLogWhere: { visit: { storeId: { in: storeIds } } },
+      storeWhere: { id: { in: storeIds } },
+    };
+  }
+
+  const storeId = session.storeId;
+  return {
+    scope: storeId,
+    visitWhere: { storeId },
+    fieldSaleWhere: { storeId },
+    staffWhere: { storeId },
+    customerWhere: { storeId },
+    followUpWhere: {
+      OR: [{ visit: { storeId } }, { fieldSale: { storeId } }],
+    },
+    callLogWhere: { visit: { storeId } },
+    storeWhere: { id: storeId },
+  };
+}

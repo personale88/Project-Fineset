@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getStoreOverviewBundle } from "@/lib/api/analytics";
 import { analyticsParamsMatch } from "@/lib/query/initial-data";
-import { LIVE_QUERY_OPTIONS } from "@/lib/sync/constants";
+import { LIVE_QUERY_OPTIONS, queryOptionsForHydration } from "@/lib/sync/constants";
 import type { StoreOverviewBundle } from "@/lib/services/store-overview-bundle";
 import type { GetAnalyticsParams } from "@/types";
 
@@ -31,7 +31,6 @@ export function useStoreOverviewBundle(
         }
       : undefined,
     ...LIVE_QUERY_OPTIONS,
-    staleTime: useInitialData ? 60_000 : LIVE_QUERY_OPTIONS.staleTime,
-    refetchOnMount: useInitialData ? false : undefined,
+    ...queryOptionsForHydration(Boolean(useInitialData)),
   });
 }

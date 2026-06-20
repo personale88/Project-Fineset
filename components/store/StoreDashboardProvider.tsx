@@ -14,6 +14,7 @@ import {
   parseStoreIdFromPath,
   SELECTED_STORE_STORAGE_KEY,
 } from "@/lib/utils/store-dashboard-url";
+import { useMyStores } from "@/hooks/useMyStores";
 import type { MyStoresResponse, StorePortalSession, ManagerStoreOption } from "@/types";
 
 interface StoreDashboardContextValue {
@@ -88,7 +89,8 @@ function MultiStoreDashboardProvider({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const stores = initialMyStores.data;
+  const { data: myStoresData } = useMyStores({ initialData: initialMyStores });
+  const stores = myStoresData?.data ?? initialMyStores.data;
   const pathStoreId = parseStoreIdFromPath(pathname);
   const queryStoreId = searchParams.get("storeId");
   const [manualStoreId, setManualStoreId] = useState<string | null>(null);
@@ -112,7 +114,7 @@ function MultiStoreDashboardProvider({
           manualStoreId,
           queryStoreId,
           persistedStoreId,
-          initialMyStores.selectedStoreId,
+          myStoresData?.selectedStoreId ?? initialMyStores.selectedStoreId,
           stores[0]?.id,
         ],
         pathStoreId ?? queryStoreId ?? assignedStoreId,
@@ -123,6 +125,7 @@ function MultiStoreDashboardProvider({
       manualStoreId,
       queryStoreId,
       persistedStoreId,
+      myStoresData?.selectedStoreId,
       initialMyStores.selectedStoreId,
       stores,
     ],

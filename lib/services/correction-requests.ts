@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAuthEvent } from "@/lib/auth/audit";
-import { broadcastSyncEvent } from "@/lib/sync/broadcaster";
+import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
 import type { StaffCorrectionRequestInput } from "@/lib/validations/staff-amend.schema";
 
 export class CorrectionRequestError extends Error {
@@ -72,7 +72,7 @@ export async function createCorrectionRequest(params: {
     },
   });
 
-  broadcastSyncEvent(params.storeId, ["visits", "fieldSales"]);
+  notifyPortalDataChangeNow(params.storeId, ["visits", "fieldSales"]);
   return request;
 }
 
@@ -98,8 +98,11 @@ export async function resolveCorrectionRequest(params: {
   });
   if (!existing) return null;
 
-  return prisma.correctionRequest.update({
+  const resolved = await prisma.correctionRequest.update({
     where: { id: existing.id },
     data: { status: "RESOLVED", resolvedAt: new Date() },
   });
+
+  notifyPortalDataChangeNow(params.storeId, ["visits", "fieldSales"]);
+  return resolved;
 }

@@ -1,10 +1,8 @@
 /** Shared React Query options for live backend-backed data. */
 export const LIVE_QUERY_OPTIONS = {
-  staleTime: 30_000,
-  // Refetch-on-focus caused duplicate API bursts on store tabs (calls/field-sales/staff).
-  refetchOnWindowFocus: false,
+  staleTime: 0,
+  refetchOnWindowFocus: true,
   refetchOnReconnect: true,
-  // Avoid retry storms when backend returns 500 (shows as repeated calls in Network tab).
   retry: false,
 } as const;
 
@@ -12,12 +10,13 @@ export const LIVE_QUERY_OPTIONS = {
 export const STAFF_FILTER_QUERY_OPTIONS = {
   ...LIVE_QUERY_OPTIONS,
   staleTime: 120_000,
+  refetchOnWindowFocus: false,
 } as const;
 
-/** Avoid duplicate client fetch right after matching SSR initialData. */
+/** After SSR hydration, still refetch immediately so portals stay in sync. */
 export const SSR_HYDRATED_QUERY_OPTIONS = {
-  refetchOnMount: false,
-  staleTime: 60_000,
+  refetchOnMount: "always" as const,
+  staleTime: 0,
 } as const;
 
 export function queryOptionsForHydration(isHydrated: boolean) {

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { broadcastSyncEvent } from "@/lib/sync/broadcaster";
+import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
 
 export class CustomerAssignmentError extends Error {
   constructor(
@@ -110,7 +110,7 @@ async function assignVisitRecord(
     }
   });
 
-  broadcastSyncEvent(storeId, ["visits", "followUps", "callLogs", "staff"]);
+  notifyPortalDataChangeNow(storeId, ["visits", "followUps", "callLogs", "staff"]);
 
   return {
     visitId,
@@ -163,7 +163,7 @@ async function assignFieldSale(
     }
   });
 
-  broadcastSyncEvent(storeId, ["fieldSales", "followUps", "callLogs", "staff"]);
+  notifyPortalDataChangeNow(storeId, ["fieldSales", "followUps", "callLogs", "staff"]);
 
   return {
     visitId: null,
@@ -247,7 +247,7 @@ async function assignFollowUp(
     }
   });
 
-  broadcastSyncEvent(storeId, [
+  notifyPortalDataChangeNow(storeId, [
     "visits",
     "fieldSales",
     "followUps",

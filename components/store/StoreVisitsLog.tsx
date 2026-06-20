@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getStaff } from "@/lib/api/staff";
 import { STAFF_FILTER_QUERY_OPTIONS, queryOptionsForHydration } from "@/lib/sync/constants";
+import { invalidatePortalData } from "@/lib/sync/invalidate-portal-data";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useImportVisitsCsv, useVisits } from "@/hooks/useVisits";
 import { VisitsTable } from "@/components/tables/VisitsTable";
@@ -65,6 +66,7 @@ export function StoreVisitsLog({
   viewOnlySubtitle,
   highlightRecordId,
 }: StoreVisitsLogProps) {
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(searchInput, 300);
@@ -309,6 +311,7 @@ export function StoreVisitsLog({
                   String(result.successCount),
                 ),
               });
+              void invalidatePortalData(queryClient);
               void refetch();
             }}
           />

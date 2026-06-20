@@ -38,6 +38,9 @@ export async function POST(req: Request) {
       importedByAuthId: session!.userId,
       fileName: body.data.fileName,
       importingStaffId: staffContext?.staffId ?? null,
+      finalize: body.data.finalize,
+      totalRows: body.data.totalRows,
+      cumulativeStats: body.data.cumulativeStats,
     });
 
     return NextResponse.json(result);

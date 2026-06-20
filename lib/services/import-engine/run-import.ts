@@ -5,6 +5,7 @@ import {
   SourceChannel,
   type VisitType,
 } from "@prisma/client";
+import { notifyPortalDataChangeNow, importSyncEntities } from "@/lib/sync/notify-change";
 import { IMPORT_CONFIG, chunkSizeForRowCount } from "@/lib/import-engine/config";
 import { getSchemaConfig } from "@/lib/import-engine/schema-configs";
 import type { ImportPayload, ImportResult, TransformedRow } from "@/lib/import-engine/types";
@@ -25,6 +26,15 @@ interface RunImportParams extends ImportPayload {
   fileName?: string;
   /** When agent name is not mapped, attribute calls to this staff member. */
   importingStaffId?: string | null;
+  finalize?: boolean;
+  totalRows?: number;
+  cumulativeStats?: {
+    totalProcessed: number;
+    successCount: number;
+    errorCount: number;
+    newCustomersCreated: number;
+    repeatCustomersUpdated: number;
+  };
 }
 
 function asString(value: unknown): string | undefined {
@@ -181,6 +191,7 @@ async function importVisitRow(
     staffId,
     customerName,
     customerPhone,
+    skipPortalSync: true,
     customerType: resolveCustomerType(row),
     visitType: (visitType === "APPOINTMENT" ? "APPOINTMENT" : "WALK_IN") as VisitType,
     sourceChannel: asSourceChannel(row.transformedData.sourceChannel),
@@ -277,6 +288,7 @@ async function importCallLogRow(
       staffId,
       customerName,
       customerPhone,
+      skipPortalSync: true,
       customerType: row.customerType === "repeat" ? CustomerType.REPEAT : CustomerType.NEW,
       visitType: "WALK_IN",
       sourceChannel: SourceChannel.PHONE,
@@ -360,23 +372,7 @@ export async function runImport(params: RunImportParams): Promise<ImportResult> 
     rollbackUntil.getHours() + IMPORT_CONFIG.rollbackWindowHours,
   );
 
-  await prisma.importHistory.create({
-    data: {
-      batchId: params.batchId,
-      featureKey: params.featureKey,
-      fileName: params.fileName ?? null,
-      storeId: params.storeId,
-      totalRows: params.rows.length,
-      successCount,
-      errorCount: errors.length,
-      newCustomers: newCustomersCreated,
-      repeatCustomers: repeatCustomersUpdated,
-      importedByAuthId: params.importedByAuthId,
-      rollbackAvailableUntil: rollbackUntil,
-    },
-  });
-
-  return {
+  const chunkResult: ImportResult = {
     batchId: params.batchId,
     totalProcessed: importRows.length,
     successCount,
@@ -385,6 +381,55 @@ export async function runImport(params: RunImportParams): Promise<ImportResult> 
     repeatCustomersUpdated,
     errors,
     durationMs: Date.now() - startedAt,
+  };
+
+  if (params.finalize === false) {
+    return chunkResult;
+  }
+
+  const prior = params.cumulativeStats;
+  const totals = prior
+    ? {
+        totalProcessed: prior.totalProcessed + chunkResult.totalProcessed,
+        successCount: prior.successCount + chunkResult.successCount,
+        errorCount: prior.errorCount + chunkResult.errorCount,
+        newCustomersCreated: prior.newCustomersCreated + chunkResult.newCustomersCreated,
+        repeatCustomersUpdated:
+          prior.repeatCustomersUpdated + chunkResult.repeatCustomersUpdated,
+      }
+    : {
+        totalProcessed: chunkResult.totalProcessed,
+        successCount: chunkResult.successCount,
+        errorCount: chunkResult.errorCount,
+        newCustomersCreated: chunkResult.newCustomersCreated,
+        repeatCustomersUpdated: chunkResult.repeatCustomersUpdated,
+      };
+
+  await prisma.importHistory.create({
+    data: {
+      batchId: params.batchId,
+      featureKey: params.featureKey,
+      fileName: params.fileName ?? null,
+      storeId: params.storeId,
+      totalRows: params.totalRows ?? totals.totalProcessed,
+      successCount: totals.successCount,
+      errorCount: totals.errorCount,
+      newCustomers: totals.newCustomersCreated,
+      repeatCustomers: totals.repeatCustomersUpdated,
+      importedByAuthId: params.importedByAuthId,
+      rollbackAvailableUntil: rollbackUntil,
+    },
+  });
+
+  notifyPortalDataChangeNow(params.storeId, importSyncEntities(params.featureKey));
+
+  return {
+    ...chunkResult,
+    totalProcessed: totals.totalProcessed,
+    successCount: totals.successCount,
+    errorCount: totals.errorCount,
+    newCustomersCreated: totals.newCustomersCreated,
+    repeatCustomersUpdated: totals.repeatCustomersUpdated,
   };
 }
 
@@ -433,6 +478,8 @@ export async function rollbackImport(
     where: { batchId },
     data: { rolledBackAt: new Date() },
   });
+
+  notifyPortalDataChangeNow(history.storeId, importSyncEntities(history.featureKey));
 
   return {
     deletedVisitLogs: deletedVisitLogs.count,

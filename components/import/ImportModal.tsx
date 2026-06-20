@@ -29,7 +29,14 @@ import type {
 } from "@/lib/import-engine/types";
 import { DEFAULT_IMPORT_TRANSFORM_OPTIONS } from "@/lib/import-engine/types";
 import { resolveImportPhone } from "@/lib/import-engine/utils/phoneNormaliser";
-import { dedupeImportRows, executeImport } from "@/lib/api/import";
+import { batchCountForRows } from "@/lib/import-engine/batch-import";
+import {
+  dedupeImportRows,
+  executeImportInBatches,
+  formatImportError,
+  ImportBatchError,
+  type ImportProgressUpdate,
+} from "@/lib/api/import";
 import { getStaff } from "@/lib/api/staff";
 
 interface ImportModalProps {
@@ -56,6 +63,18 @@ export function ImportModal({
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
+  const [progressMeta, setProgressMeta] = useState<ImportProgressUpdate>({
+    processed: 0,
+    total: 0,
+    batchIndex: 0,
+    batchCount: 0,
+    successCount: 0,
+    errorCount: 0,
+    statusLabel: "Preparing import…",
+  });
+  const [progressPhase, setProgressPhase] = useState<"importing" | "failed" | "complete">(
+    "importing",
+  );
   const [statusLabel, setStatusLabel] = useState("Preparing import…");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [transformOptions, setTransformOptions] = useState<ImportTransformOptions>(
@@ -72,6 +91,16 @@ export function ImportModal({
     setResult(null);
     setError(null);
     setProgress({ processed: 0, total: 0 });
+    setProgressMeta({
+      processed: 0,
+      total: 0,
+      batchIndex: 0,
+      batchCount: 0,
+      successCount: 0,
+      errorCount: 0,
+      statusLabel: "Preparing import…",
+    });
+    setProgressPhase("importing");
     setStatusLabel("Preparing import…");
     setIsSubmitting(false);
     setTransformOptions(DEFAULT_IMPORT_TRANSFORM_OPTIONS);
@@ -167,27 +196,56 @@ export function ImportModal({
     if (!schema || !preview) return;
     const batchId = crypto.randomUUID();
     const rowsToSend = rowsForImport(transformedRows);
+    const batchCount = batchCountForRows(rowsToSend.length);
     setStep("progress");
+    setProgressPhase("importing");
     setProgress({ processed: 0, total: rowsToSend.length });
-    setStatusLabel("Creating customers and upserting records…");
+    setProgressMeta({
+      processed: 0,
+      total: rowsToSend.length,
+      batchIndex: 0,
+      batchCount,
+      successCount: 0,
+      errorCount: 0,
+      statusLabel:
+        batchCount > 1
+          ? `Starting import in ${batchCount} batches…`
+          : "Saving rows to your store…",
+    });
+    setStatusLabel(
+      batchCount > 1
+        ? `Starting import in ${batchCount} batches…`
+        : "Saving rows to your store…",
+    );
     setError(null);
 
     try {
-      const importResult = await executeImport({
-        featureKey,
-        batchId,
-        storeId,
-        fileName: parsedFile?.fileName,
-        rows: rowsToSend,
-        columnMappings: mappings,
-      });
+      const importResult = await executeImportInBatches(
+        {
+          featureKey,
+          batchId,
+          storeId,
+          fileName: parsedFile?.fileName,
+          rows: rowsToSend,
+          columnMappings: mappings,
+        },
+        (update) => {
+          setProgress({ processed: update.processed, total: update.total });
+          setProgressMeta(update);
+          setStatusLabel(update.statusLabel);
+        },
+      );
 
       setProgress({ processed: rowsToSend.length, total: rowsToSend.length });
+      setProgressPhase("complete");
       setResult(importResult);
       setStep("summary");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Import failed");
-      setProgress((current) => ({ ...current, processed: current.total }));
+      setProgressPhase("failed");
+      if (err instanceof ImportBatchError && err.partialResult) {
+        setResult(err.partialResult);
+      }
+      setError(formatImportError(err));
     }
   };
 
@@ -217,7 +275,7 @@ export function ImportModal({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-          {error && step !== "upload" && (
+          {error && step !== "upload" && step !== "progress" && (
             <div className="mb-4 rounded-card border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
               {error}
             </div>
@@ -263,8 +321,15 @@ export function ImportModal({
               processed={progress.processed}
               total={progress.total}
               statusLabel={statusLabel}
+              batchIndex={progressMeta.batchIndex}
+              batchCount={progressMeta.batchCount}
+              successCount={progressMeta.successCount}
+              errorCount={progressMeta.errorCount}
+              phase={progressPhase}
               error={error}
-              onViewPartial={() => result && setStep("summary")}
+              onViewPartial={
+                result && result.successCount > 0 ? () => setStep("summary") : undefined
+              }
             />
           )}
 

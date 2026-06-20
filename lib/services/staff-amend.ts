@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAuthEvent } from "@/lib/auth/audit";
 import { decryptVisitPii, prepareCustomerPii } from "@/lib/services/pii";
-import { broadcastSyncEvent } from "@/lib/sync/broadcaster";
+import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
 import type {
   StaffAmendFieldSaleInput,
   StaffAmendVisitInput,
@@ -126,7 +126,7 @@ export async function amendStaffVisit(params: {
     },
   });
 
-  broadcastSyncEvent(params.storeId, ["visits", "followUps", "customers"]);
+  notifyPortalDataChangeNow(params.storeId, ["visits", "followUps", "customers"]);
   return updated;
 }
 
@@ -225,6 +225,6 @@ export async function amendStaffFieldSale(params: {
     },
   });
 
-  broadcastSyncEvent(params.storeId, ["fieldSales", "followUps", "customers"]);
+  notifyPortalDataChangeNow(params.storeId, ["fieldSales", "followUps", "customers"]);
   return updated;
 }

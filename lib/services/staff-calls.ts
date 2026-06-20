@@ -23,7 +23,7 @@ import {
 } from "@/lib/services/call-list-utils";
 import { decryptVisitPii } from "@/lib/services/pii";
 import { resolveFollowUpAssignee } from "@/lib/utils/follow-up-assignee";
-import { broadcastSyncEvent } from "@/lib/sync/broadcaster";
+import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
 import { isFieldSaleEnrolled } from "@/lib/utils/field-enrollment";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 import type {
@@ -728,7 +728,7 @@ async function recordVisitCallOutcome(
       };
     })
     .then((result) => {
-      broadcastSyncEvent(params.storeId, ["callLogs", "followUps", "visits"]);
+      notifyPortalDataChangeNow(params.storeId, ["callLogs", "followUps", "visits"]);
       return result;
     });
 }
@@ -882,7 +882,7 @@ async function recordFieldSaleCallOutcome(
       };
     })
     .then((result) => {
-      broadcastSyncEvent(params.storeId, ["callLogs", "followUps", "fieldSales"]);
+      notifyPortalDataChangeNow(params.storeId, ["callLogs", "followUps", "fieldSales"]);
       return result;
     });
 }

@@ -19,6 +19,17 @@ export const importExecuteBodySchema = z.object({
   storeId: z.string().min(1),
   rows: z.array(z.unknown()),
   columnMappings: z.array(z.unknown()),
+  finalize: z.boolean().optional().default(true),
+  totalRows: z.number().int().positive().optional(),
+  cumulativeStats: z
+    .object({
+      totalProcessed: z.number().int().nonnegative(),
+      successCount: z.number().int().nonnegative(),
+      errorCount: z.number().int().nonnegative(),
+      newCustomersCreated: z.number().int().nonnegative(),
+      repeatCustomersUpdated: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 export const importRollbackBodySchema = z.object({

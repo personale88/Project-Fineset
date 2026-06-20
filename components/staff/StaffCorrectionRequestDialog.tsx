@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { content } from "@/content/en";
 import { submitCorrectionRequest } from "@/lib/api/staff-portal";
+import { invalidateEntities } from "@/lib/sync/invalidate-portal-data";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { toast } from "@/hooks/useToast";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ export function StaffCorrectionRequestDialog({
   customerName,
 }: StaffCorrectionRequestDialogProps) {
   const copy = content.staff.correctionRequest;
+  const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
 
   const mutation = useMutation({
@@ -43,6 +45,7 @@ export function StaffCorrectionRequestDialog({
         message: message.trim(),
       }),
     onSuccess: () => {
+      void invalidateEntities(queryClient, ["visits", "fieldSales"]);
       toast({ title: copy.success });
       setMessage("");
       onOpenChange(false);

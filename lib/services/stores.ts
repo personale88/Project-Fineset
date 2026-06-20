@@ -20,6 +20,7 @@ import {
 } from "@/lib/services/sync-store-manager-email";
 import { hashCredential } from "@/lib/auth/credentials";
 import { deleteAllSessionsForUser } from "@/lib/auth/session-store";
+import { invalidateStoreDerivedCaches } from "@/lib/sync/store-cache";
 
 export { StoreServiceError } from "@/lib/services/store-service-error";
 import type { CreateStoreInput, UpdateStoreInput } from "@/lib/validations/store.schema";
@@ -169,7 +170,12 @@ export async function createStore(input: CreateStoreInput): Promise<CreateStoreR
       }
     }
 
-    return { store: store!, manager };
+    const result = { store: store!, manager };
+    invalidateStoreDerivedCaches({
+      storeId: store!.id,
+      businessOwnerEmail: store!.businessOwnerEmail,
+    });
+    return result;
   } catch (error) {
     if (store) {
       await prisma.store.delete({ where: { id: store.id } }).catch(() => undefined);
@@ -218,6 +224,11 @@ export async function updateStore(storeId: string, input: UpdateStoreInput) {
       create: { name: normalizedCustomCategory },
     });
   }
+
+  invalidateStoreDerivedCaches({
+    storeId: store.id,
+    businessOwnerEmail: store.businessOwnerEmail,
+  });
 
   return store;
 }
@@ -330,6 +341,11 @@ export async function softDeleteStore(
     },
   });
 
+  invalidateStoreDerivedCaches({
+    storeId,
+    businessOwnerEmail: store.businessOwnerEmail,
+  });
+
   return {
     id: store.id,
     name: store.name,
@@ -392,6 +408,11 @@ export async function restoreStore(storeId: string): Promise<Store> {
     event: "STORE_RESTORED",
     email: store.deletedByEmail,
     metadata: { storeId, storeName: store.name },
+  });
+
+  invalidateStoreDerivedCaches({
+    storeId,
+    businessOwnerEmail: restored.businessOwnerEmail,
   });
 
   return restored;

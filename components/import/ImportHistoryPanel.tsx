@@ -6,6 +6,7 @@ import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DashboardCollapsibleSection } from "@/components/shared/DashboardCollapsibleSection";
 import { getImportHistory, rollbackImportBatch } from "@/lib/api/import";
+import { invalidatePortalData } from "@/lib/sync/invalidate-portal-data";
 import type { ImportHistoryRecord } from "@/lib/import-engine/types";
 import { SCHEMA_CONFIGS } from "@/lib/import-engine/schema-configs";
 import { cn } from "@/lib/utils";
@@ -139,6 +140,7 @@ export function ImportHistoryPanel({
     if (!window.confirm(`Undo import of "${record.fileName || record.batchId}"?`)) return;
     await rollbackImportBatch(record.batchId);
     await queryClient.invalidateQueries({ queryKey: ["import-history", storeId] });
+    void invalidatePortalData(queryClient);
     setOpenRecordId(undefined);
   }
 

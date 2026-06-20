@@ -14,6 +14,7 @@ import {
 } from "@/lib/api/stores";
 import { storesParamsMatch } from "@/lib/query/initial-data";
 import { invalidatePortalData } from "@/lib/sync/invalidate-portal-data";
+import { removeStoreFromClientCaches } from "@/lib/sync/optimistic-store-removal";
 import { LIVE_QUERY_OPTIONS, queryOptionsForHydration } from "@/lib/sync/constants";
 import type { SoftDeleteStorePayload } from "@/lib/api/stores";
 import type { CreateStoreInput, UpdateStoreInput } from "@/lib/validations/store.schema";
@@ -119,6 +120,7 @@ export function useDeleteStore() {
           total: Math.max(0, data.total - 1),
         });
       }
+      removeStoreFromClientCaches(queryClient, storeId);
       return { snapshots };
     },
     onError: (_error, _vars, context) => {

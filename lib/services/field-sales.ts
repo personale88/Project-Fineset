@@ -4,7 +4,7 @@ import type { FieldSale, Prisma } from "@prisma/client";
 import { Prisma as PrismaClient } from "@prisma/client";
 import { resolveSchemeEnrollmentFlags } from "@/lib/services/scheme-enrollment";
 import { normalizeSchemesPitched } from "@/lib/validations/scheme.schema";
-import { broadcastSyncEvent } from "@/lib/sync/broadcaster";
+import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
 import { buildFieldSaleSearchWhere } from "@/lib/services/customer-search";
 import {
   decryptVisitPii,
@@ -139,7 +139,7 @@ export async function createFieldSale(
 
     return decryptFieldSalePii(fieldSale);
   }).then((fieldSale) => {
-    broadcastSyncEvent(storeId, ["fieldSales", "customers", "followUps"]);
+    notifyPortalDataChangeNow(storeId, ["fieldSales", "customers", "followUps"]);
     return fieldSale;
   });
 }

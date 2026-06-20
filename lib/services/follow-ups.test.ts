@@ -43,8 +43,8 @@ vi.mock("@/lib/services/pii", () => ({
   })),
 }));
 
-vi.mock("@/lib/sync/broadcaster", () => ({
-  broadcastSyncEvent: vi.fn(),
+vi.mock("@/lib/sync/notify-change", () => ({
+  notifyPortalDataChangeNow: vi.fn(),
 }));
 
 describe("updateFollowUp", () => {
@@ -74,7 +74,7 @@ describe("updateFollowUp", () => {
   });
 
   it("closes follow-up and clears parent follow-up fields", async () => {
-    const { broadcastSyncEvent } = await import("@/lib/sync/broadcaster");
+    const { notifyPortalDataChangeNow } = await import("@/lib/sync/notify-change");
 
     await updateFollowUp({
       followUpId: "fu-1",
@@ -92,7 +92,7 @@ describe("updateFollowUp", () => {
       where: { id: "visit-1" },
       data: { followUpNeeded: false, followUpDate: null },
     });
-    expect(broadcastSyncEvent).toHaveBeenCalledWith("store-1", [
+    expect(notifyPortalDataChangeNow).toHaveBeenCalledWith("store-1", [
       "followUps",
       "visits",
       "fieldSales",

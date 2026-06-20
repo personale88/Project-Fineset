@@ -5,6 +5,7 @@ import {
   SSE_HEARTBEAT_MS,
   SSE_SERVER_MAX_CONNECTION_MS,
 } from "@/lib/sync/constants";
+import { resolveSyncScope } from "@/lib/sync/scope";
 import { computeSyncVersionLight } from "@/lib/sync/version";
 
 export const runtime = "nodejs";
@@ -24,15 +25,15 @@ export async function GET(req: Request) {
       return new Response("Too many requests", { status: 429 });
     }
 
-    const scope =
-      session.role === "MASTER_ADMIN" ? "all" : session.storeId;
-
+    const scope = resolveSyncScope(session);
     const initial = await computeSyncVersionLight(session);
     const encoder = new TextEncoder();
 
     const stream = new ReadableStream({
       start(controller) {
         let closed = false;
+        let lastSentVersion = initial.version;
+
         const close = () => {
           if (closed) return;
           closed = true;
@@ -54,15 +55,29 @@ export async function GET(req: Request) {
         send(initial);
 
         const unsubscribe = syncBroadcaster.subscribe(scope, (payload) => {
+          lastSentVersion = payload.version;
           send(payload);
         });
 
         const heartbeat = setInterval(() => {
           if (closed) return;
-          controller.enqueue(encoder.encode(": heartbeat\n\n"));
+          void computeSyncVersionLight(session)
+            .then((current) => {
+              if (closed) return;
+              if (current.version !== lastSentVersion) {
+                lastSentVersion = current.version;
+                send(current);
+                return;
+              }
+              controller.enqueue(encoder.encode(": heartbeat\n\n"));
+            })
+            .catch(() => {
+              if (!closed) {
+                controller.enqueue(encoder.encode(": heartbeat\n\n"));
+              }
+            });
         }, SSE_HEARTBEAT_MS);
 
-        // Close before serverless hard timeout to avoid runtime timeout errors.
         const forceCloseTimer = setTimeout(() => {
           close();
         }, SSE_SERVER_MAX_CONNECTION_MS);
@@ -85,7 +100,6 @@ export async function GET(req: Request) {
       elapsedMs: Date.now() - startedAt,
       error,
     });
-    // Fail open with heartbeat-only stream so dashboards remain usable.
     return new Response(": sync unavailable\n\n", {
       status: 200,
       headers: {

@@ -13,7 +13,7 @@ import {
 import { calculateDurationMins } from "@/lib/utils/formatters";
 import { resolveSchemeEnrollmentFlags } from "@/lib/services/scheme-enrollment";
 import { normalizeSchemesPitched } from "@/lib/validations/scheme.schema";
-import { broadcastSyncEvent } from "@/lib/sync/broadcaster";
+import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
 import {
   applyTimeToCalendarDay,
   endOfCalendarDay,
@@ -25,6 +25,7 @@ import {
 interface CreateVisitParams extends CreateVisitInput {
   storeId: string;
   staffId: string;
+  skipPortalSync?: boolean;
 }
 
 export async function createVisit(params: CreateVisitParams): Promise<Visit> {
@@ -172,7 +173,9 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
 
     return decryptVisitPii(visit);
   }).then((visit) => {
-    broadcastSyncEvent(storeId, ["visits", "customers", "followUps"]);
+    if (!params.skipPortalSync) {
+      notifyPortalDataChangeNow(storeId, ["visits", "customers", "followUps"]);
+    }
     return visit;
   });
 }

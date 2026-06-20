@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import { logAuthEvent } from "@/lib/auth/audit";
 import { decryptCustomerFields, prepareCustomerPii } from "@/lib/services/pii";
+import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
 
 export async function updateCustomerProfile(
   customerId: string,
@@ -36,10 +37,12 @@ export async function updateCustomerProfile(
     });
   }
 
-  return prisma.customer.update({
+  const updated = await prisma.customer.update({
     where: { id: customerId },
     data,
   });
+  notifyPortalDataChangeNow(storeId, ["customers", "visits", "fieldSales"]);
+  return updated;
 }
 
 export async function mergeCustomers(params: {
@@ -71,5 +74,6 @@ export async function mergeCustomers(params: {
     metadata: { storeId, sourceCustomerId, targetCustomerId },
   });
 
+  notifyPortalDataChangeNow(storeId, ["customers", "visits", "fieldSales", "followUps"]);
   return { targetCustomerId };
 }

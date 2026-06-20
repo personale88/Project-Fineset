@@ -25,6 +25,8 @@ describe("invalidateEntity", () => {
     const keys = invalidateSpy.mock.calls.map((call) => call[0]?.queryKey);
     expect(keys).toContainEqual(["stores"]);
     expect(keys).toContainEqual(["analytics"]);
+    expect(keys).toContainEqual(["store", "my-stores"]);
+    expect(keys).toContainEqual(["portfolio-alerts"]);
   });
 });
 

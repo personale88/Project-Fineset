@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import { decryptVisitPii } from "@/lib/services/pii";
-import { broadcastSyncEvent } from "@/lib/sync/broadcaster";
+import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
 import { startOfCalendarDay, formatCalendarDate } from "@/lib/utils/calendar-date";
 import type { UpdateFollowUpInput } from "@/lib/validations/follow-ups.schema";
 import type { FollowUpListItem } from "@/types";
@@ -288,7 +288,7 @@ export async function updateFollowUp(
     return record;
   });
 
-  broadcastSyncEvent(params.storeId, ["followUps", "visits", "fieldSales", "callLogs"]);
+  notifyPortalDataChangeNow(params.storeId, ["followUps", "visits", "fieldSales", "callLogs"]);
 
   return mapFollowUpToListItem(updated);
 }

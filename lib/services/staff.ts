@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db/prisma";
 import { logAuthEvent } from "@/lib/auth/audit";
 import { inviteUser } from "@/lib/auth/invite-user";
 import { deleteAllSessionsForUser } from "@/lib/auth/session-store";
+import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
 import type { CreateStaffInput, UpdateStaffInput } from "@/lib/validations/staff.schema";
 import type { Prisma, PurchaseStatus } from "@prisma/client";
 import type { StaffPerformanceRow } from "@/types";
@@ -137,6 +138,7 @@ export async function createStaff(storeId: string, input: CreateStaffInput) {
     metadata: { storeId, appUserId: result.appUserId, role: input.role },
   });
 
+  notifyPortalDataChangeNow(storeId, ["staff"]);
   return result;
 }
 
@@ -242,6 +244,7 @@ export async function updateStaff(
     }
   }
 
+  notifyPortalDataChangeNow(storeId, ["staff"]);
   return { count: 1 };
 }
 
@@ -279,6 +282,8 @@ export async function deleteStaff(staffId: string, storeId: string) {
     }
     await tx.staff.delete({ where: { id: staffId } });
   });
+
+  notifyPortalDataChangeNow(storeId, ["staff"]);
 }
 
 export async function getStaffPerformance(

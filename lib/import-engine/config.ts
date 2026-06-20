@@ -7,6 +7,8 @@ export const IMPORT_CONFIG = {
   maxRowCount: Number(process.env.IMPORT_MAX_ROW_COUNT ?? 50_000),
   rollbackWindowHours: Number(process.env.IMPORT_ROLLBACK_WINDOW_HOURS ?? 24),
   batchChunkSize: Number(process.env.IMPORT_BATCH_CHUNK_SIZE ?? 100),
+  /** Rows per HTTP request when executing an import (keeps payloads under body limits). */
+  requestBatchSize: Number(process.env.IMPORT_REQUEST_BATCH_SIZE ?? 75),
   largeFileRowThreshold: 1000,
   largeFileChunkSize: 250,
 } as const;

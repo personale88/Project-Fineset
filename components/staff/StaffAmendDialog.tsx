@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { content } from "@/content/en";
 import { amendStaffFieldSale, amendStaffVisit } from "@/lib/api/staff-portal";
+import { invalidateEntities } from "@/lib/sync/invalidate-portal-data";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { toast } from "@/hooks/useToast";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ export function StaffAmendDialog({
   onSaved,
 }: StaffAmendDialogProps) {
   const copy = content.staff.amend;
+  const queryClient = useQueryClient();
   const [customerName, setCustomerName] = useState(initial.customerName);
   const [customerPhone, setCustomerPhone] = useState(initial.customerPhone);
   const [staffNotes, setStaffNotes] = useState(initial.staffNotes ?? "");
@@ -73,6 +75,12 @@ export function StaffAmendDialog({
       return amendStaffFieldSale(recordId, payload);
     },
     onSuccess: () => {
+      void invalidateEntities(
+        queryClient,
+        recordType === "visit"
+          ? ["visits", "customers", "followUps"]
+          : ["fieldSales", "customers", "followUps"],
+      );
       toast({ title: copy.success });
       onOpenChange(false);
       onSaved?.();
@@ -89,29 +97,50 @@ export function StaffAmendDialog({
           <DialogTitle>{copy.title}</DialogTitle>
           <DialogDescription>{copy.description}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label htmlFor="amend-name">{copy.customerName}</Label>
-            <Input id="amend-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} />
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="amend-customer-name">{copy.customerName}</Label>
+            <Input
+              id="amend-customer-name"
+              value={customerName}
+              onChange={(event) => setCustomerName(event.target.value)}
+            />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="amend-phone">{copy.customerPhone}</Label>
-            <Input id="amend-phone" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
+          <div className="space-y-2">
+            <Label htmlFor="amend-customer-phone">{copy.customerPhone}</Label>
+            <Input
+              id="amend-customer-phone"
+              value={customerPhone}
+              onChange={(event) => setCustomerPhone(event.target.value)}
+            />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="amend-area">{recordType === "visit" ? copy.area : copy.location}</Label>
-            <Input id="amend-area" value={area} onChange={(e) => setArea(e.target.value)} />
+          <div className="space-y-2">
+            <Label htmlFor="amend-area">{recordType === "visit" ? copy.area : "Location"}</Label>
+            <Input
+              id="amend-area"
+              value={area}
+              onChange={(event) => setArea(event.target.value)}
+            />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <Label htmlFor="amend-notes">{copy.notes}</Label>
-            <Textarea id="amend-notes" value={staffNotes} onChange={(e) => setStaffNotes(e.target.value)} rows={3} />
+            <Textarea
+              id="amend-notes"
+              value={staffNotes}
+              onChange={(event) => setStaffNotes(event.target.value)}
+              rows={3}
+            />
           </div>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
             {content.common.cancel}
           </Button>
-          <Button type="button" disabled={mutation.isPending} onClick={() => mutation.mutate()}>
+          <Button
+            type="button"
+            disabled={mutation.isPending}
+            onClick={() => mutation.mutate()}
+          >
             {mutation.isPending ? copy.saving : copy.save}
           </Button>
         </DialogFooter>

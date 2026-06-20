@@ -2,11 +2,42 @@ import type { QueryClient } from "@tanstack/react-query";
 import type { SyncEntity } from "@/lib/sync/version";
 
 const ENTITY_QUERY_KEYS: Record<SyncEntity, string[][]> = {
-  visits: [["visits"], ["analytics"], ["correction-requests"], ["manager-dashboard"], ["owner-dashboard"], ["store-work-queue"], ["store-activity"]],
-  fieldSales: [["field-sales"], ["analytics"], ["manager-dashboard"], ["owner-dashboard"], ["store-work-queue"], ["store-activity"]],
-  staff: [["staff"], ["manager-dashboard"], ["owner-dashboard"], ["manager-actor-status"], ["store-activity"]],
-  customers: [["customers"]],
-  followUps: [["follow-ups"], ["analytics"], ["staff-work-queue"], ["staff-digest"], ["manager-dashboard"], ["owner-dashboard"], ["store-work-queue"], ["store-activity"]],
+  visits: [
+    ["visits"],
+    ["analytics"],
+    ["correction-requests"],
+    ["manager-dashboard"],
+    ["owner-dashboard"],
+    ["store-work-queue"],
+    ["store-activity"],
+    ["import-history"],
+  ],
+  fieldSales: [
+    ["field-sales"],
+    ["analytics"],
+    ["manager-dashboard"],
+    ["owner-dashboard"],
+    ["store-work-queue"],
+    ["store-activity"],
+  ],
+  staff: [
+    ["staff"],
+    ["manager-dashboard"],
+    ["owner-dashboard"],
+    ["manager-actor-status"],
+    ["store-activity"],
+  ],
+  customers: [["customers"], ["customer-profile"]],
+  followUps: [
+    ["follow-ups"],
+    ["analytics"],
+    ["staff-work-queue"],
+    ["staff-digest"],
+    ["manager-dashboard"],
+    ["owner-dashboard"],
+    ["store-work-queue"],
+    ["store-activity"],
+  ],
   callLogs: [
     ["staff-calls"],
     ["staff-calls-filters"],
@@ -19,8 +50,9 @@ const ENTITY_QUERY_KEYS: Record<SyncEntity, string[][]> = {
     ["owner-dashboard"],
     ["store-work-queue"],
     ["store-activity"],
+    ["import-history"],
   ],
-  stores: [["stores"], ["analytics"]],
+  stores: [["stores"], ["analytics"], ["store", "my-stores"], ["portfolio-alerts"]],
 };
 
 export async function invalidateEntity(

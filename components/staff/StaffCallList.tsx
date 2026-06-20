@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Plus, Upload } from "lucide-react";
 import {
   useRevealStaffCallPhone,
@@ -19,6 +20,7 @@ import { CallLogList, StaffCallCard, StaffCallFilterPanel } from "@/components/s
 import { Button } from "@/components/ui/button";
 import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { content } from "@/content/en";
+import { invalidatePortalData } from "@/lib/sync/invalidate-portal-data";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { getStaffCallsErrorMessage } from "@/lib/utils/staff-calls-errors";
 import type { Content } from "@/content/en";
@@ -57,6 +59,7 @@ export function StaffCallList({
   canAssign: canAssignProp,
   personalScope = false,
 }: StaffCallListProps) {
+  const queryClient = useQueryClient();
   const canAssign = canAssignProp ?? Boolean(storeId && !personalScope);
   const {
     filters,
@@ -319,6 +322,7 @@ export function StaffCallList({
             onClose={() => setImportOpen(false)}
             onImportComplete={() => {
               toast({ title: copy.calls.importSpreadsheet });
+              void invalidatePortalData(queryClient);
               void refetch();
             }}
           />
