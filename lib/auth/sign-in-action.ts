@@ -65,7 +65,20 @@ export async function signInAction(
   }
 
   const { profile } = auth;
-  const session = appSessionFromProfile(profile, normalizedEmail);
+
+  let session: ReturnType<typeof appSessionFromProfile>;
+  try {
+    session = appSessionFromProfile(profile, normalizedEmail);
+  } catch (error) {
+    console.error("[auth.sign-in] profile misconfigured", normalizedEmail, error);
+    void logAuthEvent({
+      event: "LOGIN_FAILED",
+      email: normalizedEmail,
+      metadata: { reason: "misconfigured_profile" },
+    });
+    return { ok: false, code: "inactive" };
+  }
+
   const token = await createUserSession(profile.id);
   await setSessionCookie(token);
   await touchLastLogin(profile.id);

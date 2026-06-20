@@ -630,11 +630,6 @@ export const content = {
       home: "Home",
       calls: "Calls",
       log: "Log",
-      more: "More",
-    },
-    moreSheet: {
-      title: "More actions",
-      searchHint: "Search any customer with ⌘K",
     },
     logSheet: {
       title: "Log activity",

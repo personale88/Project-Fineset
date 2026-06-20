@@ -3,7 +3,6 @@
 import { PeriodSwitcher } from "@/components/shared/PeriodSwitcher";
 import { useBusinessOwnerPeriod } from "@/components/store/BusinessOwnerPeriodProvider";
 import { BusinessOwnerTeamActivity } from "@/components/store/BusinessOwnerTeamActivity";
-import { BusinessOwnerTeamWorkload } from "@/components/store/BusinessOwnerTeamWorkload";
 import { BusinessOwnerWorkQueue } from "@/components/store/BusinessOwnerWorkQueue";
 import { StorePortfolio } from "@/components/store/StorePortfolio";
 import { buildPeriodSwitcherOptions } from "@/lib/utils/analytics-period-url";
@@ -52,10 +51,7 @@ function BusinessOwnerDashboardContent({
         initialParams={initialParams}
       />
 
-      <section className="space-y-6">
-        <BusinessOwnerTeamWorkload />
-        <BusinessOwnerTeamActivity />
-      </section>
+      <BusinessOwnerTeamActivity />
     </div>
   );
 }

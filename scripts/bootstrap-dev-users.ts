@@ -67,9 +67,21 @@ async function main(): Promise<void> {
         where: {
           employeeId: spec.employeeId,
           storeId: storeAlpha.id,
+          isActive: true,
         },
       });
-      staffId = staff?.id;
+      if (!staff) {
+        throw new Error(
+          `Staff ${spec.employeeId} not found in Store Alpha for ${spec.email}. Run npm run db:seed first.`,
+        );
+      }
+      staffId = staff.id;
+    }
+
+    if (spec.role === "STAFF" && !staffId) {
+      throw new Error(
+        `Cannot bootstrap ${spec.email}: STAFF users require a linked staff record.`,
+      );
     }
 
     await prisma.appUser.upsert({
@@ -89,7 +101,7 @@ async function main(): Promise<void> {
         name: spec.name,
         role: spec.role,
         storeId: spec.role === "MASTER_ADMIN" ? null : storeAlpha.id,
-        staffId: staffId ?? null,
+        ...(staffId ? { staffId } : {}),
         passwordHash,
         isActive: true,
         activatedAt: new Date(),

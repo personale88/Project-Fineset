@@ -14,6 +14,7 @@ import {
 import { content } from "@/content/en";
 import { useStaffWorkQueue } from "@/hooks/useStaffWorkQueue";
 import { useStoreWorkQueue } from "@/hooks/useStoreWorkQueue";
+import { useIsClient } from "@/hooks/useIsClient";
 import type { PeriodValue } from "@/components/shared/PeriodSwitcher";
 import { useStaffCallFlow } from "@/hooks/useStaffCallFlow";
 import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
@@ -284,7 +285,9 @@ export function StaffWorkQueue({
   const personalQuery = useStaffWorkQueue(12);
   const storeQuery = useStoreWorkQueue(workQueueStoreId, workQueueLimit, workQueuePeriod);
   const activeQuery = dataSource === "store" ? storeQuery : personalQuery;
-  const { data, isLoading, isError, error, refetch } = activeQuery;
+  const { data, isLoading, isPending, isError, error, refetch, isSuccess } = activeQuery;
+  const isClient = useIsClient();
+  const showQueueLoading = !isClient || ((isPending || isLoading) && !data);
   const callFlow = useStaffCallFlow(readOnly ? undefined : (callFlowStoreId ?? browseStoreId));
   const [mode, setMode] = useState<WorkQueueMode>("compact");
   const [openSections, setOpenSections] = useState<Set<StaffWorkQueueReason>>(new Set());
@@ -452,7 +455,10 @@ export function StaffWorkQueue({
 
         {headerExtra}
 
-        {showStoreSummaries && !isLoading && (data?.storeSummaries?.length ?? 0) > 0 ? (
+        {showStoreSummaries &&
+        isClient &&
+        isSuccess &&
+        (data?.storeSummaries?.length ?? 0) > 0 ? (
           <div className="mt-4 flex flex-wrap gap-2">
             {data!.storeSummaries.map((summary) => (
               <span
@@ -470,7 +476,7 @@ export function StaffWorkQueue({
 
       {mode === "compact" ? (
         <QueryLoadState
-          isLoading={isLoading}
+          isLoading={showQueueLoading}
           isError={isError}
           errorLabel={getPortalErrorMessage(error, content.errors)}
           retryLabel={content.errors.tryAgain}
