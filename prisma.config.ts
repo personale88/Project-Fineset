@@ -33,9 +33,45 @@ function loadEnvFile(filePath: string): void {
 loadEnvFile(resolve(process.cwd(), ".env.local"));
 loadEnvFile(resolve(process.cwd(), ".env"));
 
-// Local dev often omits DIRECT_URL — mirror DATABASE_URL for migrate/generate.
+/** Supabase/Railway often set only the :6543 pooler URL — migrations need :5432 session/direct. */
+function deriveDirectUrlFromDatabaseUrl(databaseUrl: string): string {
+  try {
+    const url = new URL(databaseUrl);
+    if (url.port === "6543") {
+      url.port = "5432";
+    }
+    url.searchParams.delete("pgbouncer");
+    url.searchParams.delete("connection_limit");
+    const normalized = url.toString();
+    return normalized.endsWith("?") ? normalized.slice(0, -1) : normalized;
+  } catch {
+    return databaseUrl
+      .replace(":6543", ":5432")
+      .replace(/([?&])pgbouncer=true&?/g, "$1")
+      .replace(/([?&])connection_limit=[0-9]+&?/g, "$1")
+      .replace(/[?&]$/, "");
+  }
+}
+
+function logDatabaseTarget(label: string, connectionUrl: string): void {
+  try {
+    const url = new URL(connectionUrl);
+    console.log(
+      `[prisma.config] ${label}: ${url.hostname}:${url.port || "5432"}/${url.pathname.replace(/^\//, "")}`,
+    );
+  } catch {
+    console.log(`[prisma.config] ${label}: (configured)`);
+  }
+}
+
 if (!process.env.DIRECT_URL?.trim() && process.env.DATABASE_URL?.trim()) {
-  process.env.DIRECT_URL = process.env.DATABASE_URL;
+  process.env.DIRECT_URL = deriveDirectUrlFromDatabaseUrl(process.env.DATABASE_URL);
+  console.warn(
+    "[prisma.config] DIRECT_URL not set — derived a session/direct URL from DATABASE_URL for migrations.",
+  );
+  logDatabaseTarget("DIRECT_URL", process.env.DIRECT_URL);
+} else if (process.env.DIRECT_URL?.trim()) {
+  logDatabaseTarget("DIRECT_URL", process.env.DIRECT_URL);
 }
 
 export default defineConfig({
