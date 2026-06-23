@@ -67,15 +67,17 @@ export function AdminBusinessAnalytics({
     [storesResult?.data],
   );
 
-  useEffect(() => {
-    if (storeOptions.length === 0) return;
-
-    setScopeFilters((current) => {
-      const storeId = resolveAnalyticsStoreId(current, storeOptions);
-      if (storeId === current.storeId) return current;
-      return { ...current, storeId };
-    });
-  }, [storeOptions]);
+  const [prevStoreOptions, setPrevStoreOptions] = useState(storeOptions);
+  if (storeOptions !== prevStoreOptions) {
+    setPrevStoreOptions(storeOptions);
+    if (storeOptions.length > 0) {
+      setScopeFilters((current) => {
+        const storeId = resolveAnalyticsStoreId(current, storeOptions);
+        if (storeId === current.storeId) return current;
+        return { ...current, storeId };
+      });
+    }
+  }
 
   const scopePayload = useMemo(
     () => toAnalyticsScopePayload(scopeFilters),

@@ -92,36 +92,36 @@ export function AdminBillingPayments({
     UNKNOWN: paymentCopy.labels.unknown,
   };
 
-  const filterSegments = useMemo(
-    () => [
+  const filterSegments = useMemo(() => {
+    const copy = getBillingPaymentStatusCopy(cycleSettings);
+    return [
       {
         key: "OVERDUE" as const,
-        label: paymentCopy.labels.overdue,
-        hint: paymentCopy.hints.overdue,
+        label: copy.labels.overdue,
+        hint: copy.hints.overdue,
       },
       {
         key: "DUE_SOON" as const,
-        label: paymentCopy.labels.dueSoon,
-        hint: paymentCopy.hints.dueSoon,
+        label: copy.labels.dueSoon,
+        hint: copy.hints.dueSoon,
       },
       {
         key: "EXPIRED" as const,
-        label: paymentCopy.labels.expired,
-        hint: paymentCopy.hints.expired,
+        label: copy.labels.expired,
+        hint: copy.hints.expired,
       },
       {
         key: "CURRENT" as const,
-        label: paymentCopy.labels.current,
-        hint: paymentCopy.hints.current,
+        label: copy.labels.current,
+        hint: copy.hints.current,
       },
       {
         key: "UNKNOWN" as const,
-        label: paymentCopy.labels.unknown,
-        hint: paymentCopy.hints.unknown,
+        label: copy.labels.unknown,
+        hint: copy.hints.unknown,
       },
-    ],
-    [paymentCopy],
-  );
+    ];
+  }, [cycleSettings]);
 
   const statusCounts = useMemo(
     () => countBusinessesByPaymentStatus(data?.businesses ?? [], new Date(), cycleSettings),

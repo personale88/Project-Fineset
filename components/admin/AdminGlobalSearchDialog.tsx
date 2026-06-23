@@ -61,11 +61,8 @@ export function AdminGlobalSearchDialog({
 
   const { data: storesResult } = useAllStoresForFilter();
 
-  useEffect(() => {
-    if (!storeId && storesResult?.data?.[0]) {
-      setStoreId(storesResult.data[0].id);
-    }
-  }, [storeId, storesResult?.data]);
+  const defaultStoreId = storesResult?.data?.[0]?.id ?? "";
+  const resolvedStoreId = storeId || defaultStoreId;
 
   useEffect(() => {
     if (!isClient) return;
@@ -81,15 +78,15 @@ export function AdminGlobalSearchDialog({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isClient]);
 
-  const canSearch = debouncedQuery.trim().length >= 2 && Boolean(storeId);
+  const canSearch = debouncedQuery.trim().length >= 2 && Boolean(resolvedStoreId);
 
   const { data, isFetching, isError } = useQuery({
-    queryKey: ["admin-global-search", storeId, debouncedQuery],
+    queryKey: ["admin-global-search", resolvedStoreId, debouncedQuery],
     queryFn: () =>
       apiFetch<{ data: CustomerSearchRow[] }>(
         `/api/customers${buildQueryString({
           search: debouncedQuery,
-          storeId,
+          storeId: resolvedStoreId,
           page: 1,
           pageSize: 10,
         })}`,
@@ -108,7 +105,7 @@ export function AdminGlobalSearchDialog({
     setProfileLookup({
       customerId: row.id,
       customerName: row.name,
-      storeId,
+      storeId: resolvedStoreId,
     });
     handleClose(false);
   }
@@ -119,7 +116,7 @@ export function AdminGlobalSearchDialog({
         <label htmlFor="admin-search-store" className="text-xs font-medium text-text-muted">
           {copy.storeLabel}
         </label>
-        <Select value={storeId} onValueChange={setStoreId}>
+        <Select value={resolvedStoreId} onValueChange={setStoreId}>
           <SelectTrigger id="admin-search-store">
             <SelectValue placeholder={copy.storePlaceholder} />
           </SelectTrigger>
@@ -147,7 +144,7 @@ export function AdminGlobalSearchDialog({
         />
       </div>
 
-      {!storeId ? (
+      {!resolvedStoreId ? (
         <p className="text-sm text-text-muted">{copy.selectStoreFirst}</p>
       ) : debouncedQuery.trim().length < 2 ? (
         <p className="text-sm text-text-muted">{copy.minChars}</p>

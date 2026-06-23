@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,11 +41,16 @@ export function StoreCategoryEditDialog({
   const [label, setLabel] = useState("");
   const [newName, setNewName] = useState("");
 
-  useEffect(() => {
-    if (!category || !open) return;
-    setLabel(category.label);
-    setNewName(category.isBuiltin ? "" : category.name);
-  }, [category, open]);
+  const categorySyncKey =
+    open && category ? `${category.name}-${category.label}-${category.isBuiltin}` : null;
+  const [prevCategorySyncKey, setPrevCategorySyncKey] = useState<string | null>(null);
+  if (categorySyncKey !== prevCategorySyncKey) {
+    setPrevCategorySyncKey(categorySyncKey);
+    if (category && open) {
+      setLabel(category.label);
+      setNewName(category.isBuiltin ? "" : category.name);
+    }
+  }
 
   function handleSave() {
     if (!category) return;

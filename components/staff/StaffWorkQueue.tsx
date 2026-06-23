@@ -298,18 +298,17 @@ export function StaffWorkQueue({
   const [openSections, setOpenSections] = useState<Set<StaffWorkQueueReason>>(new Set());
   const periodOptions = buildPeriodSwitcherOptions(content.staff.period);
 
-  useEffect(() => {
+  const periodKey = `${personalPeriod}|${workQueuePeriod}`;
+  const [prevPeriodKey, setPrevPeriodKey] = useState(periodKey);
+  if (periodKey !== prevPeriodKey) {
+    setPrevPeriodKey(periodKey);
     setOpenSections(new Set());
-  }, [personalPeriod, workQueuePeriod]);
+  }
 
-  useEffect(() => {
-    if (readOnly && mode !== "compact") {
-      setMode("compact");
-    }
-  }, [mode, readOnly]);
+  const effectiveMode = readOnly ? "compact" : mode;
 
   const modeSubtitle =
-    subtitle ?? (mode === "compact" ? copy.compactSubtitle : copy.browseSubtitle);
+    subtitle ?? (effectiveMode === "compact" ? copy.compactSubtitle : copy.browseSubtitle);
 
   const categoryTotals: StaffWorkQueueCategoryTotals =
     dataSource === "store" ? (data?.categoryTotals ?? {}) : {};
@@ -494,7 +493,7 @@ export function StaffWorkQueue({
         ) : null}
       </div>
 
-      {mode === "compact" ? (
+      {effectiveMode === "compact" ? (
         <QueryLoadState
           isLoading={showQueueLoading}
           isError={isError}
@@ -543,7 +542,7 @@ export function StaffWorkQueue({
         />
       )}
 
-      {mode === "compact" ? (
+      {effectiveMode === "compact" ? (
         <div className="flex flex-wrap gap-2 border-t border-border px-4 py-3 sm:px-5">
           <Button asChild variant="outline" size="sm">
             <Link
@@ -569,7 +568,7 @@ export function StaffWorkQueue({
         </div>
       ) : null}
 
-      {!readOnly && mode === "compact" ? (
+      {!readOnly && effectiveMode === "compact" ? (
         <CallFeedbackDialog
           copy={callsCopy}
           item={callFlow.activeItem}

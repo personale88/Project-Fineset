@@ -75,9 +75,11 @@ export function StoreManagerHomeQueues({ storeId }: { storeId: string }) {
   const [queueTab, setQueueTab] = useState<HomeQueueTab>("store");
   const [hubTab, setHubTab] = useState<HomeHubTab>(() => parseHubTab(hubParam));
 
-  useEffect(() => {
+  const [prevHubParam, setPrevHubParam] = useState(hubParam);
+  if (hubParam !== prevHubParam) {
+    setPrevHubParam(hubParam);
     setHubTab(parseHubTab(hubParam));
-  }, [hubParam]);
+  }
 
   useEffect(() => {
     if (hubParam !== "team" && hubParam !== "my-work") return;

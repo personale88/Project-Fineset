@@ -101,6 +101,83 @@ function segmentIcon(key: AdminPortfolioPaymentStatus): LucideIcon {
   }
 }
 
+function FilterChip({
+  filterKey,
+  label,
+  hint,
+  count,
+  tone,
+  icon: Icon,
+  barColor,
+  activeFilter,
+  isLoading,
+  onFilterChange,
+}: {
+  filterKey: BillingPaymentFilter;
+  label: string;
+  hint?: string;
+  count: number;
+  tone: Tone;
+  icon?: LucideIcon;
+  barColor?: string;
+  activeFilter: BillingPaymentFilter;
+  isLoading?: boolean;
+  onFilterChange: (filter: BillingPaymentFilter) => void;
+}) {
+  const isActive = activeFilter === filterKey;
+
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={isActive}
+      onClick={() => onFilterChange(filterKey)}
+      className={cn(
+        "group rounded-lg border px-3 py-2.5 text-left transition-colors",
+        isActive
+          ? "border-brand-gold/50 bg-brand-gold/5"
+          : "border-border/70 bg-surface-secondary/30 hover:border-border hover:bg-surface-card",
+      )}
+    >
+      <div className="flex items-center gap-2">
+        {barColor ? (
+          <span
+            className={cn("h-2 w-2 shrink-0 rounded-full", barColor)}
+            aria-hidden
+          />
+        ) : Icon ? (
+          <span
+            className={cn(
+              "flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
+              toneIconBg[tone],
+            )}
+          >
+            <Icon className="h-3.5 w-3.5" aria-hidden />
+          </span>
+        ) : null}
+        <span className="truncate text-xs font-medium text-text-muted">{label}</span>
+      </div>
+      {isLoading ? (
+        <Skeleton className="mt-2 h-7 w-8" />
+      ) : (
+        <p
+          className={cn(
+            "mt-1.5 font-numeric text-2xl font-bold tabular-nums leading-none",
+            count > 0 && filterKey !== "ALL" ? toneText[tone] : "text-text-primary",
+          )}
+        >
+          {count.toLocaleString("en-IN")}
+        </p>
+      )}
+      {hint ? (
+        <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-text-muted">
+          {hint}
+        </p>
+      ) : null}
+    </button>
+  );
+}
+
 export function BillingStatusSummary({
   title,
   subtitle,
@@ -136,77 +213,6 @@ export function BillingStatusSummary({
   const actionCount = statusSegments
     .filter((segment) => segment.key !== "CURRENT" && segment.key !== "UNKNOWN")
     .reduce((sum, segment) => sum + segment.count, 0);
-
-  function FilterChip({
-    filterKey,
-    label,
-    hint,
-    count,
-    tone,
-    icon: Icon,
-    barColor,
-  }: {
-    filterKey: BillingPaymentFilter;
-    label: string;
-    hint?: string;
-    count: number;
-    tone: Tone;
-    icon?: LucideIcon;
-    barColor?: string;
-  }) {
-    const isActive = activeFilter === filterKey;
-
-    return (
-      <button
-        type="button"
-        role="tab"
-        aria-selected={isActive}
-        onClick={() => onFilterChange(filterKey)}
-        className={cn(
-          "group rounded-lg border px-3 py-2.5 text-left transition-colors",
-          isActive
-            ? "border-brand-gold/50 bg-brand-gold/5"
-            : "border-border/70 bg-surface-secondary/30 hover:border-border hover:bg-surface-card",
-        )}
-      >
-        <div className="flex items-center gap-2">
-          {barColor ? (
-            <span
-              className={cn("h-2 w-2 shrink-0 rounded-full", barColor)}
-              aria-hidden
-            />
-          ) : Icon ? (
-            <span
-              className={cn(
-                "flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
-                toneIconBg[tone],
-              )}
-            >
-              <Icon className="h-3.5 w-3.5" aria-hidden />
-            </span>
-          ) : null}
-          <span className="truncate text-xs font-medium text-text-muted">{label}</span>
-        </div>
-        {isLoading ? (
-          <Skeleton className="mt-2 h-7 w-8" />
-        ) : (
-          <p
-            className={cn(
-              "mt-1.5 font-numeric text-2xl font-bold tabular-nums leading-none",
-              count > 0 && filterKey !== "ALL" ? toneText[tone] : "text-text-primary",
-            )}
-          >
-            {count.toLocaleString("en-IN")}
-          </p>
-        )}
-        {hint ? (
-          <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-text-muted">
-            {hint}
-          </p>
-        ) : null}
-      </button>
-    );
-  }
 
   return (
     <section className="rounded-card border border-border bg-surface-card p-4 shadow-card sm:p-5">
@@ -272,6 +278,9 @@ export function BillingStatusSummary({
           count={totalBusinesses}
           tone="default"
           icon={CheckCircle2}
+          activeFilter={activeFilter}
+          isLoading={isLoading}
+          onFilterChange={onFilterChange}
         />
         {statusSegments.map((segment) => (
           <FilterChip
@@ -282,6 +291,9 @@ export function BillingStatusSummary({
             count={segment.count}
             tone={segment.tone}
             barColor={segment.barColor}
+            activeFilter={activeFilter}
+            isLoading={isLoading}
+            onFilterChange={onFilterChange}
           />
         ))}
       </div>

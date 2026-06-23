@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { content } from "@/content/en";
 import { amendStaffFieldSale, amendStaffVisit } from "@/lib/api/staff-portal";
@@ -50,13 +50,17 @@ export function StaffAmendDialog({
   const [staffNotes, setStaffNotes] = useState(initial.staffNotes ?? "");
   const [area, setArea] = useState(initial.area ?? initial.locationLabel ?? "");
 
-  useEffect(() => {
-    if (!open) return;
-    setCustomerName(initial.customerName);
-    setCustomerPhone(initial.customerPhone);
-    setStaffNotes(initial.staffNotes ?? "");
-    setArea(initial.area ?? initial.locationLabel ?? "");
-  }, [open, initial]);
+  const amendSyncKey = open ? `${recordId}-${initial.customerPhone}` : null;
+  const [prevAmendSyncKey, setPrevAmendSyncKey] = useState<string | null>(null);
+  if (amendSyncKey !== prevAmendSyncKey) {
+    setPrevAmendSyncKey(amendSyncKey);
+    if (open) {
+      setCustomerName(initial.customerName);
+      setCustomerPhone(initial.customerPhone);
+      setStaffNotes(initial.staffNotes ?? "");
+      setArea(initial.area ?? initial.locationLabel ?? "");
+    }
+  }
 
   const mutation = useMutation({
     mutationFn: async () => {

@@ -192,9 +192,11 @@ export function AnalyticsAskPanel({
 
     if (!activePrompt) return;
 
-    setScopeChanged(true);
-    ask({ prompt: activePrompt, ...askPayload, confirmLowConfidence: true });
-    setScopeChanged(false);
+    queueMicrotask(() => {
+      setScopeChanged(true);
+      ask({ prompt: activePrompt, ...askPayload, confirmLowConfidence: true });
+      setScopeChanged(false);
+    });
   }, [scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh only when scope changes
 
   const examples = useMemo(
@@ -209,11 +211,13 @@ export function AnalyticsAskPanel({
       ? (streamError.message || errors.generic)
       : errors.generic;
 
-  useEffect(() => {
+  const [prevStreamErrorCode, setPrevStreamErrorCode] = useState<string | undefined>();
+  if (streamError?.code !== prevStreamErrorCode) {
+    setPrevStreamErrorCode(streamError?.code);
     if (streamError?.code === "INSUFFICIENT_CREDITS") {
       setRechargeOpen(true);
     }
-  }, [streamError]);
+  }
 
   const displayedScope = result?.scopeLabel ?? scopeSummary;
   const showEmptyChat = !activePrompt && phase === "idle";
@@ -243,7 +247,10 @@ export function AnalyticsAskPanel({
   }, []);
 
   const scrollToBottomRef = useRef(scrollToBottom);
-  scrollToBottomRef.current = scrollToBottom;
+
+  useEffect(() => {
+    scrollToBottomRef.current = scrollToBottom;
+  }, [scrollToBottom]);
 
   useLayoutEffect(() => {
     if (!activePrompt || showEmptyChat) return;

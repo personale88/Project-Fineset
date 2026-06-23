@@ -60,6 +60,7 @@ function createPrismaClient(forceReload = false): PrismaClient {
     process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"];
   if (forceReload && process.env.NODE_ENV !== "production") {
     bustPrismaModuleCache();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- reload generated client after prisma generate in dev
     const { PrismaClient: FreshPrismaClient } = require("@prisma/client") as {
       PrismaClient: typeof PrismaClient;
     };

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRestoreStore } from "@/hooks/useStores";
 import { toast } from "@/hooks/useToast";
 import { ApiError } from "@/types";
@@ -40,12 +40,14 @@ export function StoreRestoreDialog({
 
   const canSubmit = password.length > 0 && !restoreMutation.isPending;
 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (!open) {
       setPassword("");
       setSubmitError(null);
     }
-  }, [open]);
+  }
 
   async function handleRestore() {
     if (!storeId || !canSubmit) return;

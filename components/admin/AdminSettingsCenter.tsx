@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   CheckCircle2,
@@ -249,9 +249,11 @@ export function AdminSettingsCenter({ admin }: AdminSettingsCenterProps) {
   const deleteCategoryMutation = useDeleteStoreCategory();
   const restoreCategoryMutation = useRestoreStoreCategory();
 
-  useEffect(() => {
+  const [prevSettings, setPrevSettings] = useState(data?.settings);
+  if (data?.settings !== prevSettings) {
+    setPrevSettings(data?.settings);
     if (data?.settings) setDraft(data.settings);
-  }, [data]);
+  }
 
   const { title, description } = scopeMeta(copy, scope);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2, Play, Zap } from "lucide-react";
 import {
   AutomationResultsHeader,
@@ -231,9 +231,11 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
   const runMutation = useRunBillingAutomation();
   const { data: runsData, isLoading: runsLoading } = useAutomationRuns();
 
-  useEffect(() => {
+  const [prevConfig, setPrevConfig] = useState(data);
+  if (data !== prevConfig) {
+    setPrevConfig(data);
     if (data) setDraft(data);
-  }, [data]);
+  }
 
   const { title, description } = scopeMeta(copy, scope);
 

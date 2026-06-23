@@ -105,13 +105,24 @@ export function StoreEditDialog({
     },
   });
 
+  const formSyncKey = open && store ? store.id : null;
+  const [prevFormSyncKey, setPrevFormSyncKey] = useState<string | null>(null);
+  if (formSyncKey !== prevFormSyncKey) {
+    setPrevFormSyncKey(formSyncKey);
+    if (store && open) {
+      const choice = storeCategoryFormValueToChoice({
+        category: store.category,
+        customCategory: store.customCategory,
+      });
+      setCategoryKey(choice);
+      setIsActive(store.isActive);
+      setResetPassword("");
+      setSubmitError(null);
+    }
+  }
+
   useEffect(() => {
     if (!store || !open) return;
-    const choice = storeCategoryFormValueToChoice({
-      category: store.category,
-      customCategory: store.customCategory,
-    });
-    setCategoryKey(choice);
     form.reset({
       name: store.name,
       category: store.category,
@@ -124,10 +135,7 @@ export function StoreEditDialog({
       dataExpiryAt: toDateInputValue(store.dataExpiryAt),
       renewalDueAt: toDateInputValue(store.renewalDueAt),
     });
-    setIsActive(store.isActive);
-    setResetPassword("");
-    setSubmitError(null);
-  }, [store, open, form]);
+  }, [formSyncKey, store, open, form]);
 
   function handleOpenChange(next: boolean) {
     if (!next) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDeleteStore } from "@/hooks/useStores";
 import { toast } from "@/hooks/useToast";
@@ -50,13 +50,15 @@ export function StoreDeleteDialog({
   const nameMatches = nameConfirm.trim() === storeName.trim();
   const canSubmit = nameMatches && password.length > 0 && !deleteMutation.isPending;
 
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (!open) {
       setNameConfirm("");
       setPassword("");
       setSubmitError(null);
     }
-  }, [open]);
+  }
 
   async function handleDelete() {
     if (!storeId || !canSubmit) return;

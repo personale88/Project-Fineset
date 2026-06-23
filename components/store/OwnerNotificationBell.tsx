@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { Bell, Clock, Home, LayoutList, Phone } from "lucide-react";
 import { content } from "@/content/en";
@@ -82,11 +82,7 @@ function OwnerNotificationBellContent() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogStoreId, setDialogStoreId] = useState<string | null>(storeId);
 
-  useEffect(() => {
-    setDialogStoreId(workQueueStoreId ?? storeId);
-  }, [storeId, workQueueStoreId]);
-
-  const resolvedStoreId = dialogStoreId ?? stores[0]?.id;
+  const resolvedDialogStoreId = dialogStoreId ?? workQueueStoreId ?? storeId;
   const linkStoreId = workQueueStoreId ?? storeId;
   const totals = data?.categoryTotals ?? {};
   const overdue = totals.overdue_task ?? 0;
@@ -181,14 +177,14 @@ function OwnerNotificationBellContent() {
               <button
                 key={store.id}
                 type="button"
-                aria-pressed={resolvedStoreId === store.id}
+                aria-pressed={resolvedDialogStoreId === store.id}
                 onClick={() => {
                   setDialogStoreId(store.id);
                   setPortfolioWorkQueueStoreId(store.id);
                 }}
                 className={cn(
                   "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  resolvedStoreId === store.id
+                  resolvedDialogStoreId === store.id
                     ? "border-brand-gold bg-brand-gold/10 text-text-primary"
                     : "border-border text-text-muted hover:border-brand-gold/30",
                 )}
@@ -199,10 +195,10 @@ function OwnerNotificationBellContent() {
           </div>
         ) : null}
 
-        {resolvedStoreId ? (
+        {resolvedDialogStoreId ? (
           <DashboardNotifications
             variant="business_owner"
-            storeId={resolvedStoreId}
+            storeId={resolvedDialogStoreId}
             presentation="standalone"
             readOnly
           />
