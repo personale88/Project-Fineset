@@ -3,6 +3,8 @@ import type { CreateVisitInput } from "@/lib/validations/visit.schema";
 import type { PortalFormSuccessPaths } from "@/lib/utils/portal-form-paths";
 import { formatCalendarDate, parseCalendarDate } from "@/lib/utils/calendar-date";
 
+export { formatTimeForInput, parseTimeInput } from "@/lib/utils/time-input";
+
 export type VisitFormCopy = Content["visitForm"];
 export type CommonCopy = Content["common"];
 export type ErrorsCopy = Content["errors"];
@@ -14,7 +16,9 @@ export interface VisitFormProps {
   successPaths?: PortalFormSuccessPaths;
 }
 
-export type VisitFormValues = CreateVisitInput;
+export type VisitFormValues = CreateVisitInput & {
+  followUpPreferredTime?: string;
+};
 
 export type VisitFormSectionId =
   | "customer"
@@ -106,21 +110,9 @@ export function getDefaultVisitValues(
     schemeCompetitorMention: undefined,
     followUpNeeded: draft?.followUpNeeded ?? false,
     followUpDate: undefined,
+    followUpPreferredTime: undefined,
     staffNotes: undefined,
   };
-}
-
-export function formatTimeForInput(date: Date): string {
-  const hours = date.getHours().toString().padStart(2, "0");
-  const minutes = date.getMinutes().toString().padStart(2, "0");
-  return `${hours}:${minutes}`;
-}
-
-export function parseTimeInput(time: string, baseDate: Date = new Date()): Date {
-  const [hours, minutes] = time.split(":").map(Number);
-  const result = new Date(baseDate);
-  result.setHours(hours, minutes, 0, 0);
-  return result;
 }
 
 export function formatDateForInput(date: Date): string {
@@ -216,7 +208,7 @@ export function getSectionFieldNames(
     case "preferences":
       return ["purchaseOccasion", "metalKtPref", "budgetStated"];
     case "followUp":
-      return ["followUpNeeded", "followUpDate", "staffNotes"];
+      return ["followUpNeeded", "followUpDate", "followUpPreferredTime", "staffNotes"];
   }
 }
 

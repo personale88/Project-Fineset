@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { modalScrollSafeClassName } from "@/lib/utils/modal-safe-area";
 import { CustomerMergePanel } from "@/components/customers/CustomerMergePanel";
 
 type ProfileCopy = Content["store"]["visits"]["customerProfile"];
@@ -119,7 +120,7 @@ export function CustomerProfileDialog({
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-hidden p-0 sm:max-w-4xl">
-        <div className="max-h-[90vh] overflow-y-auto">
+        <div className={cn("max-h-[90vh] overflow-y-auto", modalScrollSafeClassName)}>
           <div className="border-b border-border bg-gradient-to-br from-brand-charcoal/5 via-surface-card to-brand-gold/5 px-6 py-5">
             <DialogHeader className="space-y-4 text-left">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

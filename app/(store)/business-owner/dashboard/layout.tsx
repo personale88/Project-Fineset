@@ -10,7 +10,7 @@ import { requirePortalSession } from "@/lib/auth/require-portal-session";
 import { listAccessibleStores } from "@/lib/services/manager-stores";
 
 export const metadata: Metadata = {
-  title: "Business Owner Portal",
+  title: "Business Owner",
   robots: { index: false, follow: false },
 };
 

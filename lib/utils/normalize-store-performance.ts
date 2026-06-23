@@ -22,6 +22,8 @@ export function normalizeStorePerformanceRow(
 ): StorePerformanceRow {
   return {
     ...row,
+    businessOwnerName: row.businessOwnerName ?? null,
+    businessOwnerEmail: row.businessOwnerEmail ?? null,
     storeManagerName: row.storeManagerName ?? null,
     storeManagerPhone: row.storeManagerPhone ?? null,
     fieldSales: row.fieldSales ?? 0,

@@ -6,11 +6,11 @@ import {
   waitForServiceWorker,
   waitForServiceWorkerControl,
 } from "./helpers/pwa";
+import { DEV_PASSWORD, loginWithEmail } from "./helpers/login";
 
-const e2eEmail = process.env.E2E_USER_EMAIL ?? process.env.MASTER_ADMIN_EMAIL;
-const e2ePassword = process.env.E2E_USER_PASSWORD ?? process.env.MASTER_ADMIN_PASSWORD;
-const hasE2eCredentials = Boolean(e2eEmail && e2ePassword);
-const canRunLiveAuthTests = hasE2eCredentials;
+const e2eEmail = process.env.E2E_USER_EMAIL ?? process.env.MASTER_ADMIN_EMAIL ?? "admin@fineset.local";
+const e2ePassword = process.env.E2E_USER_PASSWORD ?? process.env.MASTER_ADMIN_PASSWORD ?? DEV_PASSWORD;
+const canRunLiveAuthTests = Boolean(e2eEmail);
 
 test.describe("PWA manifest and service worker", () => {
   test("B1 manifest is valid standalone PWA", async ({ request }) => {
@@ -83,16 +83,16 @@ test.describe("PWA standalone launch", () => {
 
   test.skip(
     !canRunLiveAuthTests,
-    "Set E2E_USER_EMAIL and E2E_USER_PASSWORD",
+    "Set E2E_USER_EMAIL (or MASTER_ADMIN_EMAIL) to run authenticated PWA tests",
   );
 
   test("B6 authenticated standalone launch reaches dashboard", async ({ page }) => {
     await emulateStandalone(page);
-    await page.goto("/");
-    await page.fill('[name="email"]', e2eEmail!);
-    await page.fill('[name="password"]', e2ePassword!);
-    await page.click('button[type="submit"]');
-    await page.waitForURL(/\/dashboard/);
+    await loginWithEmail(page, {
+      email: e2eEmail,
+      password: e2ePassword,
+      dashboardPattern: /\/dashboard/,
+    });
     await expect(page.getByTestId("portal-shell")).toBeVisible({ timeout: 5_000 });
     await assertNonBlankBody(page);
   });

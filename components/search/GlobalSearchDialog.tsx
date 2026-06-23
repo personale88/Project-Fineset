@@ -8,6 +8,7 @@ import { apiFetch, buildQueryString } from "@/lib/api/client";
 import { maskPhone } from "@/lib/utils/formatters";
 import { useStoreDashboard } from "@/components/store/StoreDashboardProvider";
 import { useIsClient } from "@/hooks/useIsClient";
+import { useMaxSm } from "@/hooks/useMaxSm";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,7 +21,9 @@ import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { StaffCustomerProfileDialog } from "@/components/staff/StaffCustomerProfileDialog";
 import type { CustomerProfileLookup } from "@/components/customers/CustomerProfileDialog";
+import { PortalBottomSheet } from "@/components/shared/PortalBottomSheet";
 import { cn } from "@/lib/utils";
+import { portalHeaderIconButtonClass } from "@/components/layout/portal-header-button";
 
 interface CustomerSearchRow {
   id: string;
@@ -30,9 +33,107 @@ interface CustomerSearchRow {
 
 type SearchScope = "mine" | "store";
 
+interface SearchPanelProps {
+  copy: (typeof content)["staff"]["search"];
+  query: string;
+  setQuery: (value: string) => void;
+  scope: SearchScope;
+  setScope: (value: SearchScope) => void;
+  debouncedQuery: string;
+  results: CustomerSearchRow[];
+  isFetching: boolean;
+  isError: boolean;
+  onSelect: (row: CustomerSearchRow) => void;
+  layout?: "dialog" | "sheet";
+}
+
+function SearchPanel({
+  copy,
+  query,
+  setQuery,
+  scope,
+  setScope,
+  debouncedQuery,
+  results,
+  isFetching,
+  isError,
+  onSelect,
+  layout = "dialog",
+}: SearchPanelProps) {
+  const isSheet = layout === "sheet";
+
+  return (
+    <div
+      className={cn(
+        "space-y-4 pb-2",
+        isSheet && "flex min-h-0 flex-1 flex-col",
+      )}
+    >
+      <div className="flex gap-2">
+        {(["mine", "store"] as const).map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => setScope(item)}
+            className={cn(
+              "rounded-chip px-3 py-1.5 text-xs font-medium",
+              scope === item
+                ? "bg-brand-gold text-white"
+                : "bg-surface-secondary text-text-secondary",
+            )}
+          >
+            {item === "mine" ? copy.mine : copy.store}
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-text-muted">
+        {scope === "mine" ? copy.mineHint : copy.storeHint}
+      </p>
+      <Input
+        autoFocus
+        placeholder={copy.placeholder}
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+      />
+      <div
+        className={cn(
+          "space-y-1 overflow-y-auto",
+          isSheet ? "min-h-0 flex-1" : "max-h-64",
+        )}
+      >
+        {debouncedQuery.trim().length < 2 ? (
+          <p className="text-sm text-text-muted">{copy.minChars}</p>
+        ) : isFetching ? (
+          <p className="text-sm text-text-muted">{content.common.loading}</p>
+        ) : isError ? (
+          <p className="text-sm text-status-error">{copy.error}</p>
+        ) : results.length === 0 ? (
+          <p className="text-sm text-text-muted">{copy.empty}</p>
+        ) : (
+          results.map((row) => (
+            <button
+              key={row.id}
+              type="button"
+              onClick={() => onSelect(row)}
+              className={cn(
+                "w-full rounded-input border border-border px-3 py-2 text-left text-sm",
+                "transition-colors hover:border-brand-gold/35 hover:bg-brand-gold/[0.04]",
+              )}
+            >
+              <p className="font-medium text-text-primary">{row.name}</p>
+              <p className="text-xs text-text-muted">{maskPhone(row.phone)}</p>
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 function GlobalSearchDialogInner({ storeId }: { storeId?: string | null }) {
   const copy = content.staff.search;
   const isClient = useIsClient();
+  const isMobile = useMaxSm();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [scope, setScope] = useState<SearchScope>("mine");
@@ -70,13 +171,34 @@ function GlobalSearchDialogInner({ storeId }: { storeId?: string | null }) {
 
   const results = data?.data ?? [];
 
+  function handleClose(next: boolean) {
+    setOpen(next);
+    if (!next) setQuery("");
+  }
+
   function handleSelect(row: CustomerSearchRow) {
     setProfileLookup({
       customerId: row.id,
       customerName: row.name,
     });
-    setOpen(false);
+    handleClose(false);
   }
+
+  const searchPanel = (
+    <SearchPanel
+      copy={copy}
+      query={query}
+      setQuery={setQuery}
+      scope={scope}
+      setScope={setScope}
+      debouncedQuery={debouncedQuery}
+      results={results}
+      isFetching={isFetching}
+      isError={isError}
+      onSelect={handleSelect}
+      layout={isMobile ? "sheet" : "dialog"}
+    />
+  );
 
   return (
     <>
@@ -97,79 +219,35 @@ function GlobalSearchDialogInner({ storeId }: { storeId?: string | null }) {
       <Button
         type="button"
         variant="outline"
-        size="icon"
-        className="sm:hidden"
+        size="sm"
+        className={portalHeaderIconButtonClass}
         aria-label={copy.title}
         onClick={() => setOpen(true)}
       >
         <Search className="size-4" aria-hidden />
       </Button>
 
-      {isClient && open ? (
-        <Dialog
+      {isClient && open && isMobile ? (
+        <PortalBottomSheet
           open
-          onOpenChange={(next) => {
-            setOpen(next);
-            if (!next) setQuery("");
-          }}
+          onOpenChange={handleClose}
+          title={copy.title}
+          subtitle={copy.description}
+          contentClassName="!h-[90dvh] !max-h-[90dvh]"
+          bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
         >
+          {searchPanel}
+        </PortalBottomSheet>
+      ) : null}
+
+      {isClient && open && !isMobile ? (
+        <Dialog open onOpenChange={handleClose}>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>{copy.title}</DialogTitle>
               <DialogDescription>{copy.description}</DialogDescription>
             </DialogHeader>
-            <div className="flex gap-2">
-              {(["mine", "store"] as const).map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  onClick={() => setScope(item)}
-                  className={cn(
-                    "rounded-chip px-3 py-1.5 text-xs font-medium",
-                    scope === item
-                      ? "bg-brand-gold text-white"
-                      : "bg-surface-secondary text-text-secondary",
-                  )}
-                >
-                  {item === "mine" ? copy.mine : copy.store}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-text-muted">
-              {scope === "mine" ? copy.mineHint : copy.storeHint}
-            </p>
-            <Input
-              autoFocus
-              placeholder={copy.placeholder}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-            />
-            <div className="max-h-64 space-y-1 overflow-y-auto">
-              {debouncedQuery.trim().length < 2 ? (
-                <p className="text-sm text-text-muted">{copy.minChars}</p>
-              ) : isFetching ? (
-                <p className="text-sm text-text-muted">{content.common.loading}</p>
-              ) : isError ? (
-                <p className="text-sm text-status-error">{copy.error}</p>
-              ) : results.length === 0 ? (
-                <p className="text-sm text-text-muted">{copy.empty}</p>
-              ) : (
-                results.map((row) => (
-                  <button
-                    key={row.id}
-                    type="button"
-                    onClick={() => handleSelect(row)}
-                    className={cn(
-                      "w-full rounded-input border border-border px-3 py-2 text-left text-sm",
-                      "transition-colors hover:border-brand-gold/35 hover:bg-brand-gold/[0.04]",
-                    )}
-                  >
-                    <p className="font-medium text-text-primary">{row.name}</p>
-                    <p className="text-xs text-text-muted">{maskPhone(row.phone)}</p>
-                  </button>
-                ))
-              )}
-            </div>
+            {searchPanel}
           </DialogContent>
         </Dialog>
       ) : null}

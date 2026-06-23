@@ -8,6 +8,7 @@ import {
   getSessionTokenFromCookies,
 } from "@/lib/auth/session-cookie";
 import { getAppSessionFromToken } from "@/lib/auth/session-store";
+import { isAdminPortalRole } from "@/lib/auth/admin-permissions";
 import type { AppSession } from "@/types";
 import type { AppRole } from "@prisma/client";
 
@@ -21,7 +22,18 @@ async function resolveAppSession(): Promise<AppSession | null> {
     return null;
   }
 
-  return getAppSessionFromToken(token);
+  const session = await getAppSessionFromToken(token);
+  if (!session || !isAdminPortalRole(session.role)) {
+    return session;
+  }
+
+  const { getImpersonatedStoreIdFromCookie } = await import("@/lib/auth/impersonation");
+  const impersonatedStoreId = await getImpersonatedStoreIdFromCookie();
+  if (!impersonatedStoreId) {
+    return session;
+  }
+
+  return { ...session, impersonatedStoreId } as import("@/types").AdminSession;
 }
 
 /** Request-scoped session resolution from DB-backed session cookie. */

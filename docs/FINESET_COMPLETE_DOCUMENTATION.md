@@ -281,7 +281,6 @@ Middleware can be bypassed in edge cases; server layout ensures API/RSC also see
 ### Step 14 — Implemented **invite** flow for new users
 
 **What we did:**  
-- Admin: `POST /api/admin/users/invite`  
 - Store manager: `POST /api/store/users/invite`  
 - Creates `Staff` (if STAFF role), Supabase user via admin API, `AppUser` with `isActive: false` until first login.
 

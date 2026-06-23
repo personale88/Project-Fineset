@@ -9,14 +9,25 @@ import { Eye, EyeOff, Sparkles } from "lucide-react";
 import { generateSecurePassword } from "@/lib/auth/generate-password";
 import { getManagerLoginStatus } from "@/lib/api/stores";
 import { createStoreSchema, type CreateStoreInput } from "@/lib/validations/store.schema";
-import { useCreateStore, useStores } from "@/hooks/useStores";
-import { AdminDashboardNav } from "@/components/admin/AdminDashboardNav";
-import { StoreListCard } from "@/components/admin/StoreListCard";
+import { useCreateStore } from "@/hooks/useStores";
+import { AdminPageIntro } from "@/components/admin/AdminPageIntro";
+import { AdminPortfolioList } from "@/components/admin/overview/AdminPortfolioList";
+import { DeletedStoresList } from "@/components/admin/DeletedStoresList";
+import {
+  AccountsSidePanel,
+  AccountsResultsHeader,
+  scopeMeta,
+  type AccountsScope,
+} from "@/components/admin/accounts/AccountsSidePanel";
+import { AddInternalTeamDialog } from "@/components/admin/accounts/AddInternalTeamDialog";
+import { InternalTeamPane } from "@/components/admin/accounts/InternalTeamPane";
+import { useAdminPortal } from "@/components/admin/AdminPortalContext";
+import { usePlatformSettingsContext } from "@/components/admin/PlatformSettingsProvider";
+import { computeOnboardingDefaultDates } from "@/lib/platform/onboarding-dates";
 import { toast } from "@/hooks/useToast";
 import { ApiError } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -32,16 +43,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { EmptyState } from "@/components/shared/EmptyState";
+import { StoreCategorySelect } from "@/components/admin/StoreCategorySelect";
+import { storeCategoryChoiceToFormValue } from "@/lib/store-category/catalog";
 import type { Content } from "@/content/en";
-import type { StoreCategory } from "@/types";
+import type { AdminDashboardOverview } from "@/types";
 
 type AdminContent = Content["admin"];
 type ErrorsContent = Content["errors"];
@@ -55,44 +60,28 @@ const defaultFormValues: CreateStoreInput = {
   businessOwnerName: "",
   businessOwnerEmail: "",
   password: "",
+  dataExpiryAt: "",
+  renewalDueAt: "",
 };
 
 interface StoresManagementProps {
   admin: AdminContent;
-  common: Content["common"];
-  emptyMessage: string;
   errors: ErrorsContent;
-  initialStores?: import("@/types").PaginatedResponse<{
-    id: string;
-    name: string;
-    category: StoreCategory;
-    customCategory?: string | null;
-    city: string;
-    state: string;
-    pincode?: string | null;
-    businessOwnerName?: string | null;
-    businessOwnerEmail?: string | null;
-    isActive: boolean;
-    deletedAt?: string | null;
-    purgeAt?: string | null;
-    staffCount: number;
-    visits: number;
-    revenue: number;
-    conversionRate: number;
-    createdAt: string;
-  }>;
-  initialStoresParams?: { page?: number; pageSize?: number };
+  initialOverview?: AdminDashboardOverview;
+  initialOverviewFailed?: boolean;
 }
 
-export function StoresManagement({
+export function AdminAccountsManagement({
   admin,
-  common,
-  emptyMessage,
   errors,
-  initialStores,
-  initialStoresParams,
+  initialOverview,
+  initialOverviewFailed = false,
 }: StoresManagementProps) {
+  const { role } = useAdminPortal();
+  const { settings: platformSettings } = usePlatformSettingsContext();
   const [modalOpen, setModalOpen] = useState(false);
+  const [internalTeamModalOpen, setInternalTeamModalOpen] = useState(false);
+  const [scope, setScope] = useState<AccountsScope>("clients");
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{
@@ -100,14 +89,6 @@ export function StoresManagement({
     password: string;
   } | null>(null);
 
-  const storesParams = {
-    page: 1,
-    pageSize: 50,
-  };
-  const { data, isLoading } = useStores(storesParams, {
-    initialData: initialStores,
-    initialParams: initialStoresParams ?? storesParams,
-  });
   const createStoreMutation = useCreateStore();
 
   const form = useForm<CreateStoreInput>({
@@ -115,7 +96,7 @@ export function StoresManagement({
     defaultValues: defaultFormValues,
   });
 
-  const category = form.watch("category");
+  const [categoryKey, setCategoryKey] = useState("JEWELRY");
   const businessOwnerEmailValue = form.watch("businessOwnerEmail");
   const debouncedManagerEmail = useDebouncedValue(
     businessOwnerEmailValue?.trim().toLowerCase() ?? "",
@@ -134,17 +115,38 @@ export function StoresManagement({
 
   const managerHasExistingLogin = Boolean(managerLoginStatus?.hasExistingLogin);
 
+  const { setValue, clearErrors } = form;
+
   useEffect(() => {
     if (!managerHasExistingLogin) return;
-    form.setValue("password", "");
-    form.clearErrors("password");
-  }, [managerHasExistingLogin, form]);
+    setValue("password", "");
+    clearErrors("password");
+  }, [managerHasExistingLogin, setValue, clearErrors]);
+
+  function buildCreateStoreDefaults(): CreateStoreInput {
+    const dates = computeOnboardingDefaultDates(platformSettings.onboarding);
+    return {
+      ...defaultFormValues,
+      dataExpiryAt: dates.dataExpiryAt,
+      renewalDueAt: dates.renewalDueAt,
+    };
+  }
 
   function resetModalState() {
-    form.reset(defaultFormValues);
+    form.reset(buildCreateStoreDefaults());
+    setCategoryKey("JEWELRY");
     setSubmitError(null);
     setShowPassword(false);
     setCreatedCredentials(null);
+  }
+
+  function handleOpenCreateModal() {
+    form.reset(buildCreateStoreDefaults());
+    setCategoryKey("JEWELRY");
+    setSubmitError(null);
+    setShowPassword(false);
+    setCreatedCredentials(null);
+    setModalOpen(true);
   }
 
   function handleModalOpenChange(open: boolean) {
@@ -187,16 +189,19 @@ export function StoresManagement({
 
   async function onSubmit(values: CreateStoreInput) {
     setSubmitError(null);
+    const categoryFields = storeCategoryChoiceToFormValue(categoryKey);
     const payload: CreateStoreInput = {
       ...values,
+      ...categoryFields,
+      customCategory: categoryFields.customCategory ?? undefined,
       password: managerHasExistingLogin ? undefined : values.password,
     };
     try {
       const result = await createStoreMutation.mutateAsync(payload);
       if (result.manager?.linkedExistingLogin) {
         toast({
-          title: admin.stores.modal.createSuccessTitle,
-          description: admin.stores.modal.linkedExistingManagerDescription,
+          title: admin.accounts.modal.createSuccessTitle,
+          description: admin.accounts.modal.linkedExistingManagerDescription,
         });
         handleModalOpenChange(false);
       } else if (result.manager && payload.password) {
@@ -205,11 +210,11 @@ export function StoresManagement({
           password: payload.password,
         });
         toast({
-          title: admin.stores.modal.createSuccessTitle,
-          description: admin.stores.modal.createSuccessDescription,
+          title: admin.accounts.modal.createSuccessTitle,
+          description: admin.accounts.modal.createSuccessDescription,
         });
       } else {
-        toast({ title: admin.stores.addStore, description: admin.stores.modal.title });
+        toast({ title: admin.accounts.addStore, description: admin.accounts.modal.title });
         handleModalOpenChange(false);
       }
     } catch (error) {
@@ -219,71 +224,75 @@ export function StoresManagement({
     }
   }
 
+  const showInternalTeam = role === "MASTER_ADMIN";
+  const canInviteInternal = role === "MASTER_ADMIN";
+  const { title: scopeTitle, description: scopeDescription } = scopeMeta(admin.accounts, scope);
+
+  const headerAction =
+    scope === "clients" ? (
+      <Button type="button" className="w-full sm:w-auto" onClick={handleOpenCreateModal}>
+        {admin.accounts.addStore}
+      </Button>
+    ) : scope === "internal" && canInviteInternal ? (
+      <Button type="button" className="w-full sm:w-auto" onClick={() => setInternalTeamModalOpen(true)}>
+        {admin.accounts.internalTeam.addButton}
+      </Button>
+    ) : null;
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="font-display text-2xl font-bold text-text-primary">
-          {admin.stores.title}
-        </h1>
-        <Button type="button" onClick={() => setModalOpen(true)}>
-          {admin.stores.addStore}
-        </Button>
-      </div>
+    <div className="mx-auto flex max-w-7xl flex-col space-y-6">
+      <AdminPageIntro
+        title={admin.accounts.title}
+        subtitle={admin.accounts.subtitle}
+        meta={admin.portfolio.periodHint}
+        nav={admin.nav}
+      />
 
-      <AdminDashboardNav labels={admin.nav} />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+        <AccountsSidePanel
+          copy={admin.accounts}
+          value={scope}
+          onChange={setScope}
+          showInternal={showInternalTeam}
+        />
 
-      {isLoading && !data ? (
-        <div
-          aria-live="polite"
-          aria-busy="true"
-          className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+        <section
+          className="min-w-0 flex-1"
+          role="tabpanel"
+          aria-label={scopeTitle}
         >
-          {Array.from({ length: 3 }).map((_, index) => (
-            <Skeleton key={index} className="h-56 rounded-card" />
-          ))}
-        </div>
-      ) : !data || data.data.length === 0 ? (
-        <EmptyState message={emptyMessage} />
-      ) : (
-        <ul className="grid list-none gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {data.data.map((store) => (
-            <li key={store.id}>
-              <StoreListCard
-                store={{
-                  id: store.id,
-                  name: store.name,
-                  category: store.category as StoreCategory,
-                  customCategory: store.customCategory,
-                  city: store.city,
-                  state: store.state,
-                  pincode: store.pincode,
-                  businessOwnerName: store.businessOwnerName,
-                  businessOwnerEmail: store.businessOwnerEmail,
-                  isActive: store.isActive,
-                  deletedAt: store.deletedAt ?? null,
-                  purgeAt: store.purgeAt ?? null,
-                  staffCount: store.staffCount,
-                }}
-                storesCopy={admin.stores}
-                categories={admin.categories}
-                common={common}
-                errors={errors}
-                statusActiveLabel={admin.table.active}
-                statusInactiveLabel={admin.table.inactive}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
+          <div className="rounded-card border border-border bg-surface-card p-4 shadow-card sm:p-5 lg:min-h-[520px]">
+            <AccountsResultsHeader
+              title={scopeTitle}
+              description={scopeDescription}
+              action={headerAction ?? undefined}
+            />
+
+            <div className="mt-4 min-w-0">
+              {scope === "clients" ? (
+                <AdminPortfolioList
+                  admin={admin}
+                  initialOverview={initialOverview}
+                  initialOverviewFailed={initialOverviewFailed}
+                />
+              ) : scope === "deleted" ? (
+                <DeletedStoresList admin={admin} />
+              ) : (
+                <InternalTeamPane copy={admin.accounts.internalTeam} />
+              )}
+            </div>
+          </div>
+        </section>
+      </div>
 
       <Dialog open={modalOpen} onOpenChange={handleModalOpenChange}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{admin.stores.modal.title}</DialogTitle>
+            <DialogTitle>{admin.accounts.modal.title}</DialogTitle>
             {createdCredentials ? (
               <DialogDescription asChild>
                 <div className="space-y-3 pt-2 text-left text-sm text-text-secondary">
-                  <p>{admin.stores.modal.createSuccessDescription}</p>
+                  <p>{admin.accounts.modal.createSuccessDescription}</p>
                   <div className="space-y-2 rounded-md border border-border bg-surface-secondary p-3">
                     <p>
                       <span className="font-medium text-text-primary">Email: </span>
@@ -294,7 +303,7 @@ export function StoresManagement({
                       <span className="font-mono">{createdCredentials.password}</span>
                     </p>
                   </div>
-                  <p className="text-xs">{admin.stores.modal.passwordHint}</p>
+                  <p className="text-xs">{admin.accounts.modal.passwordHint}</p>
                 </div>
               </DialogDescription>
             ) : null}
@@ -322,69 +331,37 @@ export function StoresManagement({
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{admin.stores.modal.nameLabel}</FormLabel>
+                      <FormLabel>{admin.accounts.modal.nameLabel}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder={admin.stores.modal.namePlaceholder}
+                          placeholder={admin.accounts.modal.namePlaceholder}
                         />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{admin.stores.modal.categoryLabel}</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {Object.entries(admin.categories).map(([key, label]) => (
-                            <SelectItem key={key} value={key}>
-                              {label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                <StoreCategorySelect
+                  label={admin.accounts.modal.categoryLabel}
+                  field={{
+                    value: categoryKey,
+                    onChange: (value: string) => setCategoryKey(value),
+                    onBlur: () => undefined,
+                    name: "categoryKey",
+                    ref: () => undefined,
+                  }}
                 />
-                {category === "OTHER" && (
-                  <FormField
-                    control={form.control}
-                    name="customCategory"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{admin.stores.modal.customCategoryLabel}</FormLabel>
-                        <FormControl>
-                          <Input
-                            {...field}
-                            placeholder={admin.stores.modal.customCategoryPlaceholder}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
                 <FormField
                   control={form.control}
                   name="city"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{admin.stores.modal.cityLabel}</FormLabel>
+                      <FormLabel>{admin.accounts.modal.cityLabel}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder={admin.stores.modal.cityPlaceholder}
+                          placeholder={admin.accounts.modal.cityPlaceholder}
                         />
                       </FormControl>
                       <FormMessage />
@@ -396,11 +373,11 @@ export function StoresManagement({
                   name="state"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{admin.stores.modal.stateLabel}</FormLabel>
+                      <FormLabel>{admin.accounts.modal.stateLabel}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder={admin.stores.modal.statePlaceholder}
+                          placeholder={admin.accounts.modal.statePlaceholder}
                         />
                       </FormControl>
                       <FormMessage />
@@ -412,13 +389,13 @@ export function StoresManagement({
                   name="pincode"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{admin.stores.modal.pincodeLabel}</FormLabel>
+                      <FormLabel>{admin.accounts.modal.pincodeLabel}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
                           inputMode="numeric"
                           maxLength={6}
-                          placeholder={admin.stores.modal.pincodePlaceholder}
+                          placeholder={admin.accounts.modal.pincodePlaceholder}
                         />
                       </FormControl>
                       <FormMessage />
@@ -430,11 +407,11 @@ export function StoresManagement({
                   name="businessOwnerName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{admin.stores.modal.businessOwnerNameLabel}</FormLabel>
+                      <FormLabel>{admin.accounts.modal.businessOwnerNameLabel}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder={admin.stores.modal.businessOwnerNamePlaceholder}
+                          placeholder={admin.accounts.modal.businessOwnerNamePlaceholder}
                         />
                       </FormControl>
                       <FormMessage />
@@ -446,20 +423,52 @@ export function StoresManagement({
                   name="businessOwnerEmail"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{admin.stores.modal.businessOwnerEmailLabel}</FormLabel>
+                      <FormLabel>{admin.accounts.modal.businessOwnerEmailLabel}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
                           type="email"
                           autoComplete="email"
-                          placeholder={admin.stores.modal.businessOwnerEmailPlaceholder}
+                          placeholder={admin.accounts.modal.businessOwnerEmailPlaceholder}
                         />
                       </FormControl>
                       {managerHasExistingLogin ? (
                         <p className="text-xs text-status-success" role="status">
-                          {admin.stores.modal.existingManagerHint}
+                          {admin.accounts.modal.existingManagerHint}
                         </p>
                       ) : null}
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="dataExpiryAt"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{admin.accounts.modal.dataExpiryLabel}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="date"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="renewalDueAt"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{admin.accounts.modal.renewalDueLabel}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="date"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -471,7 +480,7 @@ export function StoresManagement({
                     render={({ field }) => (
                       <FormItem>
                         <div className="flex items-center justify-between gap-2">
-                          <FormLabel>{admin.stores.modal.passwordLabel}</FormLabel>
+                          <FormLabel>{admin.accounts.modal.passwordLabel}</FormLabel>
                           <Button
                             type="button"
                             variant="ghost"
@@ -481,7 +490,7 @@ export function StoresManagement({
                             disabled={managerLoginChecking}
                           >
                             <Sparkles className="mr-1 size-3.5" aria-hidden="true" />
-                            {admin.stores.modal.suggestPassword}
+                            {admin.accounts.modal.suggestPassword}
                           </Button>
                         </div>
                         <FormControl>
@@ -490,7 +499,7 @@ export function StoresManagement({
                               {...field}
                               type={showPassword ? "text" : "password"}
                               autoComplete="new-password"
-                              placeholder={admin.stores.modal.passwordPlaceholder}
+                              placeholder={admin.accounts.modal.passwordPlaceholder}
                               className="pr-10"
                             />
                             <Button
@@ -510,7 +519,7 @@ export function StoresManagement({
                           </div>
                         </FormControl>
                         <p className="text-xs text-text-muted">
-                          {admin.stores.modal.passwordHint}
+                          {admin.accounts.modal.passwordHint}
                         </p>
                         <FormMessage />
                       </FormItem>
@@ -527,13 +536,23 @@ export function StoresManagement({
                   className="w-full"
                   disabled={createStoreMutation.isPending}
                 >
-                  {admin.stores.addStore}
+                  {admin.accounts.addStore}
                 </Button>
               </form>
             </Form>
           )}
         </DialogContent>
       </Dialog>
+
+      <AddInternalTeamDialog
+        copy={admin.accounts.internalTeam}
+        open={internalTeamModalOpen}
+        onOpenChange={setInternalTeamModalOpen}
+        errors={errors}
+      />
     </div>
   );
 }
+
+/** @deprecated Use AdminAccountsManagement */
+export const StoresManagement = AdminAccountsManagement;

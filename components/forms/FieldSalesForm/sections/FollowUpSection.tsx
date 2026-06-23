@@ -1,5 +1,3 @@
-"use client";
-
 import type { Control } from "react-hook-form";
 import {
   FormControl,
@@ -11,6 +9,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { DatePicker } from "@/components/shared/DatePicker";
+import { TimePicker } from "@/components/shared/TimePicker";
 import { FormSection } from "@/components/forms/VisitForm/FormSection";
 import type { FieldSalesFormCopy, FieldSalesFormValues } from "../FieldSalesForm.types";
 
@@ -43,24 +42,44 @@ export function FollowUpSection({
       />
 
       {followUpNeeded && (
-        <FormField
-          control={control}
-          name="followUpDate"
-          render={({ field }) => (
-            <FormItem className="max-w-sm">
-              <FormLabel>{fields.followUpDate.label}</FormLabel>
-              <FormControl>
-                <DatePicker
-                  value={field.value}
-                  onChange={field.onChange}
-                  onBlur={field.onBlur}
-                  fromDate={new Date()}
-                />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid gap-4 sm:max-w-2xl sm:grid-cols-2">
+          <FormField
+            control={control}
+            name="followUpDate"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{fields.followUpDate.label}</FormLabel>
+                <FormControl>
+                  <DatePicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    fromDate={new Date()}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={control}
+            name="followUpPreferredTime"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{fields.followUpTime.label}</FormLabel>
+                <FormControl>
+                  <TimePicker
+                    value={field.value ?? ""}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                  />
+                </FormControl>
+                <p className="text-xs text-text-muted">{fields.followUpTime.hint}</p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
       )}
 
       <FormField

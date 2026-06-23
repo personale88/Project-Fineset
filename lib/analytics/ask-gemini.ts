@@ -1,28 +1,27 @@
-import { geminiGenerateContent } from "@/lib/gemini/generate-content";
+import {
+  geminiGenerateContent,
+  isGeminiApiKeyConfigured,
+} from "@/lib/gemini/generate-content";
+import { AnalyticsAskError } from "@/lib/analytics/ask-errors";
 import { analyticsAskIntentSchema } from "@/lib/validations/admin-business-analytics-ask.schema";
 import type { ParsedAnalyticsAskIntent } from "@/lib/validations/admin-business-analytics-ask.schema";
-import type { AnalyticsAskReport } from "@/types/admin-business-analytics-ask";
-import type { AdminBusinessAnalytics } from "@/types/admin-business-analytics";
+import type { TokenUsage } from "@/lib/analytics/token-estimate";
+import { tokenUsageFromGeminiMetadata } from "@/lib/analytics/token-estimate";
+import { ANALYTICS_ASK_MAX_OUTPUT_TOKENS } from "@/lib/analytics/token-estimate";
 
 export function isGeminiConfigured(): boolean {
-  return Boolean(process.env.GEMINI_API_KEY?.trim());
+  return isGeminiApiKeyConfigured();
 }
 
-export async function parseIntentWithGemini(
-  prompt: string,
-): Promise<ParsedAnalyticsAskIntent | null> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) return null;
-
-  const system = `You translate jewelry retail analytics questions into JSON only.
+const INTENT_SYSTEM = `You translate jewelry retail analytics questions into JSON only.
 Return a single JSON object matching this shape:
 {
   "dateMode": "preset"|"range"|"day"|"month"|"compare",
-  "period": "today"|"yesterday"|"week"|"month"|"last3months"|"last6months" (optional),
+  "period": "today"|"yesterday"|"week"|"month"|"last30days"|"last3months"|"last6months" (optional),
   "month": 1-12 (optional),
   "year": number (optional),
   "compareAMonth", "compareAYear", "compareBMonth", "compareBYear" (optional, for compare mode),
-  "chartTypes": optional array of "line"|"bar"|"pie"|"comparison"|"radar" — only when the user names a chart; otherwise [] and charts are chosen from data,
+  "chartTypes": optional array of "line"|"bar"|"pie"|"comparison"|"radar" — only when the user names a chart; otherwise [],
   "breakdownDimension": one of customerType|valueTier|intentTier|purchaseStatus|sourceChannel|gender|ageGroup|area|visitType|budgetRange|productCategory|schemeProduct|enrollmentOutcome,
   "activeFilters": string[],
   "segment": "ALL"|"NEW"|"RETAINED"|"PURCHASED"|"NOT_PURCHASED" (optional),
@@ -33,78 +32,81 @@ Return a single JSON object matching this shape:
 }
 No markdown. No explanation.`;
 
-  const text = await geminiGenerateContent(
-    apiKey,
-    `${system}\n\nUser question:\n${prompt}`,
-    { maxOutputTokens: 1024, temperature: 0.2 },
-  );
-  if (!text) return null;
+export interface GeminiIntentParseResult {
+  intent: ParsedAnalyticsAskIntent;
+  tokenUsage: TokenUsage | null;
+}
 
-  try {
-    const jsonStart = text.indexOf("{");
-    const jsonEnd = text.lastIndexOf("}");
-    if (jsonStart < 0 || jsonEnd < 0) return null;
-    const parsed = analyticsAskIntentSchema.safeParse(
-      JSON.parse(text.slice(jsonStart, jsonEnd + 1)),
+function extractJsonObject(text: string): unknown {
+  const jsonStart = text.indexOf("{");
+  const jsonEnd = text.lastIndexOf("}");
+  if (jsonStart < 0 || jsonEnd < 0) {
+    throw new AnalyticsAskError(
+      "GEMINI_PARSE_FAILED",
+      "Gemini returned a response we could not parse as JSON. Try rephrasing or use a recommendation prompt.",
+      422,
     );
-    return parsed.success ? parsed.data : null;
-  } catch {
-    return null;
   }
-}
-
-export async function generateReportWithGemini(
-  prompt: string,
-  analytics: AdminBusinessAnalytics,
-  interpretedQuery: string,
-): Promise<AnalyticsAskReport | null> {
-  const apiKey = process.env.GEMINI_API_KEY?.trim();
-  if (!apiKey) return null;
-
-  const payload = {
-    period: analytics.period.label,
-    summary: analytics.summary,
-    comparison: analytics.comparison
-      ? {
-          period: analytics.comparison.period.label,
-          summary: analytics.comparison.summary,
-          deltas: analytics.comparison.deltas,
-        }
-      : null,
-    topCustomerTypes: analytics.breakdowns.customerType.slice(0, 5),
-    topSources: analytics.breakdowns.sourceChannel.slice(0, 5),
-    topProducts: analytics.breakdowns.productsExplored.slice(0, 5),
-  };
-
-  const instruction = `You are a jewelry retail analytics advisor for Indian stores (GHS/GPP schemes).
-Given the user question and computed metrics JSON, respond with JSON only:
-{
-  "summary": "2-3 sentence executive summary",
-  "highlights": ["3-5 bullet insights as strings"],
-  "recommendations": ["3-5 actionable recommendations as strings"]
-}
-Be specific with numbers from the data. No markdown.`;
-
-  const text = await geminiGenerateContent(
-    apiKey,
-    `${instruction}\n\nUser question: ${prompt}\nInterpreted: ${interpretedQuery}\nData:\n${JSON.stringify(payload)}`,
-    { maxOutputTokens: 1024, temperature: 0.2 },
-  );
-  if (!text) return null;
-
   try {
-    const jsonStart = text.indexOf("{");
-    const jsonEnd = text.lastIndexOf("}");
-    if (jsonStart < 0 || jsonEnd < 0) return null;
-    const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1)) as AnalyticsAskReport;
-    if (!parsed.summary || !Array.isArray(parsed.highlights)) return null;
-    return {
-      summary: String(parsed.summary),
-      highlights: parsed.highlights.map(String).slice(0, 6),
-      recommendations: (parsed.recommendations ?? []).map(String).slice(0, 6),
-    };
+    return JSON.parse(text.slice(jsonStart, jsonEnd + 1));
   } catch {
-    return null;
+    throw new AnalyticsAskError(
+      "GEMINI_PARSE_FAILED",
+      "Gemini returned invalid JSON for your question. Try a shorter, more specific prompt.",
+      422,
+    );
   }
 }
 
+export async function parseIntentWithGemini(prompt: string): Promise<GeminiIntentParseResult> {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new AnalyticsAskError(
+      "GEMINI_NOT_CONFIGURED",
+      "Gemini is not configured. Add GEMINI_API_KEY to enable AI intent parsing, or use a recommendation prompt.",
+      503,
+    );
+  }
+
+  const result = await geminiGenerateContent(
+    apiKey,
+    `${INTENT_SYSTEM}\n\nUser question:\n${prompt}`,
+    {
+      maxOutputTokens: ANALYTICS_ASK_MAX_OUTPUT_TOKENS,
+      temperature: 0.1,
+      responseMimeType: "application/json",
+    },
+  );
+
+  if (!result.text) {
+    const detail = result.httpStatus === 429
+      ? "Gemini rate limit reached. Wait a moment and try again."
+      : result.httpStatus === 403
+        ? "Gemini API key is invalid or lacks permission."
+        : "Gemini did not return a usable response.";
+
+    throw new AnalyticsAskError(
+      result.httpStatus === 429 ? "GEMINI_UNAVAILABLE" : "GEMINI_PARSE_FAILED",
+      detail,
+      result.httpStatus === 429 ? 429 : 502,
+    );
+  }
+
+  const parsed = analyticsAskIntentSchema.safeParse(extractJsonObject(result.text));
+  if (!parsed.success) {
+    throw new AnalyticsAskError(
+      "GEMINI_PARSE_FAILED",
+      "Gemini understood your question but returned an unsupported query shape. Try rephrasing with a clear time range and metric.",
+      422,
+    );
+  }
+
+  return {
+    intent: parsed.data,
+    tokenUsage: tokenUsageFromGeminiMetadata(
+      result.usageMetadata?.promptTokenCount,
+      result.usageMetadata?.candidatesTokenCount,
+      result.model,
+    ),
+  };
+}

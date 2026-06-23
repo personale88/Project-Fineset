@@ -7,6 +7,7 @@ import {
   unauthorized,
 } from "@/lib/auth/session";
 import { handleRouteError } from "@/lib/api/route-handler";
+import { resolveStaffWriteStoreId } from "@/lib/auth/resolve-staff-store-id";
 import { resolveStorePortalStoreId } from "@/lib/auth/resolve-manager-store-id";
 import { InviteError } from "@/lib/auth/invite-user";
 import { createStaff, getStaffPerformance, listStaff } from "@/lib/services/staff";
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
   const startedAt = Date.now();
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["BUSINESS_OWNER", "MASTER_ADMIN", "STORE_MANAGER"])) {
+    if (!requireRole(session, ["BUSINESS_OWNER", "MASTER_ADMIN", "PLATFORM_ADMIN", "STORE_MANAGER"])) {
       return unauthorized();
     }
 
@@ -74,7 +75,11 @@ export async function POST(req: Request) {
   const startedAt = Date.now();
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["BUSINESS_OWNER"])) return unauthorized();
+    if (
+      !requireRole(session, ["BUSINESS_OWNER", "MASTER_ADMIN", "PLATFORM_ADMIN"])
+    ) {
+      return unauthorized();
+    }
 
     const body: unknown = await req.json();
     const parsed = createStaffSchema.safeParse(body);
@@ -88,7 +93,7 @@ export async function POST(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const resolved = await resolveStorePortalStoreId(
+    const resolved = await resolveStaffWriteStoreId(
       session,
       searchParams.get("storeId") ?? undefined,
     );

@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createFieldSaleSchema } from "@/lib/validations/field-sale.schema";
 import { useCreateFieldSale } from "@/hooks/useFieldSales";
+import { buildFollowUpSubmitPayload } from "@/lib/utils/follow-up-datetime";
 import { toast } from "@/hooks/useToast";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { buildPortalFormSuccessPaths, type PortalFormSuccessPaths } from "@/lib/utils/portal-form-paths";
@@ -14,8 +15,8 @@ import { ProgressIndicator } from "@/components/forms/VisitForm/FormSection";
 import { VisitFormSuccess } from "@/components/forms/VisitForm/VisitFormSuccess";
 import { FieldSalesFormSections } from "./FieldSalesFormSections";
 import {
+  buildClientFieldSaleFormValues,
   clearFieldSaleDraft,
-  loadFieldSaleDraft,
   useFieldSaleDraft,
 } from "./useFieldSaleDraft";
 import {
@@ -38,7 +39,7 @@ export function FieldSalesForm({ copy, common, errors, successPaths }: FieldSale
     mode: "onBlur",
   });
 
-  const { watch, control, handleSubmit, reset, trigger, setValue } = form;
+  const { watch, control, handleSubmit, reset, trigger, setValue, getValues } = form;
   const enrollmentOutcome = watch("enrollmentOutcome");
   const schemesPitched = watch("schemesPitched");
   const sections = useMemo(
@@ -63,7 +64,7 @@ export function FieldSalesForm({ copy, common, errors, successPaths }: FieldSale
     .replace("{total}", String(sections.length));
 
   const resetForm = useCallback(() => {
-    reset({ ...getDefaultFieldSaleValues(), ...loadFieldSaleDraft() });
+    reset(buildClientFieldSaleFormValues());
     setStepIndex(0);
     setSubmitError(null);
     setIsSuccess(false);
@@ -88,11 +89,12 @@ export function FieldSalesForm({ copy, common, errors, successPaths }: FieldSale
     setStepIndex((current) => Math.max(current - 1, 0));
   }
 
-  async function onSubmit(values: FieldSalesFormValues) {
+  async function onSubmit(_values: FieldSalesFormValues) {
     setSubmitError(null);
+    const values = getValues();
 
     try {
-      await createFieldSaleMutation.mutateAsync(values);
+      await createFieldSaleMutation.mutateAsync(buildFollowUpSubmitPayload(values));
       clearFieldSaleDraft();
       setLastSubmittedFollowUp(Boolean(values.followUpNeeded));
       toast({ title: copy.actions.successTitle, description: copy.actions.successMessage });
@@ -196,7 +198,7 @@ export function FieldSalesForm({ copy, common, errors, successPaths }: FieldSale
           </p>
         )}
 
-        <div className="sticky bottom-0 z-10 -mx-page-x border-t border-border bg-surface-primary/95 px-page-x py-4 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0">
+        <div className="sticky bottom-0 z-10 -mx-page-x border-t border-border bg-surface-card px-page-x py-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.08)] lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:pb-0 lg:shadow-none">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             <div className="flex gap-2 lg:hidden">
               {stepIndex > 0 && (

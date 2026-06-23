@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -300,7 +300,6 @@
 <h3>Step 14 â€” Implemented <strong>invite</strong> flow for new users</h3>
 <p><strong>What we did:</strong>  </p>
 <ul>
-<li>Admin: <code>POST /api/admin/users/invite</code>  </li>
 <li>Store manager: <code>POST /api/store/users/invite</code>  </li>
 <li>Creates <code>Staff</code> (if STAFF role), Supabase user via admin API, <code>AppUser</code> with <code>isActive: false</code> until first login.</li>
 </ul>

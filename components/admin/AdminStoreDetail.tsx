@@ -3,12 +3,17 @@
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft, Eye, MapPin, Pencil, Trash2 } from "lucide-react";
 import { useStoreOverviewBundle } from "@/hooks/useStoreOverviewBundle";
+import { useAdminImpersonation } from "@/hooks/useAdminImpersonation";
+import { useStoreDetail } from "@/hooks/useStores";
+import { StoreEditDialog } from "@/components/admin/StoreEditDialog";
+import { StoreDeleteDialog } from "@/components/admin/StoreDeleteDialog";
 import { StoreBusinessOverviewSection } from "@/components/store/StoreBusinessOverview";
 import { StoreCallsOverviewSection } from "@/components/store/StoreCallsOverview";
 import { StoreFieldSalesOverviewSection } from "@/components/store/StoreFieldSalesOverview";
 import { StoreRsoPerformanceSection } from "@/components/store/StoreRsoPerformance";
+import { AdminStoreBreadcrumbs } from "@/components/admin/AdminStoreBreadcrumbs";
 import { PeriodSwitcher, type PeriodValue } from "@/components/shared/PeriodSwitcher";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -47,6 +52,11 @@ export function AdminStoreDetail({
   const searchParams = useSearchParams();
   const detail = admin.storeDetail;
   const logDashboardBase = ADMIN_DASHBOARD_PATH;
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const impersonation = useAdminImpersonation();
+
+  const { data: storeRecord } = useStoreDetail(storeId);
 
   const [period, setPeriodState] = useState<PeriodValue>(() => {
     const fromUrl = searchParams.get("period");
@@ -116,9 +126,9 @@ export function AdminStoreDetail({
 
   return (
     <div className="min-w-0 space-y-6">
-      <div className="space-y-3">
-        <BackLink label={detail.backToPortfolio} />
+      <AdminStoreBreadcrumbs admin={admin} storeId={storeId} section="overview" />
 
+      <div className="space-y-3">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h1 className="font-display text-2xl font-bold text-text-primary">
@@ -131,12 +141,42 @@ export function AdminStoreDetail({
               </p>
             ) : null}
           </div>
-          <PeriodSwitcher
-            options={periodOptions}
-            value={period}
-            onChange={setPeriod}
-            className="shrink-0"
-          />
+          <div className="flex flex-col gap-2 sm:items-end">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={impersonation.isPending}
+                onClick={() => impersonation.mutate(storeId)}
+              >
+                <Eye className="mr-1.5 h-4 w-4" aria-hidden />
+                {impersonation.isPending
+                  ? admin.impersonation.starting
+                  : admin.impersonation.viewAsStore}
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setEditOpen(true)}>
+                <Pencil className="mr-1.5 h-4 w-4" aria-hidden />
+                {admin.accounts.actions.edit}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="text-status-error hover:text-status-error"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="mr-1.5 h-4 w-4" aria-hidden />
+                {admin.accounts.actions.delete}
+              </Button>
+            </div>
+            <PeriodSwitcher
+              options={periodOptions}
+              value={period}
+              onChange={setPeriod}
+              className="min-w-0 w-full sm:max-w-md"
+            />
+          </div>
         </div>
 
         <nav
@@ -217,6 +257,24 @@ export function AdminStoreDetail({
         initialData={bundleHydrated ? overview?.rsoPerformance : undefined}
         initialParams={bundleHydrated ? analyticsParams : undefined}
       />
+
+      <StoreEditDialog
+        storeId={storeId}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        admin={admin}
+        onUpdated={() => router.refresh()}
+      />
+
+      <StoreDeleteDialog
+        storeId={storeId}
+        storeName={storeMeta?.name ?? detail.titleFallback}
+        purgeAt={storeRecord?.purgeAt}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        admin={admin}
+        redirectAfterDelete="/admin/dashboard/accounts"
+      />
     </div>
   );
 }
@@ -224,7 +282,7 @@ export function AdminStoreDetail({
 function BackLink({ label }: { label: string }) {
   return (
     <Link
-      href={ADMIN_DASHBOARD_PATH}
+      href="/admin/dashboard/accounts"
       prefetch={false}
       className="inline-flex items-center gap-1 text-sm font-medium text-text-secondary hover:text-brand-gold"
     >

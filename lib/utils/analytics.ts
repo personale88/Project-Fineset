@@ -31,6 +31,11 @@ export function getPeriodRange(
     return { start, end };
   }
 
+  if (period === "last30days") {
+    start.setDate(start.getDate() - 29);
+    return { start, end };
+  }
+
   if (period === "last3months") {
     start.setMonth(start.getMonth() - 2);
     start.setDate(1);
@@ -99,6 +104,15 @@ export function getPreviousPeriodRange(
     prevStart.setMonth(prevStart.getMonth() - months);
     prevStart.setHours(0, 0, 0, 0);
     return { start: prevStart, end: prevEnd };
+  }
+
+  if (period === "last30days") {
+    const end = new Date(current.start);
+    end.setMilliseconds(-1);
+    const start = new Date(end);
+    start.setDate(start.getDate() - 29);
+    start.setHours(0, 0, 0, 0);
+    return { start, end };
   }
 
   if (period === "month") {

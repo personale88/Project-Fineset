@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { PRODUCT_CATEGORY_VALUES } from "@/lib/constants/product-categories";
 import { COHORT_PIVOT_DIMENSIONS } from "@/lib/analytics/cohort-pivot";
+import { adminAnalyticsPeriodSchema } from "@/lib/validations/admin-analytics-period.schema";
 
 export const analyticsAskChartTypeSchema = z.enum([
   "line",
@@ -13,13 +14,16 @@ export const analyticsAskChartTypeSchema = z.enum([
 export const analyticsAskBodySchema = z.object({
   prompt: z.string().min(3).max(2000),
   storeId: z.string().min(1).optional(),
+  city: z.string().min(1).max(100).optional(),
+  storeCategory: z.enum(["JEWELRY", "HANDBAGS", "WATCHES", "OTHER"]).optional(),
+  confirmLowConfidence: z.boolean().optional().default(false),
 });
 
 export type AnalyticsAskBody = z.infer<typeof analyticsAskBodySchema>;
 
 export const analyticsAskIntentSchema = z.object({
   dateMode: z.enum(["preset", "range", "day", "month", "compare"]),
-  period: z.enum(["yesterday", "today", "week", "month", "last3months", "last6months"]).optional(),
+  period: adminAnalyticsPeriodSchema.optional(),
   month: z.number().int().min(1).max(12).optional(),
   year: z.number().int().min(2000).max(2100).optional(),
   compareAMonth: z.number().int().min(1).max(12).optional(),

@@ -23,6 +23,7 @@ import {
   Users,
 } from "lucide-react";
 import { KPICard } from "@/components/analytics/KPICard";
+import { BillingRestrictedValue } from "@/components/billing/BillingRestrictedOverlay";
 import { ExportButton } from "@/components/shared/ExportButton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { DashboardCollapsibleSection } from "@/components/shared/DashboardCollapsibleSection";
@@ -878,15 +879,29 @@ function StaffFieldTable({
                 onClick={() => onStaffClick(row.staffId)}
               >
                 <td className="px-4 py-2 font-medium text-brand-gold">{row.staffName}</td>
-                <td className="px-4 py-2 font-numeric">{row.totalVisits}</td>
-                <td className="px-4 py-2 font-numeric text-status-success">{row.enrolled}</td>
                 <td className="px-4 py-2 font-numeric">
-                  {formatPercent(row.enrollmentRatePercent)}
+                  <BillingRestrictedValue>{row.totalVisits}</BillingRestrictedValue>
                 </td>
-                <td className="px-4 py-2 font-numeric">{row.followUpNeeded}</td>
-                <td className="px-4 py-2 font-numeric">{row.followUpsConverted}</td>
-                <td className="px-4 py-2 font-numeric">{row.uniqueAreas}</td>
-                <td className="px-4 py-2 font-numeric">{row.visitsWithNotes}</td>
+                <td className="px-4 py-2 font-numeric text-status-success">
+                  <BillingRestrictedValue>{row.enrolled}</BillingRestrictedValue>
+                </td>
+                <td className="px-4 py-2 font-numeric">
+                  <BillingRestrictedValue>
+                    {formatPercent(row.enrollmentRatePercent)}
+                  </BillingRestrictedValue>
+                </td>
+                <td className="px-4 py-2 font-numeric">
+                  <BillingRestrictedValue>{row.followUpNeeded}</BillingRestrictedValue>
+                </td>
+                <td className="px-4 py-2 font-numeric">
+                  <BillingRestrictedValue>{row.followUpsConverted}</BillingRestrictedValue>
+                </td>
+                <td className="px-4 py-2 font-numeric">
+                  <BillingRestrictedValue>{row.uniqueAreas}</BillingRestrictedValue>
+                </td>
+                <td className="px-4 py-2 font-numeric">
+                  <BillingRestrictedValue>{row.visitsWithNotes}</BillingRestrictedValue>
+                </td>
               </tr>
             ))}
           </tbody>

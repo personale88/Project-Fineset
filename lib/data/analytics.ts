@@ -1,9 +1,13 @@
 import { cache } from "react";
 import { getServerSession, requireRole } from "@/lib/auth/session";
+import {
+  initialLoadFailed,
+  initialLoadSuccess,
+  type InitialLoadResult,
+} from "@/lib/data/initial-load";
 import { resolveAccessibleStoreId } from "@/lib/services/manager-stores";
 import {
   getAdminDashboardOverview,
-  getAdminStoreDetailAnalytics,
   assertStoreExists,
   getStoreAnalytics,
   getStoreManagerPortfolio,
@@ -19,7 +23,6 @@ import type {
   AdminDashboardOverview,
   AnalyticsData,
   GetAnalyticsParams,
-  StoreDetailAnalytics,
   StoreManagerPortfolio,
 } from "@/types";
 
@@ -31,12 +34,6 @@ export interface InitialStoreAnalyticsPayload {
 export interface InitialAdminOverviewPayload {
   params: GetAnalyticsParams;
   data: AdminDashboardOverview;
-}
-
-export interface InitialAdminStoreDetailPayload {
-  storeId: string;
-  params: GetAnalyticsParams;
-  data: StoreDetailAnalytics;
 }
 
 export interface InitialStoreOverviewBundlePayload {
@@ -123,26 +120,16 @@ export const fetchInitialStoreAnalytics = cache(
 );
 
 export const fetchInitialAdminOverview = cache(
-  async (
-    overrides: GetAnalyticsParams = {},
-  ): Promise<InitialAdminOverviewPayload | null> => {
+  async (): Promise<InitialLoadResult<AdminDashboardOverview> | null> => {
     const session = await getServerSession();
     if (!requireRole(session, ["MASTER_ADMIN"])) return null;
 
-    const params: GetAnalyticsParams = {
-      ...DEFAULT_ANALYTICS_PARAMS,
-      ...overrides,
-    };
-    const period = params.period ?? "today";
     try {
-      const data = await getAdminDashboardOverview(period);
-      return { params: { period }, data };
+      const data = await getAdminDashboardOverview();
+      return initialLoadSuccess(data);
     } catch (error) {
-      console.error("[data.analytics] fetchInitialAdminOverview failed", {
-        period,
-        error,
-      });
-      return null;
+      console.error("[data.analytics] fetchInitialAdminOverview failed", { error });
+      return initialLoadFailed();
     }
   },
 );
@@ -198,24 +185,5 @@ export const fetchInitialStoreOverviewBundle = cache(
       });
       return null;
     }
-  },
-);
-
-export const fetchInitialAdminStoreDetail = cache(
-  async (
-    storeId: string,
-    overrides: GetAnalyticsParams = {},
-  ): Promise<InitialAdminStoreDetailPayload | null> => {
-    const session = await getServerSession();
-    if (!requireRole(session, ["MASTER_ADMIN"])) return null;
-
-    const params: GetAnalyticsParams = {
-      ...DEFAULT_ANALYTICS_PARAMS,
-      ...overrides,
-    };
-    const period = params.period ?? "today";
-    const data = await getAdminStoreDetailAnalytics(storeId, period);
-
-    return { storeId, params: { period }, data };
   },
 );

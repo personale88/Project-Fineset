@@ -16,6 +16,7 @@ import {
 } from "@/lib/auth/routes";
 import { Logo } from "@/components/shared/Logo";
 import { OfflineQueueBanner } from "@/components/pwa/OfflineQueueBanner";
+import { portalHeaderIconButtonClass } from "@/components/layout/portal-header-button";
 
 interface NavItem {
   href: string;
@@ -146,7 +147,7 @@ export function PortalShell({
               size="sm"
               disabled={isSigningOut}
               onClick={() => void handleSignOut()}
-              className="sm:hidden"
+              className={portalHeaderIconButtonClass}
               aria-label={isSigningOut ? "Signing out…" : signOutLabel}
             >
               <LogOut className="h-4 w-4" aria-hidden />

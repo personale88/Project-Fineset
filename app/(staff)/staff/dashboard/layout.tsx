@@ -1,14 +1,8 @@
-import { content } from "@/content/en";
-import { PortalShell } from "@/components/layout/PortalShell";
 import { RealtimeSyncProvider } from "@/components/layout/RealtimeSyncProvider";
 import { RoleOnboardingModalGate } from "@/components/onboarding/RoleOnboardingModalGate";
-import { GlobalSearchDialog } from "@/components/search/GlobalSearchDialog";
-import { buildStaffDesktopNav } from "@/components/store/staff-desktop-nav";
-import { StaffBottomNav } from "@/components/staff/StaffBottomNav";
-import { StaffNotificationBell } from "@/components/staff/StaffNotificationBell";
+import { StaffPortalShell } from "@/components/staff/StaffPortalShell";
 import { requirePortalSession } from "@/lib/auth/require-portal-session";
 import { requireStaffContext } from "@/lib/auth/resolve-staff";
-import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
 
 import type { Metadata } from "next";
 
@@ -28,24 +22,11 @@ export default async function StaffLayout({
   const staff = await requireStaffContext(session);
 
   return (
-    <PortalShell
-      title={content.staff.shell.title}
-      homeHref={STAFF_DASHBOARD_PATH}
-      navItems={buildStaffDesktopNav()}
-      showDesktopNav
-      signOutLabel={content.common.signOut}
-      headerActions={
-        <>
-          <GlobalSearchDialog storeId={staff?.storeId} />
-          <StaffNotificationBell />
-        </>
-      }
-      bottomNav={<StaffBottomNav />}
-    >
+    <StaffPortalShell storeId={staff?.storeId}>
       <RealtimeSyncProvider>
         {children}
         <RoleOnboardingModalGate role="STAFF" userName={session.name} />
       </RealtimeSyncProvider>
-    </PortalShell>
+    </StaffPortalShell>
   );
 }

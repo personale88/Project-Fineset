@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPercent } from "@/lib/utils/formatters";
 import { TrendingDown, TrendingUp } from "lucide-react";
+import { BillingRestrictedMetricArea } from "@/components/billing/BillingRestrictedOverlay";
 
 export interface KPICardProps {
   label: string;
@@ -33,18 +34,21 @@ export function KPICard({
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-xs font-medium leading-snug text-text-secondary sm:text-sm">
-          {label}
-        </p>
-        {icon && (
-          <div className="shrink-0 text-brand-gold">{icon}</div>
-        )}
-      </div>
       {isLoading ? (
-        <Skeleton className="mt-2 h-7 w-20 sm:mt-3 sm:h-8 sm:w-24" />
-      ) : (
         <>
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="mt-2 h-7 w-20 sm:mt-3 sm:h-8 sm:w-24" />
+        </>
+      ) : (
+        <BillingRestrictedMetricArea>
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-xs font-medium leading-snug text-text-secondary sm:text-sm">
+              {label}
+            </p>
+            {icon && (
+              <div className="shrink-0 text-brand-gold">{icon}</div>
+            )}
+          </div>
           <p className="mt-1.5 break-words font-numeric text-lg font-bold leading-tight text-text-primary sm:mt-2 sm:text-2xl lg:text-3xl">
             {unit && unit !== "%" ? `${unit} ` : ""}
             {displayValue}
@@ -70,7 +74,7 @@ export function KPICard({
               </div>
             </div>
           )}
-        </>
+        </BillingRestrictedMetricArea>
       )}
     </div>
   );

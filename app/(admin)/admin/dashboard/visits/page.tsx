@@ -1,4 +1,5 @@
 import { content } from "@/content/en";
+import { AdminStoreSectionShell } from "@/components/admin/AdminStoreSectionShell";
 import { StoreVisitsLog } from "@/components/store/StoreVisitsLog";
 import { fetchInitialStoreStaff } from "@/lib/data/staff";
 import { fetchInitialVisits } from "@/lib/data/visits";
@@ -33,7 +34,8 @@ export default async function AdminVisitsPage({
   }
 
   return (
-    <StoreVisitsLog
+    <AdminStoreSectionShell admin={content.admin} storeId={storeId} section="visits">
+      <StoreVisitsLog
       store={content.store}
       storeId={storeId}
       visitFields={content.visitForm.fields}
@@ -45,5 +47,6 @@ export default async function AdminVisitsPage({
       backHref={adminStoreDetailPath(storeId)}
       backLabel={content.admin.storeDetail.backToPortfolio}
     />
+    </AdminStoreSectionShell>
   );
 }

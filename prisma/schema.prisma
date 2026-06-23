@@ -28,6 +28,8 @@ model Store {
   businessOwnerName   String?
   businessOwnerEmail  String?
   isActive            Boolean       @default(true)
+  dataExpiryAt        DateTime?
+  renewalDueAt        DateTime?
   deletedAt      DateTime?
   purgeAt        DateTime?
   deletedByEmail String?
@@ -41,13 +43,20 @@ model Store {
   fieldSales FieldSale[]
   importHistory ImportHistory[]
   correctionRequests CorrectionRequest[]
+
+  @@index([dataExpiryAt])
+  @@index([renewalDueAt])
 }
 
 model StoreCategoryOption {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(cuid())
+  /// Canonical key — enum value for built-ins, custom name for store customCategory.
+  name              String   @unique
+  label             String
+  isBuiltin         Boolean  @default(false)
+  hiddenFromPicker  Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model Staff {
@@ -81,6 +90,7 @@ enum StaffRole {
 
 enum AppRole {
   MASTER_ADMIN
+  PLATFORM_ADMIN
   BUSINESS_OWNER
   STORE_MANAGER
   STAFF
@@ -91,10 +101,13 @@ model AppUser {
   authId       String?   @unique
   email        String    @unique
   name         String
+  phone        String?
   passwordHash String?
   role         AppRole
   storeId      String?
   staffId      String?   @unique
+  /// Portal feature flags for PLATFORM_ADMIN users (null for other roles).
+  adminPermissions Json?
   isActive     Boolean   @default(false)
   invitedAt    DateTime?
   activatedAt  DateTime?
@@ -107,6 +120,7 @@ model AppUser {
   sessions           UserSession[]
   passwordResetTokens PasswordResetToken[]
   inviteTokens       InviteToken[]
+  analyticsCredits   AnalyticsCreditAccount?
 
   @@index([storeId, role, isActive])
   @@index([email])
@@ -265,6 +279,9 @@ model Visit {
   @@index([storeId, customerNameSearch])
   @@index([storeId, phoneLast4])
   @@index([importBatchId])
+  // Analytics aggregate query support
+  @@index([storeId, visitDate(sort: Desc), purchaseStatus])
+  @@index([storeId, visitDate(sort: Desc), customerType, sourceChannel])
 }
 
 enum CustomerType {
@@ -519,4 +536,193 @@ model CorrectionRequest {
 
   @@index([storeId, status, createdAt(sort: Desc)])
   @@index([staffId, createdAt(sort: Desc)])
+}
+
+enum BillingPaymentStatus {
+  UNPAID
+  PAID
+  PARTIAL
+  WAIVED
+  DISPUTED
+}
+
+enum BillingFollowUpChannel {
+  EMAIL
+  PHONE
+  WHATSAPP
+  IN_PERSON
+  OTHER
+}
+
+enum BillingFollowUpOutcome {
+  NO_RESPONSE
+  PROMISED_PAYMENT
+  PARTIAL_PAYMENT
+  PAID
+  DISPUTED
+  RESCHEDULED
+  OTHER
+}
+
+model BillingBusinessAccount {
+  id                String               @id @default(cuid())
+  businessKey       String               @unique
+  businessName      String
+  businessEmail     String?
+  paymentStatus     BillingPaymentStatus @default(UNPAID)
+  lastInvoiceNumber String?
+  lastInvoiceSentAt DateTime?
+  lastFollowUpAt    DateTime?
+  nextFollowUpAt    DateTime?
+  paidAt            DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  followUps   BillingFollowUp[]
+  invoiceLogs BillingInvoiceLog[]
+
+  @@index([paymentStatus])
+  @@index([nextFollowUpAt])
+}
+
+model BillingInvoiceLog {
+  id            String   @id @default(cuid())
+  accountId     String
+  invoiceNumber String
+  sentTo        String
+  grandTotal    Int
+  sentByEmail   String?
+  createdAt     DateTime @default(now())
+
+  account BillingBusinessAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt(sort: Desc)])
+}
+
+model BillingFollowUp {
+  id             String                 @id @default(cuid())
+  accountId      String
+  channel        BillingFollowUpChannel
+  outcome        BillingFollowUpOutcome @default(RESCHEDULED)
+  notes          String                 @db.VarChar(2000)
+  nextFollowUpAt DateTime?
+  createdByEmail String?
+  createdByName  String?
+  createdAt      DateTime               @default(now())
+
+  account BillingBusinessAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt(sort: Desc)])
+}
+
+enum AnalyticsCreditLedgerType {
+  GRANT
+  RECHARGE
+  USAGE
+}
+
+model AnalyticsCreditAccount {
+  id             String   @id @default(cuid())
+  appUserId      String   @unique
+  balanceCredits Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  appUser AppUser                  @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+  ledger  AnalyticsCreditLedger[]
+
+  @@index([appUserId])
+}
+
+model AnalyticsCreditLedger {
+  id                String                    @id @default(cuid())
+  accountId         String
+  type              AnalyticsCreditLedgerType
+  amount            Int
+  packId            String?
+  tokensUsed        Int?
+  description       String?
+  externalPaymentId String?                   @unique
+  createdAt         DateTime                  @default(now())
+
+  account AnalyticsCreditAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt(sort: Desc)])
+}
+
+model AnalyticsAskLog {
+  id               String   @id @default(cuid())
+  appUserId        String
+  promptLength     Int
+  parseSource      String
+  parseConfidence  String
+  dataAvailability String
+  status           String
+  errorCode        String?
+  durationMs       Int
+  intentTokensIn   Int?
+  intentTokensOut  Int?
+  reportTokensIn   Int?
+  reportTokensOut  Int?
+  totalCostUsd     Float?
+  createdAt        DateTime @default(now())
+
+  @@index([appUserId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+}
+
+/// Singleton platform-wide billing automation configuration (id = "platform").
+model PlatformAutomationConfig {
+  id             String   @id @default("platform")
+  config         Json
+  updatedAt      DateTime @updatedAt
+  updatedByEmail String?
+}
+
+/// Singleton platform-wide master settings (id = "platform").
+model PlatformSettings {
+  id             String   @id @default("platform")
+  config         Json
+  updatedAt      DateTime @updatedAt
+  updatedByEmail String?
+}
+
+enum AutomationRunTrigger {
+  CRON
+  MANUAL
+  DRY_RUN
+}
+
+enum AutomationRunStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+model AutomationRunLog {
+  id               String               @id @default(cuid())
+  trigger          AutomationRunTrigger
+  status           AutomationRunStatus
+  startedAt        DateTime             @default(now())
+  completedAt      DateTime?
+  summary          Json
+  errors           Json?
+  triggeredByEmail String?
+
+  @@index([startedAt(sort: Desc)])
+}
+
+/// Idempotency ledger — prevents duplicate automated sends within a billing cycle.
+model AutomationDeliveryLog {
+  id          String   @id @default(cuid())
+  businessKey String?
+  actionType  String
+  dedupeKey   String   @unique
+  channel     String?
+  status      String
+  message     String?
+  createdAt   DateTime @default(now())
+
+  @@index([businessKey, actionType, createdAt(sort: Desc)])
 }

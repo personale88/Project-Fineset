@@ -101,7 +101,7 @@ flowchart TB
 app/                    # Routes (pages + API)
   (staff)/              # Staff portal pages
   (store)/              # Store manager portal
-  (admin)/              # Master admin portal
+  (admin)/              # Master admin portal (portfolio, stores, billing, users, audit, security)
   (auth)/               # Login / reset-password pages
   api/                  # REST handlers → lib/services
 
@@ -133,7 +133,7 @@ proxy.ts                # Edge middleware (session refresh + portal RBAC)
 ### 5.1 Connection strategy
 
 - **`DATABASE_URL`** — PostgreSQL connection for app runtime (API + RSC).
-- **`DIRECT_URL`** — Same URL for migrations on self-hosted; can differ when using a pooler.
+- **`DIRECT_URL`** — Same URL for migrations on self-hosted; can differ when using a pooler. If omitted locally, `prisma.config.ts` mirrors `DATABASE_URL` for CLI commands.
 
 ### 5.2 Core entities (simplified ER)
 
@@ -279,7 +279,7 @@ sequenceDiagram
 | `/api/calls` | GET | Manager+ | Portal call lists |
 | `/api/stores`, `[id]` | GET, POST, PATCH | Admin/Manager | Store management |
 | `/api/analytics/admin`, `store`, RSO routes | GET | Admin / Manager | Dashboards |
-| `/api/admin/users/invite`, `/api/store/users/invite` | POST | Admin / Manager | Invites |
+| `/api/store/users/invite` | POST | Manager | User invites |
 | `/api/sync/events` | GET (SSE) | All roles | Live updates |
 | `/api/sync/state` | GET | All roles | SSE auth probe |
 | `/api/auth/signout` | POST | Authenticated | Sign out |
@@ -386,6 +386,8 @@ Each dashboard layout:
 1. `requirePortalSession("STAFF" | "STORE_MANAGER" | "MASTER_ADMIN")` — server-side guard.
 2. Renders `PortalShell` (nav, sign out) + `RealtimeSyncProvider` (SSE).
 
+**Admin portal routes:** `/admin/dashboard` (portfolio), `/analytics`, `/stores`, `/users`, `/billing`, `/audit`, `/security`, plus store drill-down at `/stores/[storeId]` and scoped logs (`/visits`, `/calls`, `/field-sales`, `/staff` with `?storeId=`). Header includes global customer search (store-scoped). Impersonation is gated by `ALLOW_ADMIN_IMPERSONATION` and audited.
+
 ### 8.4 UI copy
 
 All strings in `content/en.ts` — components receive `copy` props. **Why:** future localization; consistent terminology for schemes (GHS/GPP).
@@ -408,6 +410,8 @@ All strings in `content/en.ts` — components receive `copy` props. **Why:** fut
 - [x] Rate limiting (when Upstash configured)
 - [x] Prisma migrations + seed + integration tests
 - [x] Playwright E2E smoke paths
+- [x] **Admin portal (MASTER_ADMIN):** portfolio overview, store CRUD, user invites, billing ops, analytics + credits, audit log (paginated), security settings, store impersonation, global customer search, store drill-down breadcrumbs
+- [x] Payment provider abstraction (`PAYMENT_PROVIDER=none|noop`) for analytics credit recharge
 
 ### 9.2 Known gaps / scaling topics (good to discuss with senior BE)
 
@@ -429,7 +433,7 @@ All strings in `content/en.ts` — components receive `copy` props. **Why:** fut
 |------|---------|-----|
 | Install deps | `npm install` | Lock toolchain; `postinstall` runs `prisma generate` |
 | Env | `cp .env.example .env.local` | Secrets + DB URL + Supabase keys + `ENCRYPTION_KEY` |
-| Migrate | `npm run db:migrate` | Apply SQL migrations to Supabase |
+| Migrate | `npm run db:migrate:dev` (local) / `npm run db:migrate` (deploy) | Apply SQL migrations; use `db:migrate:dev` with `.env.local` |
 | Seed | `npm run db:seed` | Demo data for UI/dev |
 | Bootstrap admin | `npm run auth:bootstrap` | Creates MASTER_ADMIN in Supabase + `AppUser` |
 | Dev users | `npm run auth:bootstrap-dev` | Links seed staff/manager to logins |

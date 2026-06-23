@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { PRODUCT_CATEGORY_VALUES } from "@/lib/constants/product-categories";
-import { periodQuerySchema } from "./common.schema";
+import { adminAnalyticsPeriodSchema } from "@/lib/validations/admin-analytics-period.schema";
 import {
   staffCallSegmentSchema,
   staffCallValueTierSchema,
@@ -30,7 +30,7 @@ const adminBusinessAnalyticsBaseSchema = z.object({
   dateMode: z.enum(["preset", "range", "day", "month", "compare"]).optional(),
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
-  period: periodQuerySchema.optional(),
+  period: adminAnalyticsPeriodSchema.optional(),
   month: monthSchema.optional(),
   year: yearSchema.optional(),
   compareAMonth: monthSchema.optional(),
@@ -39,6 +39,8 @@ const adminBusinessAnalyticsBaseSchema = z.object({
   compareBYear: yearSchema.optional(),
   activeFilters: activeFiltersSchema,
   storeId: z.string().min(1).optional(),
+  city: z.string().min(1).max(100).optional(),
+  storeCategory: z.enum(["JEWELRY", "HANDBAGS", "WATCHES", "OTHER"]).optional(),
   staffId: z.string().min(1).optional(),
   segment: staffCallSegmentSchema.default("ALL"),
   valueTier: staffCallValueTierSchema.default("ALL"),

@@ -269,7 +269,7 @@ interface SyncScopeFilters {
 }
 
 async function resolveSyncScopeFilters(session: AppSession): Promise<SyncScopeFilters> {
-  if (session.role === "MASTER_ADMIN") {
+  if (session.role === "MASTER_ADMIN" || session.role === "PLATFORM_ADMIN") {
     return { scope: "all" };
   }
 

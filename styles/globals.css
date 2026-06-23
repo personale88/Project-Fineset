@@ -74,12 +74,33 @@
     width: var(--progress, 0%);
   }
 
-  /* AI analytics — no rubber-band / scroll chaining on pull past edges */
-  html.analytics-no-overscroll,
-  html.analytics-no-overscroll body,
-  [data-analytics-page],
-  [data-analytics-page] [data-recommendations-scroll] {
-    overscroll-behavior: none;
+  /* AI analytics — mobile page shell only; nested panels chain scroll on desktop */
+  @media (max-width: 1023px) {
+    html.analytics-no-overscroll,
+    html.analytics-no-overscroll body,
+    [data-analytics-page] [data-analytics-suggestions] {
+      overscroll-behavior: none;
+    }
+  }
+
+  [data-analytics-recommendations-scroll] {
+    overscroll-behavior: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  [data-analytics-page] {
+    --analytics-composer-shadow: 0 -12px 32px -16px rgb(0 0 0 / 0.18);
+    --analytics-mobile-height: calc(100dvh - var(--portal-header-offset) - 1rem);
+  }
+
+  @media (min-width: 1024px) {
+    [data-analytics-page] {
+      --analytics-mobile-height: auto;
+    }
+  }
+
+  [data-analytics-chat-scroll] {
+    -webkit-overflow-scrolling: touch;
   }
 }
 

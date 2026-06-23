@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no" />
+  <meta name="color-scheme" content="light only" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>Welcome to MyStore</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style>
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      height: 100% !important;
+      width: 100% !important;
+    }
+    * {
+      -ms-text-size-adjust: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+    table, td {
+      mso-table-lspace: 0pt !important;
+      mso-table-rspace: 0pt !important;
+      border-collapse: collapse !important;
+    }
+    img {
+      -ms-interpolation-mode: bicubic;
+      border: 0;
+      outline: none;
+      text-decoration: none;
+      display: block;
+    }
+    a { text-decoration: none; }
+    :root {
+      color-scheme: light only;
+      supported-color-schemes: light;
+    }
+    .preheader {
+      display: none !important;
+      visibility: hidden;
+      mso-hide: all;
+      font-size: 1px;
+      line-height: 1px;
+      max-height: 0;
+      max-width: 0;
+      opacity: 0;
+      overflow: hidden;
+    }
+    @media only screen and (max-width: 620px) {
+      .email-container { width: 100% !important; max-width: 100% !important; }
+      .outer-padding { padding: 12px 10px !important; }
+      .inner-padding { padding: 32px 22px !important; }
+      .display-title { font-size: 28px !important; line-height: 34px !important; }
+      .lead-text { font-size: 16px !important; line-height: 26px !important; }
+      .feature-col {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 0 16px !important;
+      }
+      .step-col {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 0 12px !important;
+      }
+      .button-link {
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+        text-align: center !important;
+      }
+    }
+    @media (prefers-color-scheme: dark) {
+      .email-bg { background-color: #f4f4f5 !important; }
+      .card-bg { background-color: #ffffff !important; }
+      .accent-bar { background-color: #b8972e !important; background-image: none !important; }
+      .tag { background-color: #faf7f2 !important; color: #9a7618 !important; }
+      .callout { background-color: #faf7f2 !important; border-color: #b8972e !important; }
+      .feature-card { background-color: #faf7f2 !important; }
+      .step-card { background-color: #faf7f2 !important; }
+      .display-title, .feature-title, .step-title, .callout-text { color: #1c1c1e !important; }
+      .lead-text, .body-text { color: #4a4a4e !important; }
+      .muted-text, .footer-text { color: #8e8e93 !important; }
+      .icon-circle { background-color: #b8972e !important; }
+      .button-link { color: #ffffff !important; background-color: #1c1c1e !important; background-image: none !important; }
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f4f4f5;" class="email-bg">
+  <div class="preheader">{{ .BusinessName }} is on MyStore — see every store, team, and customer in one place.</div>
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f4f4f5;" class="email-bg">
+    <tr>
+      <td align="center" valign="top" style="padding: 40px 16px;" class="outer-padding">
+
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 24px; overflow: hidden; border: 1px solid #ebebeb;" class="email-container card-bg">
+
+          <!-- Gradient accent bar -->
+          <tr>
+            <td style="height: 4px; font-size: 0; line-height: 0; background-color: #b8972e; background-image: linear-gradient(90deg, #d4af37 0%, #b8972e 50%, #9a7618 100%);" class="accent-bar">&nbsp;</td>
+          </tr>
+
+          <tr>
+            <td style="padding: 44px 44px 40px;" class="inner-padding">
+
+              <!-- Header row -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 0 0 28px;">
+                <tr>
+                  <td valign="middle">
+                    <img
+                      src="{{ .SiteURL }}/logo.png"
+                      alt="MyStore"
+                      width="40"
+                      height="40"
+                      style="width: 40px; height: 40px; border-radius: 12px;"
+                    />
+                  </td>
+                  <td align="right" valign="middle">
+                    <span style="display: inline-block; padding: 5px 12px; background-color: #faf7f2; border-radius: 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 10px; font-weight: 700; line-height: 14px; color: #9a7618; letter-spacing: 0.1em; text-transform: uppercase;" class="tag">
+                      New account
+                    </span>
+                  </td>
+                </tr>
+              </table>
+
+              <h1 style="margin: 0 0 10px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 34px; font-weight: 700; line-height: 40px; color: #1c1c1e; letter-spacing: -0.04em;" class="display-title">
+                Welcome aboard,<br />{{ .OwnerName }}
+              </h1>
+              <p style="margin: 0 0 28px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 18px; line-height: 28px; color: #6e6e73; font-weight: 500;" class="lead-text muted-text">
+                <span style="color: #1c1c1e;">{{ .BusinessName }}</span> is officially live on MyStore.
+              </p>
+
+              <p style="margin: 0 0 32px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 16px; line-height: 27px; color: #4a4a4e;" class="body-text">
+                You&rsquo;re not just set up &mdash; you&rsquo;re ahead. While others chase updates across WhatsApp and spreadsheets, you now have one modern command center for every store, every conversation, and every person on your team.
+              </p>
+
+              <!-- Feature trio -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 0 0 32px;">
+                <tr>
+                  <td width="33%" valign="top" style="padding: 0 6px 0 0;" class="feature-col">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #faf7f2; border-radius: 16px;" class="feature-card">
+                      <tr>
+                        <td style="padding: 20px 16px;">
+                          <div style="width: 36px; height: 36px; border-radius: 10px; background-color: #b8972e; background-image: linear-gradient(135deg, #d4af37 0%, #b8972e 100%); margin: 0 0 14px; text-align: center; line-height: 36px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; color: #ffffff;" class="icon-circle">S</div>
+                          <p style="margin: 0 0 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; line-height: 20px; color: #1c1c1e;" class="feature-title">Every store</p>
+                          <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; line-height: 19px; color: #8e8e93;" class="muted-text">Portfolio KPIs in one view</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td width="33%" valign="top" style="padding: 0 3px;" class="feature-col">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #faf7f2; border-radius: 16px;" class="feature-card">
+                      <tr>
+                        <td style="padding: 20px 16px;">
+                          <div style="width: 36px; height: 36px; border-radius: 10px; background-color: #b8972e; background-image: linear-gradient(135deg, #d4af37 0%, #b8972e 100%); margin: 0 0 14px; text-align: center; line-height: 36px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; color: #ffffff;" class="icon-circle">C</div>
+                          <p style="margin: 0 0 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; line-height: 20px; color: #1c1c1e;" class="feature-title">Every customer</p>
+                          <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; line-height: 19px; color: #8e8e93;" class="muted-text">Visits, calls &amp; follow-ups linked</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td width="33%" valign="top" style="padding: 0 0 0 6px;" class="feature-col">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #faf7f2; border-radius: 16px;" class="feature-card">
+                      <tr>
+                        <td style="padding: 20px 16px;">
+                          <div style="width: 36px; height: 36px; border-radius: 10px; background-color: #b8972e; background-image: linear-gradient(135deg, #d4af37 0%, #b8972e 100%); margin: 0 0 14px; text-align: center; line-height: 36px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; color: #ffffff;" class="icon-circle">T</div>
+                          <p style="margin: 0 0 4px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; font-weight: 700; line-height: 20px; color: #1c1c1e;" class="feature-title">Every team</p>
+                          <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; line-height: 19px; color: #8e8e93;" class="muted-text">Performance &amp; workload live</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Callout -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 0 0 32px; background-color: #faf7f2; border-radius: 14px; border-left: 4px solid #b8972e;" class="callout">
+                <tr>
+                  <td style="padding: 20px 22px;">
+                    <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; line-height: 25px; color: #1c1c1e; font-weight: 500;" class="callout-text">
+                      &ldquo;The best retail owners don&rsquo;t wait for end-of-day reports. They lead in real time. That&rsquo;s exactly what MyStore was built for.&rdquo;
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin: 0 0 36px;">
+                <tr>
+                  <td align="center">
+                    <!--[if mso]>
+                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ .SiteURL }}/business-owner/dashboard" style="height:52px;v-text-anchor:middle;width:100%;" arcsize="12%" strokecolor="#1c1c1e" fillcolor="#1c1c1e">
+                      <w:anchorlock/>
+                      <center style="color:#ffffff;font-family:sans-serif;font-size:15px;font-weight:700;">Step into your dashboard &rarr;</center>
+                    </v:roundrect>
+                    <![endif]-->
+                    <!--[if !mso]><!-->
+                    <a
+                      href="{{ .SiteURL }}/business-owner/dashboard"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style="display: block; width: 100%; box-sizing: border-box; padding: 16px 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 700; line-height: 20px; color: #ffffff; text-align: center; background-color: #1c1c1e; background-image: linear-gradient(135deg, #2c2c2e 0%, #1c1c1e 100%); border-radius: 12px; letter-spacing: 0.01em;"
+                      class="button-link"
+                    >
+                      Step into your dashboard &rarr;
+                    </a>
+                    <!--<![endif]-->
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Quick start -->
+              <p style="margin: 0 0 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 700; line-height: 16px; color: #9a7618; letter-spacing: 0.12em; text-transform: uppercase;">
+                Hit the ground running
+              </p>
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td width="33%" valign="top" style="padding: 0 5px 0 0;" class="step-col">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border: 1px solid #ebebeb; border-radius: 12px;" class="step-card">
+                      <tr>
+                        <td style="padding: 16px 14px;">
+                          <p style="margin: 0 0 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 800; line-height: 24px; color: #b8972e;">1</p>
+                          <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; line-height: 19px; color: #1c1c1e;" class="step-title">Confirm your stores</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td width="33%" valign="top" style="padding: 0 3px;" class="step-col">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border: 1px solid #ebebeb; border-radius: 12px;" class="step-card">
+                      <tr>
+                        <td style="padding: 16px 14px;">
+                          <p style="margin: 0 0 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 800; line-height: 24px; color: #b8972e;">2</p>
+                          <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; line-height: 19px; color: #1c1c1e;" class="step-title">Scan the work queue</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                  <td width="33%" valign="top" style="padding: 0 0 0 5px;" class="step-col">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border: 1px solid #ebebeb; border-radius: 12px;" class="step-card">
+                      <tr>
+                        <td style="padding: 16px 14px;">
+                          <p style="margin: 0 0 6px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 20px; font-weight: 800; line-height: 24px; color: #b8972e;">3</p>
+                          <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13px; font-weight: 600; line-height: 19px; color: #1c1c1e;" class="step-title">Review team pulse</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="margin: 32px 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 22px; color: #6e6e73;" class="body-text muted-text">
+                We&rsquo;re rooting for {{ .BusinessName }}. Reply anytime if you need a hand.
+              </p>
+              <p style="margin: 6px 0 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 22px; color: #1c1c1e; font-weight: 600;" class="body-text">
+                &mdash; The MyStore team
+              </p>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding: 0 44px 32px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td style="border-top: 1px solid #f0f0f0; font-size: 0; line-height: 0; padding-top: 24px;">
+                    <p style="margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; line-height: 16px; color: #aeaeb2; letter-spacing: 0.06em; text-transform: uppercase;" class="footer-text muted-text">
+                      MyStore &middot; Powered by tribly.ai
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

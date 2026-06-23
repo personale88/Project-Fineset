@@ -2,7 +2,7 @@
 
 import { Phone } from "lucide-react";
 import { content } from "@/content/en";
-import { formatDate } from "@/lib/utils/formatters";
+import { formatFollowUpSchedule } from "@/lib/utils/follow-up-datetime";
 import { AssignStaffButton } from "@/components/shared/AssignStaffDialog";
 import { FollowUpStatusMenu } from "@/components/staff/FollowUpStatusMenu";
 import { Button } from "@/components/ui/button";
@@ -82,7 +82,7 @@ export function FollowUpCard({
         </div>
       </div>
       <p className="mt-2 text-sm text-text-muted">
-        {copy.dueLabel}: {formatDate(item.followUpDate)}
+        {copy.dueLabel}: {formatFollowUpSchedule(item.followUpDate)}
       </p>
       {item.reason ? (
         <p className="text-sm text-text-secondary">{item.reason}</p>

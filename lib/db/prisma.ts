@@ -1,7 +1,7 @@
 import { config as loadDotenv } from "dotenv";
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type Prisma } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -23,7 +23,18 @@ function ensureDatabaseEnvLoaded(): void {
   loadDotenv({ path: resolve(process.cwd(), ".env.local") });
 }
 
-function createPrismaClient(): PrismaClient {
+function bustPrismaModuleCache(): void {
+  for (const key of Object.keys(require.cache)) {
+    if (
+      key.includes("node_modules/.prisma/client") ||
+      key.includes("node_modules/@prisma/client")
+    ) {
+      delete require.cache[key];
+    }
+  }
+}
+
+function createPrismaClient(forceReload = false): PrismaClient {
   ensureDatabaseEnvLoaded();
   const url = process.env.DATABASE_URL ?? "";
   const directUrl = process.env.DIRECT_URL ?? "";
@@ -45,9 +56,17 @@ function createPrismaClient(): PrismaClient {
     );
   }
 
-  return new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-  });
+  const log: Prisma.LogLevel[] =
+    process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"];
+  if (forceReload && process.env.NODE_ENV !== "production") {
+    bustPrismaModuleCache();
+    const { PrismaClient: FreshPrismaClient } = require("@prisma/client") as {
+      PrismaClient: typeof PrismaClient;
+    };
+    return new FreshPrismaClient({ log });
+  }
+
+  return new PrismaClient({ log });
 }
 
 function fileMtimeMs(path: string): number | undefined {
@@ -65,6 +84,32 @@ function prismaArtifactsMtimeMs(): {
   };
 }
 
+function clientHasExpectedDelegates(client: PrismaClient): boolean {
+  const account = (client as { analyticsCreditAccount?: { upsert?: unknown } })
+    .analyticsCreditAccount;
+  const ledger = (client as { analyticsCreditLedger?: { create?: unknown } })
+    .analyticsCreditLedger;
+  const automationConfig = (
+    client as { platformAutomationConfig?: { findUnique?: unknown } }
+  ).platformAutomationConfig;
+  const automationRunLog = (client as { automationRunLog?: { findMany?: unknown } })
+    .automationRunLog;
+  const automationDeliveryLog = (
+    client as { automationDeliveryLog?: { findUnique?: unknown } }
+  ).automationDeliveryLog;
+  const platformSettings = (
+    client as { platformSettings?: { findUnique?: unknown } }
+  ).platformSettings;
+  return (
+    typeof account?.upsert === "function" &&
+    typeof ledger?.create === "function" &&
+    typeof automationConfig?.findUnique === "function" &&
+    typeof automationRunLog?.findMany === "function" &&
+    typeof automationDeliveryLog?.findUnique === "function" &&
+    typeof platformSettings?.findUnique === "function"
+  );
+}
+
 /** How often to re-check schema/client mtimes in dev (ms). Avoids statSync on every query. */
 const DEV_MTIME_CHECK_INTERVAL_MS = 5_000;
 
@@ -79,7 +124,11 @@ function getPrismaClient(): PrismaClient {
   // Fast path: return existing client if we checked recently.
   const now = Date.now();
   const lastCheck = globalForPrisma.prismaMtimeCheckedAt ?? 0;
-  if (globalForPrisma.prisma && now - lastCheck < DEV_MTIME_CHECK_INTERVAL_MS) {
+  if (
+    globalForPrisma.prisma &&
+    clientHasExpectedDelegates(globalForPrisma.prisma) &&
+    now - lastCheck < DEV_MTIME_CHECK_INTERVAL_MS
+  ) {
     return globalForPrisma.prisma;
   }
 
@@ -92,6 +141,7 @@ function getPrismaClient(): PrismaClient {
     schemaMtime > clientMtime;
   const cacheIsFresh =
     globalForPrisma.prisma !== undefined &&
+    clientHasExpectedDelegates(globalForPrisma.prisma) &&
     !schemaAheadOfClient &&
     globalForPrisma.prismaClientMtimeMs === clientMtime &&
     globalForPrisma.prismaSchemaMtimeMs === schemaMtime;
@@ -104,7 +154,7 @@ function getPrismaClient(): PrismaClient {
     void globalForPrisma.prisma.$disconnect();
   }
 
-  globalForPrisma.prisma = createPrismaClient();
+  globalForPrisma.prisma = createPrismaClient(true);
   globalForPrisma.prismaClientMtimeMs = clientMtime;
   globalForPrisma.prismaSchemaMtimeMs = schemaMtime;
   return globalForPrisma.prisma;
@@ -113,8 +163,24 @@ function getPrismaClient(): PrismaClient {
 /** Re-resolve periodically so `prisma generate` picks up without a full dev restart. */
 export const prisma = new Proxy({} as PrismaClient, {
   get(_target, prop, receiver) {
-    const client = getPrismaClient();
-    const value = Reflect.get(client, prop, receiver) as unknown;
+    let client = getPrismaClient();
+    let value = Reflect.get(client, prop, receiver) as unknown;
+
+    if (
+      process.env.NODE_ENV !== "production" &&
+      (prop === "analyticsCreditAccount" ||
+        prop === "platformAutomationConfig" ||
+        prop === "platformSettings" ||
+        prop === "automationRunLog" ||
+        prop === "automationDeliveryLog") &&
+      value == null
+    ) {
+      globalForPrisma.prisma = undefined;
+      globalForPrisma.prismaMtimeCheckedAt = 0;
+      client = getPrismaClient();
+      value = Reflect.get(client, prop, receiver) as unknown;
+    }
+
     return typeof value === "function" ? value.bind(client) : value;
   },
 });

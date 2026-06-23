@@ -15,6 +15,7 @@ import {
   requireStaffContext,
 } from "@/lib/auth/resolve-staff";
 import { createFieldSale, listFieldSales } from "@/lib/services/field-sales";
+import { isPortalDataReadBlocked } from "@/lib/auth/billing-access-guard";
 import {
   createFieldSaleSchema,
   getFieldSalesQuerySchema,
@@ -56,6 +57,19 @@ export async function GET(req: Request) {
       if (personalStaffId) staffId = personalStaffId;
     } else if (query.data.storeId) {
       storeId = query.data.storeId;
+    }
+
+    if (storeId) {
+      const blocked = await isPortalDataReadBlocked(session, storeId);
+      if (blocked) {
+        return NextResponse.json({
+          data: [],
+          total: 0,
+          page: query.data.page,
+          pageSize: query.data.pageSize,
+          billingRestricted: true,
+        });
+      }
     }
 
     const result = await listFieldSales({

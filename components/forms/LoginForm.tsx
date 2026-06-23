@@ -21,6 +21,8 @@ interface LoginFormProps {
   title: string;
   subtitle: string;
   submitLabel: string;
+  localAuthBypass?: boolean;
+  localBypassHint?: string;
   errorInvalid: string;
   errorInactive: string;
   errorDeactivated: string;
@@ -58,6 +60,8 @@ export function LoginForm(props: LoginFormProps) {
     resetEmailRateLimited,
     resetEmailRedirectError,
     resetSuccessMessage,
+    localAuthBypass = false,
+    localBypassHint,
   } = props;
 
   const searchParams = useSearchParams();
@@ -212,30 +216,36 @@ export function LoginForm(props: LoginFormProps) {
               disabled={isLoading}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="••••••••"
-                required
-                autoComplete="current-password"
-                className="pr-24"
-                disabled={isLoading}
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                className="absolute right-1 top-1 h-8 px-2 text-xs"
-                onClick={() => setShowPassword((prev) => !prev)}
-                disabled={isLoading}
-              >
-                {showPassword ? "Hide" : "Show"}
-              </Button>
+          {localAuthBypass ? (
+            localBypassHint ? (
+              <p className="text-xs text-text-muted">{localBypassHint}</p>
+            ) : null
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  required
+                  autoComplete="current-password"
+                  className="pr-24"
+                  disabled={isLoading}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="absolute right-1 top-1 h-8 px-2 text-xs"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  disabled={isLoading}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </Button>
+              </div>
             </div>
-          </div>
+          )}
 
           {(initialMessage || resetMessage) && (
             <div className="space-y-1" role="status">

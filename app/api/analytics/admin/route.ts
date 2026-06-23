@@ -21,7 +21,7 @@ export async function GET(req: Request) {
     );
     if (!query.success) return badRequest(query.error.flatten());
 
-    const data = await getAdminDashboardOverview(query.data.period);
+    const data = await getAdminDashboardOverview();
     return NextResponse.json(data);
   } catch (error) {
     console.error("[api.analytics.admin] failed", {

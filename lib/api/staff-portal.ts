@@ -1,3 +1,4 @@
+import type { PeriodValue } from "@/components/shared/PeriodSwitcher";
 import { apiFetch, buildQueryString } from "@/lib/api/client";
 import type { StaffWorkQueueResponse } from "@/types/staff-work-queue";
 import type {
@@ -14,9 +15,12 @@ export interface StaffDigestResponse {
   topNames: string[];
 }
 
-export async function getStaffWorkQueue(limit = 15): Promise<StaffWorkQueueResponse> {
+export async function getStaffWorkQueue(
+  limit = 15,
+  period?: PeriodValue,
+): Promise<StaffWorkQueueResponse> {
   return apiFetch<StaffWorkQueueResponse>(
-    `/api/staff/work-queue${buildQueryString({ limit })}`,
+    `/api/staff/work-queue${buildQueryString({ limit, period })}`,
   );
 }
 

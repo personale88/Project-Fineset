@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db/prisma";
 import { decryptVisitPii } from "@/lib/services/pii";
 import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
-import { startOfCalendarDay, formatCalendarDate } from "@/lib/utils/calendar-date";
+import { startOfCalendarDay } from "@/lib/utils/calendar-date";
+import { normalizeStoredFollowUpDate } from "@/lib/utils/follow-up-datetime";
 import type { UpdateFollowUpInput } from "@/lib/validations/follow-ups.schema";
 import type { FollowUpListItem } from "@/types";
 import type { FollowUpStatus, Prisma } from "@prisma/client";
@@ -83,7 +84,7 @@ async function mapFollowUpToListItem(
     customerName: decrypted.customerName,
     customerPhone: decrypted.customerPhone,
     assignedStaffName: followUp.assignedStaff.name,
-    followUpDate: formatCalendarDate(followUp.followUpDate),
+    followUpDate: followUp.followUpDate.toISOString(),
     reason: followUp.reason,
     callOutcome: followUp.callOutcome,
     status: followUp.status,
@@ -184,7 +185,7 @@ export async function listFollowUps(
       customerName: decrypted.customerName,
       customerPhone: decrypted.customerPhone,
       assignedStaffName: staffMap.get(f.assignedStaffId) ?? "Unknown",
-      followUpDate: formatCalendarDate(f.followUpDate),
+      followUpDate: f.followUpDate.toISOString(),
       reason: f.reason,
       callOutcome: f.callOutcome,
       status: f.status,
@@ -209,7 +210,7 @@ function buildFollowUpUpdate(input: UpdateFollowUpInput): Prisma.FollowUpUpdateI
         ...(input.notes !== undefined ? { notes: input.notes } : {}),
       };
     case "schedule": {
-      const followUpDate = startOfCalendarDay(input.followUpDate!);
+      const followUpDate = normalizeStoredFollowUpDate(input.followUpDate!);
       return {
         status: "OPEN",
         followUpDate,
@@ -232,7 +233,7 @@ function buildParentSyncData(
     case "schedule":
       return {
         followUpNeeded: true,
-        followUpDate: startOfCalendarDay(input.followUpDate!),
+        followUpDate: normalizeStoredFollowUpDate(input.followUpDate!),
       };
   }
 }
@@ -260,7 +261,7 @@ export async function updateFollowUp(
   const followUpUpdate = buildFollowUpUpdate(params.input);
   const scheduledDate =
     params.input.action === "schedule"
-      ? startOfCalendarDay(params.input.followUpDate!)
+      ? normalizeStoredFollowUpDate(params.input.followUpDate!)
       : followUp.followUpDate;
   const parentSync = buildParentSyncData(params.input, scheduledDate);
 

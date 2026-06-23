@@ -11,6 +11,7 @@ import { resolveStorePortalStoreId } from "@/lib/auth/resolve-manager-store-id";
 import { resolvePersonalStaffId, isUnlinkedManagerPersonalScope } from "@/lib/auth/resolve-personal-scope";
 import { createVisit, listVisits } from "@/lib/services/visits";
 import { withAuthQuery, withAuthValidation } from "@/lib/api/route-handler";
+import { isPortalDataReadBlocked, isPortalDataWriteBlockedForSession, billingRestrictedMutationResponse } from "@/lib/auth/billing-access-guard";
 import { createPerfTimer, logPerf } from "@/lib/perf/timing";
 import {
   createVisitSchema,
@@ -31,6 +32,10 @@ export const POST = await withAuthValidation(
         { message: "Too many requests" },
         { status: 429 },
       );
+    }
+
+    if (await isPortalDataWriteBlockedForSession(session, staff.storeId)) {
+      return billingRestrictedMutationResponse();
     }
 
     const visit = await createVisit({
@@ -75,6 +80,19 @@ export const GET = withAuthQuery(
       if (personalStaffId) staffId = personalStaffId;
     } else if (query.storeId) {
       storeId = query.storeId;
+    }
+
+    if (storeId) {
+      const blocked = await isPortalDataReadBlocked(session, storeId);
+      if (blocked) {
+        return NextResponse.json({
+          data: [],
+          total: 0,
+          page: query.page,
+          pageSize: query.pageSize,
+          billingRestricted: true,
+        });
+      }
     }
 
     const { data, total } = await listVisits({

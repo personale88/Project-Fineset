@@ -1,3 +1,4 @@
+import { isAdminPortalRole } from "@/lib/auth/admin-permissions";
 import { verifyCredential } from "@/lib/auth/credentials";
 import { loadAppUserProfileByEmail } from "@/lib/auth/load-app-user-profile";
 
@@ -14,7 +15,7 @@ export async function verifyAdminPassword(
   }
 
   const profile = await loadAppUserProfileByEmail(normalizedEmail);
-  if (!profile?.passwordHash || profile.role !== "MASTER_ADMIN") {
+  if (!profile?.passwordHash || !isAdminPortalRole(profile.role)) {
     return false;
   }
 

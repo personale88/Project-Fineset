@@ -42,6 +42,7 @@ describe.skipIf(!hasDb)("manual call integration", () => {
     });
 
     expect(visit).not.toBeNull();
+    expect(visit?.sourceChannel).toBe("USER_CALLS");
     expect(callLog).not.toBeNull();
 
     await prisma.staffCallLog.deleteMany({ where: { visitId: result.visitId! } });

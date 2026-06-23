@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
+import type { PeriodValue } from "@/components/shared/PeriodSwitcher";
 import { getStaffDigest, getStaffWorkQueue } from "@/lib/api/staff-portal";
 import { LIVE_QUERY_OPTIONS } from "@/lib/sync/constants";
 
-export function useStaffWorkQueue(limit = 15) {
+export function useStaffWorkQueue(limit = 15, period?: PeriodValue) {
   return useQuery({
-    queryKey: ["staff-work-queue", limit],
-    queryFn: () => getStaffWorkQueue(limit),
+    queryKey: ["staff-work-queue", limit, period ?? "default"],
+    queryFn: () => getStaffWorkQueue(limit, period),
     ...LIVE_QUERY_OPTIONS,
   });
 }

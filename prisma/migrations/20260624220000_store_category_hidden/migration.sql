@@ -1,0 +1,1 @@
+ALTER TABLE "StoreCategoryOption" ADD COLUMN IF NOT EXISTS "hiddenFromPicker" BOOLEAN NOT NULL DEFAULT false;

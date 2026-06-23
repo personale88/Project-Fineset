@@ -1,12 +1,13 @@
 import {
   keepPreviousData,
-  useQuery,
   useMutation,
+  useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
 import {
   createStore,
   deleteStore,
+  getStoreById,
   getStores,
   restoreStore,
   updateStore,
@@ -14,10 +15,11 @@ import {
 } from "@/lib/api/stores";
 import { storesParamsMatch } from "@/lib/query/initial-data";
 import { invalidatePortalData } from "@/lib/sync/invalidate-portal-data";
-import { removeStoreFromClientCaches } from "@/lib/sync/optimistic-store-removal";
 import { LIVE_QUERY_OPTIONS, queryOptionsForHydration } from "@/lib/sync/constants";
-import type { SoftDeleteStorePayload } from "@/lib/api/stores";
 import type { CreateStoreInput, UpdateStoreInput } from "@/lib/validations/store.schema";
+import type { SoftDeleteStoreInput } from "@/lib/validations/store-delete.schema";
+import type { RestoreStoreInput } from "@/lib/validations/store-restore.schema";
+import type { UpdateStoreManagerPasswordInput } from "@/lib/validations/store-password.schema";
 import type { PaginatedResponse } from "@/types";
 
 interface UseStoresParams {
@@ -45,11 +47,20 @@ type StoreListResponse = PaginatedResponse<{
   revenue: number;
   conversionRate: number;
   createdAt: string;
+  dataExpiryAt?: string | null;
+  renewalDueAt?: string | null;
 }>;
 
 interface UseStoresOptions {
   initialData?: StoreListResponse;
   initialParams?: UseStoresParams;
+}
+
+function invalidateAdminStoreQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  void invalidatePortalData(queryClient);
+  void queryClient.invalidateQueries({ queryKey: ["analytics", "admin", "overview"] });
+  void queryClient.invalidateQueries({ queryKey: ["portfolio-growth-kpis"] });
+  void queryClient.invalidateQueries({ queryKey: ["billing-summaries"] });
 }
 
 export function useStores(params: UseStoresParams = {}, options?: UseStoresOptions) {
@@ -68,13 +79,22 @@ export function useStores(params: UseStoresParams = {}, options?: UseStoresOptio
   });
 }
 
+export function useStoreDetail(storeId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: ["stores", "detail", storeId],
+    queryFn: () => getStoreById(storeId!),
+    enabled: Boolean(storeId) && enabled,
+    ...LIVE_QUERY_OPTIONS,
+  });
+}
+
 export function useCreateStore() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (payload: CreateStoreInput) => createStore(payload),
     onSuccess: () => {
-      void invalidatePortalData(queryClient);
+      invalidateAdminStoreQueries(queryClient);
     },
   });
 }
@@ -83,15 +103,13 @@ export function useUpdateStore() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      storeId,
-      payload,
-    }: {
-      storeId: string;
-      payload: UpdateStoreInput;
-    }) => updateStore(storeId, payload),
-    onSuccess: () => {
-      void invalidatePortalData(queryClient);
+    mutationFn: ({ storeId, payload }: { storeId: string; payload: UpdateStoreInput }) =>
+      updateStore(storeId, payload),
+    onSuccess: (_data, variables) => {
+      invalidateAdminStoreQueries(queryClient);
+      void queryClient.invalidateQueries({
+        queryKey: ["stores", "detail", variables.storeId],
+      });
     },
   });
 }
@@ -105,31 +123,10 @@ export function useDeleteStore() {
       payload,
     }: {
       storeId: string;
-      payload: SoftDeleteStorePayload;
+      payload: SoftDeleteStoreInput;
     }) => deleteStore(storeId, payload),
-    onMutate: async ({ storeId }) => {
-      await queryClient.cancelQueries({ queryKey: ["stores"] });
-      const snapshots = queryClient.getQueriesData<StoreListResponse>({
-        queryKey: ["stores"],
-      });
-      for (const [key, data] of snapshots) {
-        if (!data) continue;
-        queryClient.setQueryData<StoreListResponse>(key, {
-          ...data,
-          data: data.data.filter((row) => row.id !== storeId),
-          total: Math.max(0, data.total - 1),
-        });
-      }
-      removeStoreFromClientCaches(queryClient, storeId);
-      return { snapshots };
-    },
-    onError: (_error, _vars, context) => {
-      context?.snapshots.forEach(([key, data]) => {
-        queryClient.setQueryData(key, data);
-      });
-    },
-    onSettled: () => {
-      void invalidatePortalData(queryClient);
+    onSuccess: () => {
+      invalidateAdminStoreQueries(queryClient);
     },
   });
 }
@@ -138,26 +135,37 @@ export function useRestoreStore() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (storeId: string) => restoreStore(storeId),
-    onSuccess: () => {
-      void invalidatePortalData(queryClient);
+    mutationFn: ({
+      storeId,
+      payload,
+    }: {
+      storeId: string;
+      payload: RestoreStoreInput;
+    }) => restoreStore(storeId, payload),
+    onSuccess: (_data, variables) => {
+      invalidateAdminStoreQueries(queryClient);
+      void queryClient.invalidateQueries({
+        queryKey: ["stores", "detail", variables.storeId],
+      });
     },
   });
 }
 
-export function useUpdateStoreManagerPassword() {
+export function useResetStoreManagerPassword() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({
       storeId,
-      password,
+      payload,
     }: {
       storeId: string;
-      password: string;
-    }) => updateStoreManagerPassword(storeId, password),
-    onSuccess: () => {
-      void invalidatePortalData(queryClient);
+      payload: UpdateStoreManagerPasswordInput;
+    }) => updateStoreManagerPassword(storeId, payload),
+    onSuccess: (_data, variables) => {
+      void queryClient.invalidateQueries({
+        queryKey: ["stores", "detail", variables.storeId],
+      });
     },
   });
 }

@@ -33,6 +33,10 @@ vi.mock("@/lib/sync/broadcaster", () => ({
   broadcastSyncEvent: vi.fn(),
 }));
 
+vi.mock("@/lib/sync/notify-change", () => ({
+  notifyPortalDataChangeNow: vi.fn(),
+}));
+
 describe("assignCustomerToStaff", () => {
   beforeEach(() => {
     vi.clearAllMocks();

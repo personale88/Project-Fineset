@@ -34,7 +34,12 @@ export function isCallVisitInWorkQueuePeriod(
 }
 
 export function shouldIncludeOccasionCalls(period: AnalyticsPeriodLabel): boolean {
-  return period === "today" || period === "week" || period === "month";
+  return (
+    period === "today" ||
+    period === "week" ||
+    period === "month" ||
+    period === "last30days"
+  );
 }
 
 export function getMonthsInWorkQueuePeriod(

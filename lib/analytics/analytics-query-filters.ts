@@ -4,6 +4,8 @@ export const ANALYTICS_FILTER_NA = "NA" as const;
 
 export const ANALYTICS_FILTER_KEYS = [
   "storeId",
+  "city",
+  "storeCategory",
   "staffId",
   "segment",
   "valueTier",

@@ -56,7 +56,6 @@ export function StorePortfolio({
       active: store.portfolio.active,
       inactive: store.portfolio.inactive,
       viewDetails: store.portfolio.viewDetails,
-      deltaPeriod: store.deltaPeriod,
     }),
     [store],
   );

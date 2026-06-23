@@ -11,7 +11,13 @@ import {
   storeManagerDetailPath,
   storeManagerHomeHubHref,
 } from "@/lib/utils/store-dashboard-url";
-import { cn } from "@/lib/utils";
+import {
+  bottomNavIconClass,
+  bottomNavIconStroke,
+  bottomNavIconWrapClass,
+  bottomNavItemClass,
+  bottomNavShellClassName,
+} from "@/components/layout/bottom-nav-styles";
 import { ManagerLogSheet } from "@/components/store/ManagerLogSheet";
 import { useState } from "react";
 
@@ -51,26 +57,25 @@ export function ManagerBottomNav() {
     Boolean(storeId) &&
     pathname.startsWith(storeManagerDetailPath(storeId as string));
 
-  const navClass = (active: boolean) =>
-    cn(
-      "flex flex-col items-center gap-1 px-1 py-2.5 text-[10px] font-medium",
-      active ? "text-brand-gold" : "text-text-muted",
-    );
+  const navItem = (active: boolean) => bottomNavItemClass(active);
 
   return (
     <>
-      <nav
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
-        aria-label={copy.label}
-      >
+      <nav className={bottomNavShellClassName} aria-label={copy.label}>
         <ul className="mx-auto grid max-w-lg grid-cols-4">
           <li>
             <Link
               href={STORE_MANAGER_DASHBOARD_PATH}
               aria-current={homeActive ? "page" : undefined}
-              className={navClass(homeActive)}
+              className={navItem(homeActive)}
             >
-              <Home className="h-5 w-5" aria-hidden />
+              <span className={bottomNavIconWrapClass(homeActive)}>
+                <Home
+                  className={bottomNavIconClass(homeActive)}
+                  strokeWidth={bottomNavIconStroke(homeActive)}
+                  aria-hidden
+                />
+              </span>
               {copy.home}
             </Link>
           </li>
@@ -78,9 +83,15 @@ export function ManagerBottomNav() {
             <Link
               href={storeManagerHomeHubHref("my-work")}
               aria-current={myWorkActive ? "page" : undefined}
-              className={navClass(myWorkActive)}
+              className={navItem(myWorkActive)}
             >
-              <Briefcase className="h-5 w-5" aria-hidden />
+              <span className={bottomNavIconWrapClass(myWorkActive)}>
+                <Briefcase
+                  className={bottomNavIconClass(myWorkActive)}
+                  strokeWidth={bottomNavIconStroke(myWorkActive)}
+                  aria-hidden
+                />
+              </span>
               {copy.myWork}
             </Link>
           </li>
@@ -88,9 +99,15 @@ export function ManagerBottomNav() {
             <Link
               href={storeManagerHomeHubHref("team")}
               aria-current={teamActive ? "page" : undefined}
-              className={navClass(teamActive)}
+              className={navItem(teamActive)}
             >
-              <Users className="h-5 w-5" aria-hidden />
+              <span className={bottomNavIconWrapClass(teamActive)}>
+                <Users
+                  className={bottomNavIconClass(teamActive)}
+                  strokeWidth={bottomNavIconStroke(teamActive)}
+                  aria-hidden
+                />
+              </span>
               {copy.team}
             </Link>
           </li>
@@ -98,9 +115,15 @@ export function ManagerBottomNav() {
             <Link
               href={analyticsHref}
               aria-current={analyticsActive ? "page" : undefined}
-              className={navClass(analyticsActive)}
+              className={navItem(analyticsActive)}
             >
-              <BarChart3 className="h-5 w-5" aria-hidden />
+              <span className={bottomNavIconWrapClass(analyticsActive)}>
+                <BarChart3
+                  className={bottomNavIconClass(analyticsActive)}
+                  strokeWidth={bottomNavIconStroke(analyticsActive)}
+                  aria-hidden
+                />
+              </span>
               {copy.analytics}
             </Link>
           </li>

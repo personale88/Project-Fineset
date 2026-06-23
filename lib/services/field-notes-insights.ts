@@ -81,8 +81,9 @@ async function fetchGeminiFieldSummary(
     ...snippets.map((s, i) => `${i + 1}. ${s}`),
   ].join("\n");
 
-  return geminiGenerateContent(apiKey, prompt, {
+  const result = await geminiGenerateContent(apiKey, prompt, {
     maxOutputTokens: 256,
     temperature: 0.3,
   });
+  return result.text;
 }

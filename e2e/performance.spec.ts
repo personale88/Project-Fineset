@@ -1,10 +1,11 @@
 import { test, expect } from "@playwright/test";
 import { createRequestCounter, waitMs } from "./helpers/network";
+import { DEV_PASSWORD, loginWithEmail } from "./helpers/login";
 import baselines from "../tests/perf/baselines.json";
 
-const e2eEmail = process.env.E2E_USER_EMAIL ?? process.env.MASTER_ADMIN_EMAIL;
-const e2ePassword = process.env.E2E_USER_PASSWORD ?? process.env.MASTER_ADMIN_PASSWORD;
-const hasE2eCredentials = Boolean(e2eEmail && e2ePassword);
+const e2eEmail = process.env.E2E_USER_EMAIL ?? process.env.MASTER_ADMIN_EMAIL ?? "admin@fineset.local";
+const e2ePassword = process.env.E2E_USER_PASSWORD ?? process.env.MASTER_ADMIN_PASSWORD ?? DEV_PASSWORD;
+const hasE2eCredentials = Boolean(e2eEmail);
 
 function baselineMs(key: keyof typeof baselines.api): number | undefined {
   const value = baselines.api[key];
@@ -12,14 +13,14 @@ function baselineMs(key: keyof typeof baselines.api): number | undefined {
 }
 
 test.describe("API performance", () => {
-  test.skip(!hasE2eCredentials, "Set E2E_USER_EMAIL and E2E_USER_PASSWORD");
+  test.skip(!hasE2eCredentials, "Set E2E_USER_EMAIL (or MASTER_ADMIN_EMAIL)");
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await page.fill('[name="email"]', e2eEmail!);
-    await page.fill('[name="password"]', e2ePassword!);
-    await page.click('button[type="submit"]');
-    await page.waitForURL(/\/dashboard/);
+    await loginWithEmail(page, {
+      email: e2eEmail,
+      password: e2ePassword,
+      dashboardPattern: /\/dashboard/,
+    });
   });
 
   test("D1.1 store portfolio responds under budget", async ({ page }) => {
@@ -70,14 +71,14 @@ test.describe("API performance", () => {
 });
 
 test.describe("Navigation performance", () => {
-  test.skip(!hasE2eCredentials, "Set E2E_USER_EMAIL and E2E_USER_PASSWORD");
+  test.skip(!hasE2eCredentials, "Set E2E_USER_EMAIL (or MASTER_ADMIN_EMAIL)");
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await page.fill('[name="email"]', e2eEmail!);
-    await page.fill('[name="password"]', e2ePassword!);
-    await page.click('button[type="submit"]');
-    await page.waitForURL(/\/dashboard/);
+    await loginWithEmail(page, {
+      email: e2eEmail,
+      password: e2ePassword,
+      dashboardPattern: /\/dashboard/,
+    });
   });
 
   test("D2.1 store dashboard avoids duplicate portfolio fetches", async ({ page }) => {

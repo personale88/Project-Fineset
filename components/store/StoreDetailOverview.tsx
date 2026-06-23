@@ -141,7 +141,7 @@ export function StoreDetailOverview({
             options={periodOptions}
             value={period}
             onChange={setPeriod}
-            className="shrink-0"
+            className="min-w-0 w-full sm:max-w-md"
           />
         </div>
 
@@ -217,33 +217,33 @@ export function StoreDetailOverview({
       />
 
       <StoreCallsOverviewSection
-        copy={store.callsOverview}
-        period={period}
-        periodLabel={periodLabel}
-        deltaPeriod={store.deltaPeriod}
-        storeId={storeId}
-        portalRole={portalRole}
-        initialData={bundleHydrated ? overview?.calls : undefined}
-        initialParams={bundleHydrated ? analyticsParams : undefined}
-      />
+          copy={store.callsOverview}
+          period={period}
+          periodLabel={periodLabel}
+          deltaPeriod={store.deltaPeriod}
+          storeId={storeId}
+          portalRole={portalRole}
+          initialData={bundleHydrated ? overview?.calls : undefined}
+          initialParams={bundleHydrated ? analyticsParams : undefined}
+        />
 
-      <StoreRsoPerformanceSection
-        copy={store.rsoPerformance}
-        periodLabels={store.period}
-        period={period}
-        emptyMessage={store.rsoPerformance.empty}
-        storeId={storeId}
-        initialData={bundleHydrated ? overview?.rsoPerformance : undefined}
-        initialParams={bundleHydrated ? analyticsParams : undefined}
-      />
+        <StoreRsoPerformanceSection
+          copy={store.rsoPerformance}
+          periodLabels={store.period}
+          period={period}
+          emptyMessage={store.rsoPerformance.empty}
+          storeId={storeId}
+          initialData={bundleHydrated ? overview?.rsoPerformance : undefined}
+          initialParams={bundleHydrated ? analyticsParams : undefined}
+        />
 
-      <StoreFieldSalesOverviewSection
-        copy={store.fieldSalesOverview}
-        period={period}
-        periodLabel={periodLabel}
-        deltaPeriod={store.deltaPeriod}
-        storeId={storeId}
-        initialData={bundleHydrated ? overview?.fieldSales : undefined}
+        <StoreFieldSalesOverviewSection
+          copy={store.fieldSalesOverview}
+          period={period}
+          periodLabel={periodLabel}
+          deltaPeriod={store.deltaPeriod}
+          storeId={storeId}
+          initialData={bundleHydrated ? overview?.fieldSales : undefined}
         initialParams={bundleHydrated ? analyticsParams : undefined}
       />
     </div>

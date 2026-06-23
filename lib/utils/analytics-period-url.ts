@@ -23,7 +23,7 @@ export function isPeriodValue(value: string | null | undefined): value is Period
   return (
     value !== null &&
     value !== undefined &&
-    PERIOD_VALUES.includes(value as AnalyticsPeriodLabel)
+    (PERIOD_VALUES as readonly string[]).includes(value)
   );
 }
 

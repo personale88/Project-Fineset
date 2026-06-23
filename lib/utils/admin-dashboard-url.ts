@@ -2,7 +2,7 @@ import { ADMIN_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { appendStoreQuery } from "@/lib/utils/store-dashboard-url";
 
 export function adminStoreDetailPath(storeId: string): string {
-  return `${ADMIN_DASHBOARD_PATH}/stores/${storeId}`;
+  return `${ADMIN_DASHBOARD_PATH}/accounts/${storeId}`;
 }
 
 export function adminStoreDetailHref(storeId: string, period?: string): string {

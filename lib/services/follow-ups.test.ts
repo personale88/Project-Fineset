@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { startOfCalendarDay } from "@/lib/utils/calendar-date";
+import { normalizeStoredFollowUpDate } from "@/lib/utils/follow-up-datetime";
 import { updateFollowUp } from "@/lib/services/follow-ups";
 
 const mockFollowUpFindFirst = vi.fn();
@@ -100,8 +101,28 @@ describe("updateFollowUp", () => {
     ]);
   });
 
-  it("schedules follow-up with start-of-day date", async () => {
-    const scheduleDate = new Date("2026-06-25T15:30:00.000Z");
+  it("schedules follow-up with preferred time when provided", async () => {
+    const scheduleWithTime = new Date(2026, 5, 25, 15, 30, 0, 0);
+    const expectedDate = normalizeStoredFollowUpDate(scheduleWithTime);
+
+    await updateFollowUp({
+      followUpId: "fu-1",
+      storeId: "store-1",
+      input: { action: "schedule", followUpDate: scheduleWithTime },
+    });
+
+    expect(mockTxFollowUpUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: "OPEN",
+          followUpDate: expectedDate,
+        }),
+      }),
+    );
+  });
+
+  it("schedules follow-up with start-of-day date when no time is set", async () => {
+    const scheduleDate = new Date(2026, 5, 25, 0, 0, 0, 0);
     const expectedDate = startOfCalendarDay(scheduleDate);
 
     await updateFollowUp({

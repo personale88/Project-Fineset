@@ -1,9 +1,10 @@
 import type {
-  AnalyticsSummary,
   AnalyticsTrendPoint,
   BreakdownRow,
   ComparisonTrendPoint,
 } from "@/types/admin-business-analytics";
+import type { ParseConfidence, ParseSource } from "@/lib/analytics/ask-confidence";
+import type { TokenUsage } from "@/lib/analytics/token-estimate";
 
 export type AnalyticsAskChartType =
   | "line"
@@ -34,24 +35,15 @@ export interface AnalyticsAskReport {
   summary: string;
   highlights: string[];
   recommendations: string[];
+  dataAvailability?: "ok" | "sparse" | "empty" | "none";
 }
 
-export interface AdminBusinessAnalyticsAskResult {
+export interface AnalyticsAskConfirmationPreview {
+  status: "confirmation_required";
   interpretedQuery: string;
-  aiPowered: boolean;
+  parseSource: ParseSource;
+  parseConfidence: ParseConfidence;
   geminiConfigured: boolean;
-  period: { start: string; end: string; label: string };
-  comparisonPeriod?: { label: string };
-  summary: AnalyticsSummary;
-  comparisonSummary?: AnalyticsSummary;
-  deltas?: {
-    totalVisits: number;
-    totalRevenue: number;
-    conversionRate: number;
-    uniqueCustomers: number;
-    avgTransaction: number;
-    fieldSalesCount: number;
-  };
-  charts: AnalyticsAskChart[];
-  report: AnalyticsAskReport;
+  tokenUsage: TokenUsage | null;
+  message: string;
 }

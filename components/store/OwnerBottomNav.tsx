@@ -8,7 +8,13 @@ import { content } from "@/content/en";
 import { useStoreDashboard } from "@/components/store/StoreDashboardProvider";
 import { BUSINESS_OWNER_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { portalSectionPath } from "@/lib/utils/store-dashboard-url";
-import { cn } from "@/lib/utils";
+import {
+  bottomNavIconClass,
+  bottomNavIconStroke,
+  bottomNavIconWrapClass,
+  bottomNavItemClass,
+  bottomNavShellClassName,
+} from "@/components/layout/bottom-nav-styles";
 import { OwnerMoreSheet } from "@/components/store/OwnerMoreSheet";
 
 export function OwnerBottomNav() {
@@ -23,26 +29,23 @@ export function OwnerBottomNav() {
     `${BUSINESS_OWNER_DASHBOARD_PATH}/follow-ups`,
   );
 
-  const navClass = (active: boolean) =>
-    cn(
-      "flex flex-col items-center gap-1 px-2 py-2.5 text-[10px] font-medium",
-      active ? "text-brand-gold" : "text-text-muted",
-    );
-
   return (
     <>
-      <nav
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-surface-card/95 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden"
-        aria-label={copy.label}
-      >
+      <nav className={bottomNavShellClassName} aria-label={copy.label}>
         <ul className="mx-auto grid max-w-lg grid-cols-4">
           <li>
             <Link
               href={BUSINESS_OWNER_DASHBOARD_PATH}
               aria-current={homeActive ? "page" : undefined}
-              className={navClass(homeActive)}
+              className={bottomNavItemClass(homeActive)}
             >
-              <Home className="h-5 w-5" aria-hidden />
+              <span className={bottomNavIconWrapClass(homeActive)}>
+                <Home
+                  className={bottomNavIconClass(homeActive)}
+                  strokeWidth={bottomNavIconStroke(homeActive)}
+                  aria-hidden
+                />
+              </span>
               {copy.home}
             </Link>
           </li>
@@ -50,9 +53,15 @@ export function OwnerBottomNav() {
             <Link
               href={portalSectionPath("calls", "BUSINESS_OWNER", storeId)}
               aria-current={callsActive ? "page" : undefined}
-              className={navClass(callsActive)}
+              className={bottomNavItemClass(callsActive)}
             >
-              <Phone className="h-5 w-5" aria-hidden />
+              <span className={bottomNavIconWrapClass(callsActive)}>
+                <Phone
+                  className={bottomNavIconClass(callsActive)}
+                  strokeWidth={bottomNavIconStroke(callsActive)}
+                  aria-hidden
+                />
+              </span>
               {copy.calls}
             </Link>
           </li>
@@ -60,9 +69,15 @@ export function OwnerBottomNav() {
             <Link
               href={portalSectionPath("follow-ups", "BUSINESS_OWNER", storeId)}
               aria-current={followUpsActive ? "page" : undefined}
-              className={navClass(followUpsActive)}
+              className={bottomNavItemClass(followUpsActive)}
             >
-              <History className="h-5 w-5" aria-hidden />
+              <span className={bottomNavIconWrapClass(followUpsActive)}>
+                <History
+                  className={bottomNavIconClass(followUpsActive)}
+                  strokeWidth={bottomNavIconStroke(followUpsActive)}
+                  aria-hidden
+                />
+              </span>
               {copy.followUps}
             </Link>
           </li>
@@ -70,9 +85,15 @@ export function OwnerBottomNav() {
             <button
               type="button"
               onClick={() => setMoreOpen(true)}
-              className="flex w-full flex-col items-center gap-1 px-2 py-2.5 text-[10px] font-medium text-text-muted"
+              className={bottomNavItemClass(false)}
             >
-              <MoreHorizontal className="h-5 w-5" aria-hidden />
+              <span className={bottomNavIconWrapClass(false)}>
+                <MoreHorizontal
+                  className={bottomNavIconClass(false)}
+                  strokeWidth={bottomNavIconStroke(false)}
+                  aria-hidden
+                />
+              </span>
               {copy.more}
             </button>
           </li>

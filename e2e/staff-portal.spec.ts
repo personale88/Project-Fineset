@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test";
+import { dismissPortalOnboarding } from "./helpers/onboarding";
+import { DEV_PASSWORD, loginWithEmail } from "./helpers/login";
 
-const e2eEmail = process.env.E2E_USER_EMAIL;
-const e2ePassword = process.env.E2E_USER_PASSWORD;
-const hasE2eCredentials = Boolean(e2eEmail && e2ePassword);
-const canRunStaffPortalTests = hasE2eCredentials;
+const e2eEmail = process.env.E2E_USER_EMAIL ?? "staff-a@store-alpha.local";
+const e2ePassword = process.env.E2E_USER_PASSWORD ?? DEV_PASSWORD;
+const canRunStaffPortalTests = Boolean(e2eEmail);
 
 test.describe("Staff portal (unauthenticated)", () => {
   test("staff dashboard redirects to login", async ({ page }) => {
@@ -22,20 +23,27 @@ test.describe("Staff portal (unauthenticated)", () => {
 test.describe("Staff portal (authenticated)", () => {
   test.skip(
     !canRunStaffPortalTests,
-    "Set E2E_USER_EMAIL and E2E_USER_PASSWORD to run staff portal tests",
+    "Set E2E_USER_EMAIL to run staff portal tests",
   );
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await page.fill('[name="email"]', e2eEmail!);
-    await page.fill('[name="password"]', e2ePassword!);
-    await page.click('button[type="submit"]');
-    await page.waitForURL(/\/dashboard/);
+    await page.addInitScript(() => {
+      for (const role of ["STAFF", "STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN"]) {
+        localStorage.setItem(`fineset-onboarding-seen:${role}`, "1");
+      }
+    });
+    await loginWithEmail(page, {
+      email: e2eEmail,
+      password: e2ePassword,
+      dashboardPattern: /\/dashboard/,
+    });
+    await dismissPortalOnboarding(page);
   });
 
   test("staff dashboard shows work queue section", async ({ page }) => {
     await page.goto("/staff/dashboard");
     await expect(page.getByTestId("portal-shell")).toBeVisible();
+    await dismissPortalOnboarding(page);
     await expect(page.getByRole("heading", { name: /your work queue/i })).toBeVisible();
   });
 
@@ -58,6 +66,7 @@ test.describe("Staff portal (authenticated)", () => {
   test("staff my-visits page loads", async ({ page }) => {
     await page.goto("/staff/dashboard/my-visits");
     await expect(page.getByTestId("portal-shell")).toBeVisible();
-    await expect(page.getByRole("heading", { name: /my visits/i })).toBeVisible();
+    await dismissPortalOnboarding(page);
+    await expect(page.getByRole("heading", { level: 1, name: /my visits/i })).toBeVisible();
   });
 });

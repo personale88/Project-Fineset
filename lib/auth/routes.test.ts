@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BUSINESS_OWNER_DASHBOARD_PATH,
+  getProtectedApiRouteForPath,
   LEGACY_STORE_DASHBOARD_PATH,
   remapLegacyPortalPath,
   resolveLegacyDashboardRedirect,
@@ -57,5 +58,20 @@ describe("portal routes", () => {
         "STORE_MANAGER",
       ),
     ).toBe(`${STORE_MANAGER_DASHBOARD_PATH}/field-sales`);
+  });
+
+  it("maps protected admin API routes to MASTER_ADMIN and PLATFORM_ADMIN", () => {
+    expect(getProtectedApiRouteForPath("/api/admin/billing/summaries")?.roles).toEqual([
+      "MASTER_ADMIN",
+      "PLATFORM_ADMIN",
+    ]);
+    expect(getProtectedApiRouteForPath("/api/stores")?.roles).toEqual([
+      "MASTER_ADMIN",
+      "PLATFORM_ADMIN",
+    ]);
+    expect(getProtectedApiRouteForPath("/api/audit")?.roles).toContain("MASTER_ADMIN");
+    expect(getProtectedApiRouteForPath("/api/audit")?.roles).toContain("PLATFORM_ADMIN");
+    expect(getProtectedApiRouteForPath("/api/audit")?.roles).toContain("BUSINESS_OWNER");
+    expect(getProtectedApiRouteForPath("/api/customers")).toBeUndefined();
   });
 });

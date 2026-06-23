@@ -1,6 +1,30 @@
 import { mergeStoreWhere } from "@/lib/db/store-scope";
+import { visitRevenue } from "@/lib/analytics/visit-metrics";
+import { getStoreCategoryLabel } from "@/lib/utils/store-category";
 import { PRODUCT_CATEGORY_LABELS } from "@/lib/constants/product-categories";
 import { prisma } from "@/lib/db/prisma";
+import {
+  queryAggregateRows,
+  fetchArrayFieldRows,
+  buildSummaryFromAgg,
+  buildTrendsFromAgg,
+  buildComparisonTrendsFromAgg,
+  buildBreakdownsFromAgg,
+  buildArrayFieldBreakdowns,
+  buildStaffBreakdownFromAgg,
+} from "@/lib/analytics/aggregate-queries";
+import type {
+  AggRowPublic,
+  ArrayVisitRowPublic,
+} from "@/lib/analytics/aggregate-queries";
+import {
+  getCachedSummary,
+  setCachedSummary,
+  getCachedFilterOptions,
+  setCachedFilterOptions,
+  buildVersionedQueryKey,
+  hashQueryKey,
+} from "@/lib/cache/analytics-cache";
 import {
   computeVisitValueTier,
   matchesCallSegment,
@@ -105,7 +129,19 @@ function buildVisitWhere(
     visitDate: { gte: range.start, lte: range.end },
   };
 
-  if (isActive(query, "storeId") && query.storeId) where.storeId = query.storeId;
+  const storeScope: Prisma.StoreWhereInput = {};
+  if (isActive(query, "storeId") && query.storeId) {
+    storeScope.id = query.storeId;
+  } else {
+    if (isActive(query, "city") && query.city) {
+      storeScope.city = { equals: query.city, mode: "insensitive" };
+    }
+    if (isActive(query, "storeCategory") && query.storeCategory) {
+      storeScope.category = query.storeCategory;
+    }
+  }
+  where.store = mergeStoreWhere(storeScope);
+
   if (isActive(query, "staffId") && query.staffId) where.staffId = query.staffId;
 
   if (isActive(query, "customerType") && query.customerType) {
@@ -231,6 +267,18 @@ function buildAppliedFilters(
     switch (key as AnalyticsFilterKey) {
       case "storeId":
         if (storeName) applied.push({ key, label: "Store", value: storeName });
+        break;
+      case "city":
+        if (query.city) applied.push({ key, label: "City", value: query.city });
+        break;
+      case "storeCategory":
+        if (query.storeCategory) {
+          applied.push({
+            key,
+            label: "Category",
+            value: getStoreCategoryLabel(query.storeCategory),
+          });
+        }
         break;
       case "staffId":
         if (staffName) applied.push({ key, label: "RSO", value: staffName });
@@ -438,9 +486,7 @@ function buildTrends(visits: VisitRow[]): AnalyticsTrendPoint[] {
     const date = visit.visitDate.toISOString().slice(0, 10);
     const row = byDay.get(date) ?? { visits: 0, revenue: 0 };
     row.visits += 1;
-    if (visit.purchaseStatus === "PURCHASED" && visit.transactionAmount) {
-      row.revenue += visit.transactionAmount;
-    }
+    row.revenue += visitRevenue(visit);
     byDay.set(date, row);
   }
 
@@ -474,9 +520,7 @@ function buildComparisonTrends(
     const day = visit.visitDate.getDate();
     const row = bucketA.get(day) ?? { visits: 0, revenue: 0 };
     row.visits += 1;
-    if (visit.purchaseStatus === "PURCHASED" && visit.transactionAmount) {
-      row.revenue += visit.transactionAmount;
-    }
+    row.revenue += visitRevenue(visit);
     bucketA.set(day, row);
   }
 
@@ -484,9 +528,7 @@ function buildComparisonTrends(
     const day = visit.visitDate.getDate();
     const row = bucketB.get(day) ?? { visits: 0, revenue: 0 };
     row.visits += 1;
-    if (visit.purchaseStatus === "PURCHASED" && visit.transactionAmount) {
-      row.revenue += visit.transactionAmount;
-    }
+    row.revenue += visitRevenue(visit);
     bucketB.set(day, row);
   }
 
@@ -495,7 +537,7 @@ function buildComparisonTrends(
     .sort((a, b) => a - b)
     .map((day) => ({
       day,
-      label: String(day),
+      label: `Day ${day}`,
       periodA: bucketA.get(day) ?? { visits: 0, revenue: 0 },
       periodB: bucketB.get(day) ?? { visits: 0, revenue: 0 },
     }));
@@ -510,9 +552,7 @@ function buildSummary(
     purchaseStatus: v.purchaseStatus,
     transactionAmount: v.transactionAmount,
   }));
-  const purchasedCount = visits.filter(
-    (v) => v.purchaseStatus === "PURCHASED" && v.transactionAmount,
-  ).length;
+  const purchasedCount = visits.filter((v) => v.purchaseStatus === "PURCHASED").length;
   const totalRevenue = calculateTotalRevenue(revenueVisits);
 
   return {
@@ -546,9 +586,18 @@ async function countFieldSalesForRange(
   const fieldSalesWhere: Prisma.FieldSaleWhereInput = {
     activityDate: { gte: range.start, lte: range.end },
   };
+  const storeScope: Prisma.StoreWhereInput = {};
   if (isActive(query, "storeId") && query.storeId) {
-    fieldSalesWhere.storeId = query.storeId;
+    storeScope.id = query.storeId;
+  } else {
+    if (isActive(query, "city") && query.city) {
+      storeScope.city = { equals: query.city, mode: "insensitive" };
+    }
+    if (isActive(query, "storeCategory") && query.storeCategory) {
+      storeScope.category = query.storeCategory;
+    }
   }
+  fieldSalesWhere.store = mergeStoreWhere(storeScope);
   if (isActive(query, "staffId") && query.staffId) {
     fieldSalesWhere.staffId = query.staffId;
   }
@@ -621,9 +670,7 @@ function buildStaffBreakdown(visits: VisitRow[]): AdminBusinessAnalytics["breakd
       revenue: 0,
     };
     existing.visits += 1;
-    if (visit.purchaseStatus === "PURCHASED" && visit.transactionAmount) {
-      existing.revenue += visit.transactionAmount;
-    }
+    existing.revenue += visitRevenue(visit);
     byStaff.set(visit.staffId, existing);
   }
 
@@ -688,6 +735,10 @@ const LABELS = {
 } as const;
 
 export async function getAdminBusinessAnalyticsFilterOptions(): Promise<AdminBusinessAnalyticsFilterOptions> {
+  const cacheKey = "global"; // filter options are tenant-global (no per-user state)
+  const cached = await getCachedFilterOptions(cacheKey);
+  if (cached) return cached;
+
   const [stores, staff, areaRows] = await Promise.all([
     prisma.store.findMany({
       where: mergeStoreWhere({ isActive: true }),
@@ -712,7 +763,7 @@ export async function getAdminBusinessAnalyticsFilterOptions(): Promise<AdminBus
     .filter((area): area is string => Boolean(area?.trim()))
     .sort((a, b) => a.localeCompare(b));
 
-  return {
+  const result: AdminBusinessAnalyticsFilterOptions = {
     stores,
     staff,
     areas,
@@ -783,28 +834,44 @@ export async function getAdminBusinessAnalyticsFilterOptions(): Promise<AdminBus
       })),
     ],
   };
+
+  void setCachedFilterOptions(cacheKey, result);
+  return result;
 }
 
 export async function getAdminBusinessAnalytics(
   query: AdminBusinessAnalyticsQuery,
 ): Promise<AdminBusinessAnalytics> {
+  // Check summary cache first — keyed by versioned query hash (busted after visit writes)
+  const cacheKey = await buildVersionedQueryKey(query);
+  const cached = await getCachedSummary(cacheKey);
+  if (cached) return cached;
+
   const resolved = resolveAnalyticsDates(query);
   const dateMode = query.dateMode ?? (resolved.kind === "compare" ? "compare" : "preset");
   const filterOptions = await getAdminBusinessAnalyticsFilterOptions();
   const appliedFilters = buildAppliedFilters(query, filterOptions);
 
+  // Build a map of staffId → name for staff breakdowns from the aggregate path.
+  const staffNameMap = new Map(filterOptions.staff.map((s) => [s.id, s.name]));
+
   if (resolved.kind === "compare") {
-    const [visitsA, visitsB, fieldSalesA, fieldSalesB] = await Promise.all([
-      fetchVisitsForRange(query, resolved.rangeA),
-      fetchVisitsForRange(query, resolved.rangeB),
-      countFieldSalesForRange(query, resolved.rangeA),
-      countFieldSalesForRange(query, resolved.rangeB),
-    ]);
+    // Aggregate path: fetch pre-aggregated rows for both periods in parallel.
+    // Also fetch minimal array-field rows for product/scheme/valueTier/gender/area breakdowns.
+    const [aggRowsA, aggRowsB, arrayRowsA, arrayRowsB, fieldSalesA, fieldSalesB] =
+      await Promise.all([
+        queryAggregateRows(query, resolved.rangeA.start, resolved.rangeA.end),
+        queryAggregateRows(query, resolved.rangeB.start, resolved.rangeB.end),
+        fetchArrayFieldRows(query, resolved.rangeA.start, resolved.rangeA.end),
+        fetchArrayFieldRows(query, resolved.rangeB.start, resolved.rangeB.end),
+        countFieldSalesForRange(query, resolved.rangeA),
+        countFieldSalesForRange(query, resolved.rangeB),
+      ]);
 
-    const summaryA = buildSummary(visitsA, fieldSalesA);
-    const summaryB = buildSummary(visitsB, fieldSalesB);
+    const summaryA = buildSummaryFromAgg(aggRowsA, fieldSalesA);
+    const summaryB = buildSummaryFromAgg(aggRowsB, fieldSalesB);
 
-    return {
+    const compareResult: AdminBusinessAnalytics = {
       dateMode: "compare",
       period: {
         start: resolved.rangeA.start.toISOString(),
@@ -812,8 +879,8 @@ export async function getAdminBusinessAnalytics(
         label: resolved.rangeA.label,
       },
       summary: summaryA,
-      trends: buildTrends(visitsA),
-      breakdowns: buildBreakdowns(visitsA),
+      trends: buildTrendsFromAgg(aggRowsA),
+      breakdowns: buildCombinedBreakdowns(aggRowsA, arrayRowsA, staffNameMap),
       comparison: {
         period: {
           start: resolved.rangeB.start.toISOString(),
@@ -821,56 +888,76 @@ export async function getAdminBusinessAnalytics(
           label: resolved.rangeB.label,
         },
         summary: summaryB,
-        trends: buildTrends(visitsB),
-        comparisonTrends: buildComparisonTrends(visitsA, visitsB),
+        trends: buildTrendsFromAgg(aggRowsB),
+        comparisonTrends: buildComparisonTrendsFromAgg(aggRowsA, aggRowsB),
         deltas: {
           totalVisits: percentDelta(summaryA.totalVisits, summaryB.totalVisits),
           totalRevenue: percentDelta(summaryA.totalRevenue, summaryB.totalRevenue),
-          conversionRate: percentDelta(
-            summaryA.conversionRate,
-            summaryB.conversionRate,
-          ),
-          uniqueCustomers: percentDelta(
-            summaryA.uniqueCustomers,
-            summaryB.uniqueCustomers,
-          ),
-          avgTransaction: percentDelta(
-            summaryA.avgTransaction,
-            summaryB.avgTransaction,
-          ),
-          fieldSalesCount: percentDelta(
-            summaryA.fieldSalesCount,
-            summaryB.fieldSalesCount,
-          ),
+          conversionRate: percentDelta(summaryA.conversionRate, summaryB.conversionRate),
+          uniqueCustomers: percentDelta(summaryA.uniqueCustomers, summaryB.uniqueCustomers),
+          avgTransaction: percentDelta(summaryA.avgTransaction, summaryB.avgTransaction),
+          fieldSalesCount: percentDelta(summaryA.fieldSalesCount, summaryB.fieldSalesCount),
         },
       },
       appliedFilters,
-      aiInsights: {
-        available: false,
-        summary: null,
-        recommendations: [],
-      },
+      aiInsights: { available: false, summary: null, recommendations: [] },
     };
+    void setCachedSummary(cacheKey, compareResult);
+    return compareResult;
   }
 
-  const visits = await fetchVisitsForRange(query, resolved.range);
-  const fieldSalesCount = await countFieldSalesForRange(query, resolved.range);
+  // Single period — aggregate path
+  const [aggRows, arrayRows, fieldSalesCount] = await Promise.all([
+    queryAggregateRows(query, resolved.range.start, resolved.range.end),
+    fetchArrayFieldRows(query, resolved.range.start, resolved.range.end),
+    countFieldSalesForRange(query, resolved.range),
+  ]);
 
-  return {
+  const singleResult: AdminBusinessAnalytics = {
     dateMode,
     period: {
       start: resolved.range.start.toISOString(),
       end: resolved.range.end.toISOString(),
       label: resolved.range.label,
     },
-    summary: buildSummary(visits, fieldSalesCount),
-    trends: buildTrends(visits),
-    breakdowns: buildBreakdowns(visits),
+    summary: buildSummaryFromAgg(aggRows, fieldSalesCount),
+    trends: buildTrendsFromAgg(aggRows),
+    breakdowns: buildCombinedBreakdowns(aggRows, arrayRows, staffNameMap),
     appliedFilters,
-    aiInsights: {
-      available: false,
-      summary: null,
-      recommendations: [],
-    },
+    aiInsights: { available: false, summary: null, recommendations: [] },
+  };
+  void setCachedSummary(cacheKey, singleResult);
+  return singleResult;
+}
+
+// ---------------------------------------------------------------------------
+// Combined breakdown builder — merges aggregate-view dims + array-field dims
+// ---------------------------------------------------------------------------
+
+function buildCombinedBreakdowns(
+  aggRows: AggRowPublic[],
+  arrayRows: ArrayVisitRowPublic[],
+  staffNameMap: Map<string, string>,
+): AdminBusinessAnalytics["breakdowns"] {
+  const aggBreakdowns = buildBreakdownsFromAgg(aggRows);
+  const arrayBreakdowns = buildArrayFieldBreakdowns(arrayRows);
+  const staff = buildStaffBreakdownFromAgg(aggRows, staffNameMap);
+
+  return {
+    customerType: aggBreakdowns.customerType,
+    intentTier: aggBreakdowns.intentTier,
+    purchaseStatus: aggBreakdowns.purchaseStatus,
+    sourceChannel: aggBreakdowns.sourceChannel,
+    budgetRange: aggBreakdowns.budgetRange,
+    valueTier: arrayBreakdowns.valueTier,
+    productsExplored: arrayBreakdowns.productsExplored,
+    productsPurchased: arrayBreakdowns.productsPurchased,
+    schemeProduct: arrayBreakdowns.schemeProduct,
+    enrollmentOutcome: arrayBreakdowns.enrollmentOutcome,
+    gender: arrayBreakdowns.gender,
+    ageGroup: arrayBreakdowns.ageGroup,
+    area: arrayBreakdowns.area,
+    visitType: arrayBreakdowns.visitType,
+    staff,
   };
 }

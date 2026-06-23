@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import type { CreateFieldSaleInput } from "@/lib/validations/field-sale.schema";
-import type { FieldSale, Prisma } from "@prisma/client";
-import { Prisma as PrismaClient } from "@prisma/client";
+import { Prisma, type FieldSale } from "@prisma/client";
 import { resolveSchemeEnrollmentFlags } from "@/lib/services/scheme-enrollment";
 import { normalizeSchemesPitched } from "@/lib/validations/scheme.schema";
 import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
@@ -12,6 +11,7 @@ import {
 } from "@/lib/services/pii";
 import { fieldSaleDenormFields } from "@/lib/services/call-record-denorm";
 import { resolveCalendarDayFromInstant } from "@/lib/utils/calendar-date";
+import { normalizeStoredFollowUpDate } from "@/lib/utils/follow-up-datetime";
 import { calculateDurationMins, formatDate } from "@/lib/utils/formatters";
 
 interface CreateFieldSaleParams extends CreateFieldSaleInput {
@@ -97,6 +97,9 @@ export async function createFieldSale(
       anniversary: customer.anniversary,
     });
 
+    const resolvedFollowUpDate =
+      followUpNeeded && followUpDate ? normalizeStoredFollowUpDate(followUpDate) : null;
+
     const fieldSale = await tx.fieldSale.create({
       data: {
         ...fieldData,
@@ -120,17 +123,17 @@ export async function createFieldSale(
         ageGroup,
         profession,
         followUpNeeded,
-        followUpDate: followUpNeeded ? followUpDate : null,
+        followUpDate: resolvedFollowUpDate,
         ...denorm,
       },
     });
 
-    if (followUpNeeded && followUpDate) {
+    if (followUpNeeded && resolvedFollowUpDate) {
       await tx.followUp.create({
         data: {
           fieldSaleId: fieldSale.id,
           assignedStaffId: staffId,
-          followUpDate,
+          followUpDate: resolvedFollowUpDate,
           reason: "Field activity follow-up",
           status: "OPEN",
         },
@@ -235,13 +238,13 @@ export async function listFieldSales(params: ListFieldSalesParams) {
   const where = buildFieldSaleWhere(params);
   const yearWhere = buildFieldSaleYearWhere(params);
 
-  const yearRecordsBaseParts: PrismaClient.Sql[] = [];
-  if (params.storeId) yearRecordsBaseParts.push(PrismaClient.sql`"storeId" = ${params.storeId}`);
-  if (params.staffId) yearRecordsBaseParts.push(PrismaClient.sql`"staffId" = ${params.staffId}`);
+  const yearRecordsBaseParts: Prisma.Sql[] = [];
+  if (params.storeId) yearRecordsBaseParts.push(Prisma.sql`"storeId" = ${params.storeId}`);
+  if (params.staffId) yearRecordsBaseParts.push(Prisma.sql`"staffId" = ${params.staffId}`);
   const yearWhereClause =
     yearRecordsBaseParts.length > 0
-      ? PrismaClient.sql`WHERE ${PrismaClient.join(yearRecordsBaseParts, " AND ")}`
-      : PrismaClient.empty;
+      ? Prisma.sql`WHERE ${Prisma.join(yearRecordsBaseParts, " AND ")}`
+      : Prisma.empty;
 
   const [records, total, yearActivityDates, yearRows] = await Promise.all([
     prisma.fieldSale.findMany({
@@ -259,13 +262,13 @@ export async function listFieldSales(params: ListFieldSalesParams) {
       where: yearWhere,
       select: { activityDate: true },
     }),
-    prisma.$queryRaw<Array<{ year: number }>>`
+    prisma.$queryRaw<Array<{ year: number }>>(Prisma.sql`
       SELECT DISTINCT EXTRACT(YEAR FROM "activityDate")::int AS year
       FROM "FieldSale"
       ${yearWhereClause}
       ORDER BY year DESC
       LIMIT 10
-    `,
+    `),
   ]);
 
   const months = countFieldSaleMonthsFromDates(yearActivityDates);

@@ -107,7 +107,7 @@ describe("React Query hydration performance contract", () => {
     vi.clearAllMocks();
   });
 
-  it("useVisits skips fetch on mount when SSR params match", async () => {
+  it("useVisits shows SSR data and refetches on mount when SSR params match", async () => {
     const params = { page: "1", pageSize: "20", sortBy: "visitDate", sortOrder: "desc" as const };
     const { result } = renderHook(
       () =>
@@ -119,7 +119,9 @@ describe("React Query hydration performance contract", () => {
     );
 
     expect(result.current.data).toEqual(visitsInitial);
-    expect(visitsApi.getVisits).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(visitsApi.getVisits).toHaveBeenCalledWith(params);
+    });
   });
 
   it("useVisits fetches once when SSR params differ", async () => {
@@ -139,7 +141,7 @@ describe("React Query hydration performance contract", () => {
     expect(visitsApi.getVisits).toHaveBeenCalledTimes(1);
   });
 
-  it("usePortalCalls skips fetch on mount when SSR params match", () => {
+  it("usePortalCalls shows SSR data and refetches on mount when SSR params match", async () => {
     const params = defaultPortalCallsParams("store-1");
     const { result } = renderHook(
       () =>
@@ -151,10 +153,12 @@ describe("React Query hydration performance contract", () => {
     );
 
     expect(result.current.data).toEqual(portalInitial);
-    expect(callsApi.getPortalCalls).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(callsApi.getPortalCalls).toHaveBeenCalledWith(params);
+    });
   });
 
-  it("useFieldSalesList skips fetch on mount when SSR params match", () => {
+  it("useFieldSalesList shows SSR data and refetches on mount when SSR params match", async () => {
     const params = defaultFieldSalesParams("store-1");
     const { result } = renderHook(
       () =>
@@ -166,10 +170,12 @@ describe("React Query hydration performance contract", () => {
     );
 
     expect(result.current.data).toEqual(fieldSalesInitial);
-    expect(fieldSalesApi.getFieldSalesList).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(fieldSalesApi.getFieldSalesList).toHaveBeenCalledWith(params);
+    });
   });
 
-  it("useStoreStaff skips fetch on mount when initialData provided", () => {
+  it("useStoreStaff shows SSR data and refetches on mount when initialData provided", async () => {
     const { result } = renderHook(
       () =>
         useStoreStaff("store-1", {
@@ -179,10 +185,12 @@ describe("React Query hydration performance contract", () => {
     );
 
     expect(result.current.data).toEqual(staffInitial);
-    expect(staffApi.getStaff).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(staffApi.getStaff).toHaveBeenCalledWith("store-1");
+    });
   });
 
-  it("useStoreOverviewBundle skips fetch on mount when SSR params match", () => {
+  it("useStoreOverviewBundle shows SSR data and refetches on mount when SSR params match", async () => {
     const params = { period: "week" as const, storeId: "store-1" };
     const { result } = renderHook(
       () =>
@@ -193,12 +201,12 @@ describe("React Query hydration performance contract", () => {
             calls: {} as never,
             fieldSales: {} as never,
             rsoPerformance: {
-        period: "week",
-        periodRange: { start: "", end: "" },
-        rows: [],
-        topPerformer: null,
-        mostImproved: null,
-      },
+              period: "week",
+              periodRange: { start: "", end: "" },
+              rows: [],
+              topPerformer: null,
+              mostImproved: null,
+            },
           },
           initialParams: params,
         }),
@@ -206,7 +214,9 @@ describe("React Query hydration performance contract", () => {
     );
 
     expect(result.current.data?.storeId).toBe("store-1");
-    expect(analyticsApi.getStoreOverviewBundle).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(analyticsApi.getStoreOverviewBundle).toHaveBeenCalledWith(params);
+    });
   });
 
   it("useStoreManagerPortfolio hydrates SSR data then refetches on mount", async () => {
@@ -249,8 +259,9 @@ describe("React Query hydration performance contract", () => {
     expect(options.staleTime).toBe(SSR_HYDRATED_QUERY_OPTIONS.staleTime);
   });
 
-  it("live query defaults disable refetchOnWindowFocus", () => {
-    expect(LIVE_QUERY_OPTIONS.refetchOnWindowFocus).toBe(false);
+  it("live query defaults refetch on window focus; staff filters do not", () => {
+    expect(LIVE_QUERY_OPTIONS.refetchOnWindowFocus).toBe(true);
+    expect(STAFF_FILTER_QUERY_OPTIONS.refetchOnWindowFocus).toBe(false);
     expect(STAFF_FILTER_QUERY_OPTIONS.staleTime).toBe(120_000);
   });
 });

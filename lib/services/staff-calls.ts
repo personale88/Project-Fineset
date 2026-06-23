@@ -911,7 +911,7 @@ export class ManualStaffCallError extends Error {
   }
 }
 
-/** Creates a phone-sourced visit record and logs the call outcome in one flow. */
+/** Creates a call-log anchor visit (USER_CALLS) and records the outcome — hidden from visit lists. */
 export async function recordManualStaffCall(
   params: RecordManualStaffCallParams,
 ): Promise<StaffCallOutcomeResult> {
@@ -1007,7 +1007,7 @@ export async function recordManualStaffCall(
       customerPhone,
       customerType,
       visitType: "WALK_IN",
-      sourceChannel: "PHONE",
+      sourceChannel: "USER_CALLS",
       purchaseStatus: "NOT_PURCHASED",
       productsExplored: [],
       productsPurchased: [],

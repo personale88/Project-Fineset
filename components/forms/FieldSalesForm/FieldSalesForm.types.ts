@@ -1,12 +1,6 @@
 import type { Content } from "@/content/en";
 import type { CreateFieldSaleInput } from "@/lib/validations/field-sale.schema";
 import type { PortalFormSuccessPaths } from "@/lib/utils/portal-form-paths";
-import {
-  formatDateForInput,
-  formatTimeForInput,
-  parseDateInput,
-  parseTimeInput,
-} from "@/components/forms/VisitForm/VisitForm.types";
 
 export type FieldSalesFormCopy = Content["fieldSalesForm"];
 export type CommonCopy = Content["common"];
@@ -19,7 +13,9 @@ export interface FieldSalesFormProps {
   successPaths?: PortalFormSuccessPaths;
 }
 
-export type FieldSalesFormValues = CreateFieldSaleInput;
+export type FieldSalesFormValues = CreateFieldSaleInput & {
+  followUpPreferredTime?: string;
+};
 
 export type FieldSalesFormSectionId =
   | "customer"
@@ -57,6 +53,7 @@ export function getDefaultFieldSaleValues(): FieldSalesFormValues {
     competitorMention: "",
     followUpNeeded: false,
     followUpDate: undefined,
+    followUpPreferredTime: undefined,
     staffNotes: "",
   };
 }
@@ -98,7 +95,7 @@ export function getSectionFieldNames(
     case "noEnrollment":
       return ["reasonNoEnrollment", "competitorMention"];
     case "followUp":
-      return ["followUpNeeded", "followUpDate", "staffNotes"];
+      return ["followUpNeeded", "followUpDate", "followUpPreferredTime", "staffNotes"];
     default:
       return enrollmentOutcome ? [] : [];
   }
@@ -144,4 +141,4 @@ export {
   formatTimeForInput,
   parseDateInput,
   parseTimeInput,
-};
+} from "@/components/forms/VisitForm/VisitForm.types";

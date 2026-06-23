@@ -3,9 +3,12 @@ import { Prisma } from "@prisma/client";
 import { InviteError } from "@/lib/auth/invite-user";
 import { handleRouteError } from "@/lib/api/route-handler";
 import {
+  adminPermissionForbidden,
+  requireAdminPermission,
+} from "@/lib/auth/require-admin-permission";
+import {
   badRequest,
   getServerSession,
-  requireRole,
   unauthorized,
 } from "@/lib/auth/session";
 import { createStore, listStores } from "@/lib/services/stores";
@@ -14,7 +17,10 @@ import { createStoreSchema, getStoresQuerySchema } from "@/lib/validations/store
 export async function GET(req: Request) {
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["MASTER_ADMIN"])) return unauthorized();
+    if (!session) return unauthorized();
+    if (!requireAdminPermission(session, "accounts")) {
+      return adminPermissionForbidden();
+    }
 
     const { searchParams } = new URL(req.url);
     const query = getStoresQuerySchema.safeParse(
@@ -47,7 +53,10 @@ export async function POST(req: Request) {
   const startedAt = Date.now();
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["MASTER_ADMIN"])) return unauthorized();
+    if (!session) return unauthorized();
+    if (!requireAdminPermission(session, "accounts")) {
+      return adminPermissionForbidden();
+    }
 
     const body: unknown = await req.json();
     let parsed: ReturnType<typeof createStoreSchema.safeParse>;

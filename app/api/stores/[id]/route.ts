@@ -45,8 +45,9 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     const store = await updateStore(id, parsed.data);
     return NextResponse.json(store);
   } catch (error) {
-    if (error instanceof StoreServiceError && error.status === 404) {
-      return notFound(error.message);
+    if (error instanceof StoreServiceError) {
+      if (error.status === 404) return notFound(error.message);
+      return NextResponse.json({ message: error.message }, { status: error.status });
     }
     return handleRouteError(error);
   }

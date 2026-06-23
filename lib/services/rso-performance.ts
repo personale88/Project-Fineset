@@ -42,6 +42,7 @@ function buildPeriodSalesLabel(sales: number, period: AnalyticsPeriod["label"]):
     yesterday: "yesterday",
     week: "this week",
     month: "this month",
+    last30days: "in the last 30 days",
     last3months: "in the last 3 months",
     last6months: "in the last 6 months",
   };

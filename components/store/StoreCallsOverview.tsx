@@ -19,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { KPICard } from "@/components/analytics/KPICard";
+import { BillingRestrictedValue } from "@/components/billing/BillingRestrictedOverlay";
 import { ExportButton } from "@/components/shared/ExportButton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { DashboardCollapsibleSection } from "@/components/shared/DashboardCollapsibleSection";
@@ -748,17 +749,33 @@ function StaffCallTable({
                 onClick={() => onStaffClick(row.staffId)}
               >
                 <td className="px-4 py-2 font-medium text-brand-gold">{row.staffName}</td>
-                <td className="px-4 py-2 font-numeric">{row.totalCalls}</td>
-                <td className="px-4 py-2 font-numeric text-status-success">{row.answered}</td>
-                <td className="px-4 py-2 font-numeric text-status-error">{row.notAnswered}</td>
-                <td className="px-4 py-2 font-numeric">{formatPercent(row.answerRatePercent)}</td>
                 <td className="px-4 py-2 font-numeric">
-                  {row.answered > 0
-                    ? formatPercent(row.callToConversionPercent)
-                    : "—"}
+                  <BillingRestrictedValue>{row.totalCalls}</BillingRestrictedValue>
                 </td>
-                <td className="px-4 py-2 font-numeric">{row.uniqueVisitsCalled}</td>
-                <td className="px-4 py-2 font-numeric">{row.callsWithFeedback}</td>
+                <td className="px-4 py-2 font-numeric text-status-success">
+                  <BillingRestrictedValue>{row.answered}</BillingRestrictedValue>
+                </td>
+                <td className="px-4 py-2 font-numeric text-status-error">
+                  <BillingRestrictedValue>{row.notAnswered}</BillingRestrictedValue>
+                </td>
+                <td className="px-4 py-2 font-numeric">
+                  <BillingRestrictedValue>
+                    {formatPercent(row.answerRatePercent)}
+                  </BillingRestrictedValue>
+                </td>
+                <td className="px-4 py-2 font-numeric">
+                  <BillingRestrictedValue>
+                    {row.answered > 0
+                      ? formatPercent(row.callToConversionPercent)
+                      : "—"}
+                  </BillingRestrictedValue>
+                </td>
+                <td className="px-4 py-2 font-numeric">
+                  <BillingRestrictedValue>{row.uniqueVisitsCalled}</BillingRestrictedValue>
+                </td>
+                <td className="px-4 py-2 font-numeric">
+                  <BillingRestrictedValue>{row.callsWithFeedback}</BillingRestrictedValue>
+                </td>
               </tr>
             ))}
           </tbody>

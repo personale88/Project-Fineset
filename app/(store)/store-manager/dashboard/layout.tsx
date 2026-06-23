@@ -10,7 +10,7 @@ import { requirePortalActorContext } from "@/lib/auth/resolve-staff";
 import { requirePortalSession } from "@/lib/auth/require-portal-session";
 
 export const metadata: Metadata = {
-  title: "Store Manager Portal",
+  title: "Store Manager",
   robots: { index: false, follow: false },
 };
 

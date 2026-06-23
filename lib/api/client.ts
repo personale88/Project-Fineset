@@ -1,5 +1,6 @@
 import type { ApiErrorResponse } from "@/types";
 import { ApiError } from "@/types";
+import { BILLING_RESTRICTED_CODE } from "@/lib/billing/constants";
 
 export async function apiFetch<T>(
   url: string,
@@ -22,6 +23,15 @@ export async function apiFetch<T>(
     } catch {
       body = { message: res.statusText || "Request failed" };
     }
+
+    if (
+      res.status === 402 &&
+      "code" in body &&
+      body.code === BILLING_RESTRICTED_CODE
+    ) {
+      return { billingRestricted: true } as T;
+    }
+
     throw new ApiError(res.status, body);
   }
 

@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createVisitSchema } from "@/lib/validations/visit.schema";
 import { useCreateVisit } from "@/hooks/useVisits";
+import { buildFollowUpSubmitPayload } from "@/lib/utils/follow-up-datetime";
 import { toast } from "@/hooks/useToast";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { Form } from "@/components/ui/form";
@@ -34,7 +35,7 @@ export function VisitForm({ copy, common, errors, successPaths }: VisitFormProps
     mode: "onBlur",
   });
 
-  const { watch, control, handleSubmit, reset, trigger } = form;
+  const { watch, control, handleSubmit, reset, trigger, getValues } = form;
   const purchaseStatus = watch("purchaseStatus");
   const enrollmentOutcome = watch("enrollmentOutcome");
   const schemesPitched = watch("schemesPitched");
@@ -87,11 +88,12 @@ export function VisitForm({ copy, common, errors, successPaths }: VisitFormProps
     setStepIndex((current) => Math.max(current - 1, 0));
   }
 
-  async function onSubmit(values: VisitFormValues) {
+  async function onSubmit(_values: VisitFormValues) {
     setSubmitError(null);
+    const values = getValues();
 
     try {
-      await createVisitMutation.mutateAsync(values);
+      await createVisitMutation.mutateAsync(buildFollowUpSubmitPayload(values));
       clearVisitDraft();
       setLastSubmittedFollowUp(Boolean(values.followUpNeeded && values.followUpDate));
       toast({ title: copy.actions.successTitle, description: copy.actions.successMessage });
@@ -194,7 +196,7 @@ export function VisitForm({ copy, common, errors, successPaths }: VisitFormProps
           </p>
         )}
 
-        <div className="sticky bottom-0 z-10 -mx-page-x border-t border-border bg-surface-primary/95 px-page-x py-4 backdrop-blur lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0">
+        <div className="sticky bottom-0 z-10 -mx-page-x border-t border-border bg-surface-card px-page-x py-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.08)] lg:static lg:mx-0 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0 lg:pb-0 lg:shadow-none">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
             <div className="flex gap-2 lg:hidden">
               {stepIndex > 0 && (

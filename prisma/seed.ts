@@ -1,8 +1,12 @@
 import { PrismaClient } from "@prisma/client";
+import { randomUUID } from "crypto";
+import { hashCredential } from "../lib/auth/credentials";
 import { fieldSaleDenormFields, visitDenormFields } from "../lib/services/call-record-denorm";
+import { grantAnalyticsCredits } from "../lib/services/analytics-credits";
 import { prepareCustomerPii } from "../lib/services/pii";
 
 const prisma = new PrismaClient();
+const DEV_PASSWORD = "FineSet#1dev";
 
 async function seedStore(data: {
   name: string;
@@ -12,8 +16,70 @@ async function seedStore(data: {
   pincode?: string;
   businessOwnerName?: string;
   businessOwnerEmail?: string;
+  dataExpiryAt?: Date | null;
+  renewalDueAt?: Date | null;
+  isActive?: boolean;
 }) {
-  return prisma.store.create({ data });
+  return prisma.store.create({
+    data: {
+      ...data,
+      isActive: data.isActive ?? true,
+    },
+  });
+}
+
+async function seedStoreManager(data: {
+  storeId: string;
+  name: string;
+  employeeId: string;
+  phone: string;
+}) {
+  return prisma.staff.create({
+    data: {
+      name: data.name,
+      employeeId: data.employeeId,
+      phone: data.phone,
+      role: "STORE_MANAGER",
+      storeId: data.storeId,
+    },
+  });
+}
+
+async function upsertAppUser(data: {
+  email: string;
+  name: string;
+  role: "MASTER_ADMIN" | "BUSINESS_OWNER" | "STORE_MANAGER" | "STAFF";
+  storeId?: string | null;
+  staffId?: string;
+  lastLoginAt?: Date | null;
+}): Promise<void> {
+  const passwordHash = await hashCredential(DEV_PASSWORD);
+  const now = new Date();
+
+  await prisma.appUser.upsert({
+    where: { email: data.email },
+    create: {
+      authId: randomUUID(),
+      email: data.email,
+      name: data.name,
+      role: data.role,
+      storeId: data.storeId ?? undefined,
+      staffId: data.staffId,
+      passwordHash,
+      isActive: true,
+      activatedAt: now,
+      lastLoginAt: data.lastLoginAt ?? null,
+    },
+    update: {
+      name: data.name,
+      role: data.role,
+      storeId: data.storeId ?? undefined,
+      ...(data.staffId ? { staffId: data.staffId } : {}),
+      passwordHash,
+      isActive: true,
+      ...(data.lastLoginAt !== undefined ? { lastLoginAt: data.lastLoginAt } : {}),
+    },
+  });
 }
 
 async function seedStaff(data: {
@@ -66,8 +132,291 @@ function customerCreatePii(pii: ReturnType<typeof customerPii>) {
   return { name, phone, phoneHash, nameSearch, phoneLast4 };
 }
 
+function dayInPastMonth(monthsBack: number, day: number, hour = 11, minute = 0): Date {
+  const now = new Date();
+  const lastDay = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 0).getDate();
+  const safeDay = Math.min(Math.max(day, 1), lastDay);
+  return new Date(
+    now.getFullYear(),
+    now.getMonth() - monthsBack,
+    safeDay,
+    hour,
+    minute,
+    0,
+    0,
+  );
+}
+
+type AnalyticsVisitSeed = {
+  visitDate: Date;
+  storeId: string;
+  staffId: string;
+  customerType: "NEW" | "REPEAT" | "VIP";
+  purchaseStatus: "PURCHASED" | "NOT_PURCHASED" | "PENDING";
+  transactionAmount: number | null;
+  sourceChannel:
+    | "ORGANIC_WALK_IN"
+    | "REFERRAL"
+    | "SOCIAL_MEDIA"
+    | "INTERNET"
+    | "PHONE"
+    | "TANISHQ_REF";
+  area: string;
+  intentTier: "HOT" | "WARM" | "COLD" | "BROWSING";
+  budgetStated: "UNDER_15K" | "K15_50K" | "K50_1L" | "ABOVE_1L";
+  productsExplored: string[];
+  gender: string;
+  ageGroup: string;
+  schemesPitched?: ("GHS" | "GPP")[];
+  enrollmentOutcome?: "ENROLLED_GHS" | "ENROLLED_GPP" | "DECLINED" | "INTERESTED";
+  schemeEnrolled?: boolean;
+};
+
+async function createAnalyticsVisit(index: number, plan: AnalyticsVisitSeed) {
+  const pii = customerPii(`Portfolio Visitor ${index}`, `981003${String(index).padStart(4, "0")}`);
+  const purchased = plan.purchaseStatus === "PURCHASED";
+
+  return prisma.visit.create({
+    data: {
+      storeId: plan.storeId,
+      staffId: plan.staffId,
+      customerName: pii.name,
+      customerPhone: pii.phone,
+      customerPhoneHash: pii.phoneHash,
+      visitDate: plan.visitDate,
+      inTime: visitTime(10 + (index % 6), index % 50, plan.visitDate),
+      outTime: visitTime(11 + (index % 6), (index % 50) + 30, plan.visitDate),
+      durationMins: 35 + (index % 25),
+      customerType: plan.customerType,
+      visitType: index % 5 === 0 ? "APPOINTMENT" : "WALK_IN",
+      purchaseStatus: plan.purchaseStatus,
+      productsExplored: plan.productsExplored,
+      productsPurchased: purchased ? [plan.productsExplored[0]!] : [],
+      transactionAmount: plan.transactionAmount,
+      intentTier: plan.intentTier,
+      budgetStated: plan.budgetStated,
+      sourceChannel: plan.sourceChannel,
+      area: plan.area,
+      gender: plan.gender,
+      ageGroup: plan.ageGroup,
+      schemesPitched: plan.schemesPitched ?? [],
+      enrollmentOutcome: plan.enrollmentOutcome,
+      schemeEnrolled: plan.schemeEnrolled ?? false,
+      ...visitDenormFields({
+        transactionAmount: plan.transactionAmount,
+        budgetStated: plan.budgetStated,
+        purchaseStatus: plan.purchaseStatus,
+        dateOfBirth: null,
+        anniversary: null,
+      }),
+    },
+  });
+}
+
+async function seedPortfolioAnalyticsData(context: {
+  storeAlpha: { id: string };
+  sharmaGachibowli: { id: string };
+  storeBeta: { id: string };
+  luxeKoramangala: { id: string };
+  royalBandra: { id: string };
+  diamondSurat: { id: string };
+  staffA: { id: string };
+  staffB: { id: string };
+  staffC: { id: string };
+  staffSharma: { id: string };
+  staffRoyal: { id: string };
+  staffLuxe: { id: string };
+  staffSurat: { id: string };
+}): Promise<{ visits: number; fieldSales: number }> {
+  const storeSlots = [
+    {
+      storeId: context.storeAlpha.id,
+      staffId: context.staffA.id,
+      areas: ["Banjara Hills", "Jubilee Hills", "Gachibowli", "Madhapur"],
+    },
+    {
+      storeId: context.sharmaGachibowli.id,
+      staffId: context.staffSharma.id,
+      areas: ["Gachibowli", "Financial District", "Nanakramguda"],
+    },
+    {
+      storeId: context.storeBeta.id,
+      staffId: context.staffC.id,
+      areas: ["Indiranagar", "Koramangala", "Whitefield"],
+    },
+    {
+      storeId: context.luxeKoramangala.id,
+      staffId: context.staffLuxe.id,
+      areas: ["Koramangala", "HSR Layout", "BTM Layout"],
+    },
+    {
+      storeId: context.royalBandra.id,
+      staffId: context.staffRoyal.id,
+      areas: ["Bandra West", "Khar", "Juhu"],
+    },
+    {
+      storeId: context.diamondSurat.id,
+      staffId: context.staffSurat.id,
+      areas: ["Varachha", "Adajan", "Vesu"],
+    },
+  ] as const;
+
+  const customerTypes = ["NEW", "REPEAT", "VIP"] as const;
+  const sources = [
+    "ORGANIC_WALK_IN",
+    "REFERRAL",
+    "SOCIAL_MEDIA",
+    "INTERNET",
+    "PHONE",
+    "TANISHQ_REF",
+  ] as const;
+  const intents = ["HOT", "WARM", "COLD", "BROWSING"] as const;
+  const budgets = ["UNDER_15K", "K15_50K", "K50_1L", "ABOVE_1L"] as const;
+  const products = [
+    ["FINGER_RINGS"],
+    ["NECKLACE", "EAR_RINGS"],
+    ["BANGLES"],
+    ["PENDANTS"],
+    ["NECKLACE_PENDANT_EARRINGS"],
+    ["CHAINS"],
+  ] as const;
+  const genders = ["MALE", "FEMALE"] as const;
+  const ageGroups = ["18-25", "26-35", "36-50", "50+"] as const;
+
+  const plans: AnalyticsVisitSeed[] = [];
+  let cursor = 0;
+
+  const pushVisit = (visitDate: Date, slotIndex: number, purchased: boolean) => {
+    const slot = storeSlots[slotIndex % storeSlots.length]!;
+    const budget = budgets[cursor % budgets.length]!;
+    const amount = purchased
+      ? budget === "UNDER_15K"
+        ? 12000
+        : budget === "K15_50K"
+          ? 32000
+          : budget === "K50_1L"
+            ? 78000
+            : 145000
+      : null;
+
+    plans.push({
+      visitDate,
+      storeId: slot.storeId,
+      staffId: slot.staffId,
+      customerType: customerTypes[cursor % customerTypes.length]!,
+      purchaseStatus: purchased ? "PURCHASED" : "NOT_PURCHASED",
+      transactionAmount: amount,
+      sourceChannel: sources[cursor % sources.length]!,
+      area: slot.areas[cursor % slot.areas.length]!,
+      intentTier: intents[cursor % intents.length]!,
+      budgetStated: budget,
+      productsExplored: [...products[cursor % products.length]!],
+      gender: genders[cursor % genders.length]!,
+      ageGroup: ageGroups[cursor % ageGroups.length]!,
+      ...(cursor % 7 === 0
+        ? {
+            schemesPitched: ["GHS"] as ("GHS" | "GPP")[],
+            enrollmentOutcome: (cursor % 14 === 0 ? "ENROLLED_GHS" : "INTERESTED") as
+              | "ENROLLED_GHS"
+              | "INTERESTED",
+            schemeEnrolled: cursor % 14 === 0,
+          }
+        : {}),
+    });
+    cursor += 1;
+  };
+
+  // Last 30 days — rolling window used by most AI analytics prompts
+  for (let dayOffset = 0; dayOffset < 30; dayOffset += 1) {
+    if (dayOffset % 2 === 0) {
+      pushVisit(dayOffset === 0 ? new Date() : daysAgo(dayOffset), dayOffset, dayOffset % 3 === 0);
+    }
+    if (dayOffset % 5 === 0) {
+      pushVisit(daysAgo(dayOffset), dayOffset + 1, dayOffset % 4 === 0);
+    }
+  }
+
+  // Previous calendar month — month-over-month comparisons
+  for (let day = 2; day <= 28; day += 2) {
+    pushVisit(dayInPastMonth(1, day, 9 + (day % 7)), day, day % 3 !== 1);
+  }
+
+  // Same month last year — year-over-year comparisons
+  for (let day = 3; day <= 27; day += 3) {
+    pushVisit(dayInPastMonth(12, day, 11 + (day % 5)), day + 2, day % 4 === 0);
+  }
+
+  // Mid-range history (45–75 days ago)
+  for (const dayOffset of [45, 48, 52, 55, 58, 62, 65, 68, 72, 75]) {
+    pushVisit(daysAgo(dayOffset), dayOffset, dayOffset % 5 === 0);
+  }
+
+  // Store Alpha — extra density for store-level filter testing
+  for (let day = 1; day <= 20; day += 1) {
+    pushVisit(dayInPastMonth(0, day, 14 + (day % 4)), day, day % 2 === 0);
+  }
+
+  let visitIndex = 5000;
+  for (const plan of plans) {
+    await createAnalyticsVisit(visitIndex, plan);
+    visitIndex += 1;
+  }
+
+  let fieldSales = 0;
+  const fieldSaleStores = [
+    { storeId: context.storeAlpha.id, staffId: context.staffA.id, area: "Miyapur" },
+    { storeId: context.sharmaGachibowli.id, staffId: context.staffSharma.id, area: "Kondapur" },
+    { storeId: context.diamondSurat.id, staffId: context.staffSurat.id, area: "Ring Road" },
+  ] as const;
+
+  for (let i = 0; i < fieldSaleStores.length; i += 1) {
+    for (const dayOffset of [2, 9, 18, 27]) {
+      const slot = fieldSaleStores[i]!;
+      const activityDate = daysAgo(dayOffset);
+      const pii = customerPii(
+        `Field Lead ${6000 + fieldSales}`,
+        `981004${String(6000 + fieldSales).padStart(4, "0")}`,
+      );
+      await prisma.fieldSale.create({
+        data: {
+          storeId: slot.storeId,
+          staffId: slot.staffId,
+          customerName: pii.name,
+          customerPhone: pii.phone,
+          customerPhoneHash: pii.phoneHash,
+          activityDate,
+          startTime: visitTime(10, 0, activityDate),
+          endTime: visitTime(10, 40, activityDate),
+          durationMins: 40,
+          customerType: i % 2 === 0 ? "NEW" : "REPEAT",
+          area: slot.area,
+          gender: i % 2 === 0 ? "MALE" : "FEMALE",
+          ageGroup: "26-35",
+          profession: "Professional",
+          activityType: "HOUSING_SOCIETY",
+          locationLabel: `Society Block ${fieldSales + 1}`,
+          schemesPitched: fieldSales % 2 === 0 ? ["GHS"] : ["GPP"],
+          enrollmentOutcome: fieldSales % 3 === 0 ? "ENROLLED_GHS" : "INTERESTED",
+          monthlyCommitment: 5000 + fieldSales * 1500,
+          intentTier: "WARM",
+          ...fieldSaleDenormFields({
+            monthlyCommitment: 5000 + fieldSales * 1500,
+            dateOfBirth: null,
+            anniversary: null,
+          }),
+        },
+      });
+      fieldSales += 1;
+    }
+  }
+
+  return { visits: plans.length, fieldSales };
+}
+
 async function main(): Promise<void> {
   await prisma.authAuditLog.deleteMany();
+  await prisma.analyticsCreditLedger.deleteMany();
+  await prisma.analyticsCreditAccount.deleteMany();
   await prisma.appUser.deleteMany();
   await prisma.followUp.deleteMany();
   await prisma.staffCallLog.deleteMany();
@@ -85,6 +434,8 @@ async function main(): Promise<void> {
     pincode: "500032",
     businessOwnerName: "Store Alpha Owner",
     businessOwnerEmail: "manager@store-alpha.local",
+    dataExpiryAt: daysFromNow(365),
+    renewalDueAt: daysFromNow(30),
   });
 
   const storeBeta = await seedStore({
@@ -93,6 +444,141 @@ async function main(): Promise<void> {
     city: "Bengaluru",
     state: "Karnataka",
     pincode: "560001",
+    businessOwnerName: "Preeti Handbags",
+    businessOwnerEmail: "preeti@handbags-boutique.local",
+    renewalDueAt: daysFromNow(120),
+    dataExpiryAt: daysFromNow(400),
+  });
+
+  // ── Admin portfolio test businesses ───────────────────────────────────────
+
+  const sharmaGachibowli = await seedStore({
+    name: "Sharma Jewellers Gachibowli",
+    category: "JEWELRY",
+    city: "Hyderabad",
+    state: "Telangana",
+    pincode: "500032",
+    businessOwnerName: "Store Alpha Owner",
+    businessOwnerEmail: "manager@store-alpha.local",
+    renewalDueAt: daysFromNow(30),
+    dataExpiryAt: daysFromNow(365),
+  });
+
+  const royalBandra = await seedStore({
+    name: "Royal Watches Bandra",
+    category: "WATCHES",
+    city: "Mumbai",
+    state: "Maharashtra",
+    pincode: "400050",
+    businessOwnerName: "Rajesh Malhotra",
+    businessOwnerEmail: "owner@royal-time.local",
+    renewalDueAt: daysFromNow(-12),
+    dataExpiryAt: daysFromNow(240),
+  });
+
+  await seedStore({
+    name: "Royal Watches Andheri",
+    category: "WATCHES",
+    city: "Mumbai",
+    state: "Maharashtra",
+    pincode: "400053",
+    businessOwnerName: "Rajesh Malhotra",
+    businessOwnerEmail: "owner@royal-time.local",
+    renewalDueAt: daysFromNow(-12),
+    dataExpiryAt: daysFromNow(240),
+  });
+
+  const luxeKoramangala = await seedStore({
+    name: "Luxe Bags Koramangala",
+    category: "HANDBAGS",
+    city: "Bengaluru",
+    state: "Karnataka",
+    pincode: "560034",
+    businessOwnerName: "Ananya Reddy",
+    businessOwnerEmail: "bags@luxebags.local",
+    renewalDueAt: daysFromNow(18),
+    dataExpiryAt: daysFromNow(320),
+  });
+
+  await seedStore({
+    name: "Chennai Gold Palace T Nagar",
+    category: "JEWELRY",
+    city: "Chennai",
+    state: "Tamil Nadu",
+    pincode: "600017",
+  });
+
+  const heritageKochi = await seedStore({
+    name: "Heritage Jewels MG Road",
+    category: "JEWELRY",
+    city: "Kochi",
+    state: "Kerala",
+    pincode: "682011",
+    businessOwnerName: "Thomas Varghese",
+    businessOwnerEmail: "heritage@kochi.local",
+    renewalDueAt: daysFromNow(45),
+    dataExpiryAt: daysFromNow(-8),
+    isActive: false,
+  });
+
+  const diamondSurat = await seedStore({
+    name: "Diamond District Surat",
+    category: "JEWELRY",
+    city: "Surat",
+    state: "Gujarat",
+    pincode: "395003",
+    businessOwnerName: "Kiran Patel",
+    businessOwnerEmail: "mixed@jewels.local",
+    renewalDueAt: daysFromNow(95),
+    dataExpiryAt: daysFromNow(540),
+  });
+
+  await seedStore({
+    name: "Diamond District Varachha",
+    category: "JEWELRY",
+    city: "Surat",
+    state: "Gujarat",
+    pincode: "395006",
+    businessOwnerName: "Kiran Patel",
+    businessOwnerEmail: "mixed@jewels.local",
+    renewalDueAt: daysFromNow(95),
+    dataExpiryAt: daysFromNow(540),
+    isActive: false,
+  });
+
+  await seedStoreManager({
+    storeId: sharmaGachibowli.id,
+    name: "Ravi Sharma",
+    employeeId: "MGR002",
+    phone: "9848012345",
+  });
+
+  await seedStoreManager({
+    storeId: royalBandra.id,
+    name: "Neha Kapoor",
+    employeeId: "MGR003",
+    phone: "9820012345",
+  });
+
+  await seedStoreManager({
+    storeId: luxeKoramangala.id,
+    name: "Divya Menon",
+    employeeId: "MGR004",
+    phone: "9886012345",
+  });
+
+  await seedStoreManager({
+    storeId: heritageKochi.id,
+    name: "Thomas Varghese",
+    employeeId: "MGR006",
+    phone: "9847012345",
+  });
+
+  await seedStoreManager({
+    storeId: diamondSurat.id,
+    name: "Harsh Patel",
+    employeeId: "MGR005",
+    phone: "9879012345",
   });
 
   const staffA = await seedStaff({
@@ -137,10 +623,35 @@ async function main(): Promise<void> {
     storeId: storeBeta.id,
   });
 
+  const staffSharma = await seedStaff({
+    name: "Arjun Reddy",
+    employeeId: "EMP101",
+    storeId: sharmaGachibowli.id,
+  });
+
+  const staffRoyal = await seedStaff({
+    name: "Priya Shah",
+    employeeId: "EMP102",
+    storeId: royalBandra.id,
+  });
+
+  const staffLuxe = await seedStaff({
+    name: "Kavya N",
+    employeeId: "EMP103",
+    storeId: luxeKoramangala.id,
+  });
+
+  const staffSurat = await seedStaff({
+    name: "Dev Patel",
+    employeeId: "EMP104",
+    storeId: diamondSurat.id,
+  });
+
   const managerAlpha = await prisma.staff.create({
     data: {
       name: "Store Alpha Manager",
       employeeId: "MGR001",
+      phone: "9849098765",
       role: "STORE_MANAGER",
       storeId: storeAlpha.id,
     },
@@ -751,18 +1262,113 @@ async function main(): Promise<void> {
     },
   });
 
+  const analyticsSeed = await seedPortfolioAnalyticsData({
+    storeAlpha,
+    sharmaGachibowli,
+    storeBeta,
+    luxeKoramangala,
+    royalBandra,
+    diamondSurat,
+    staffA,
+    staffB,
+    staffC,
+    staffSharma,
+    staffRoyal,
+    staffLuxe,
+    staffSurat,
+  });
+
+  // Dev login accounts — email-only when DEV_AUTH_BYPASS=true
+  await upsertAppUser({
+    email: "admin@fineset.local",
+    name: "FineSet Admin",
+    role: "MASTER_ADMIN",
+    storeId: null,
+    lastLoginAt: daysAgo(0),
+  });
+
+  const adminUser = await prisma.appUser.findUnique({
+    where: { email: "admin@fineset.local" },
+    select: { id: true },
+  });
+  if (adminUser) {
+    await grantAnalyticsCredits({
+      appUserId: adminUser.id,
+      credits: 25,
+      description: "Dev seed — starter analytics credits",
+    });
+  }
+
+  await upsertAppUser({
+    email: "manager@store-alpha.local",
+    name: "Store Alpha Owner",
+    role: "BUSINESS_OWNER",
+    storeId: storeAlpha.id,
+    lastLoginAt: daysAgo(1),
+  });
+  await upsertAppUser({
+    email: "store-manager@store-alpha.local",
+    name: "Store Alpha Manager",
+    role: "STORE_MANAGER",
+    storeId: storeAlpha.id,
+    staffId: managerAlpha.id,
+  });
+  await upsertAppUser({
+    email: "staff-a@store-alpha.local",
+    name: "Staff Member A",
+    role: "STAFF",
+    storeId: storeAlpha.id,
+    staffId: staffA.id,
+  });
+  await upsertAppUser({
+    email: "owner@royal-time.local",
+    name: "Rajesh Malhotra",
+    role: "BUSINESS_OWNER",
+    lastLoginAt: daysAgo(14),
+  });
+  await upsertAppUser({
+    email: "bags@luxebags.local",
+    name: "Ananya Reddy",
+    role: "BUSINESS_OWNER",
+    lastLoginAt: daysAgo(3),
+  });
+  await upsertAppUser({
+    email: "preeti@handbags-boutique.local",
+    name: "Preeti Handbags",
+    role: "BUSINESS_OWNER",
+    lastLoginAt: daysAgo(2),
+  });
+  await upsertAppUser({
+    email: "heritage@kochi.local",
+    name: "Thomas Varghese",
+    role: "BUSINESS_OWNER",
+    lastLoginAt: daysAgo(45),
+  });
+  await upsertAppUser({
+    email: "mixed@jewels.local",
+    name: "Kiran Patel",
+    role: "BUSINESS_OWNER",
+    lastLoginAt: daysAgo(7),
+  });
+
   console.log("Seed complete:", {
-    stores: 2,
-    staff: 4,
+    stores: 10,
+    portfolioBusinesses: 7,
+    staff: 12,
     storeManagerEmployeeId: managerAlpha.employeeId,
     customers: 10,
     visitsForStaffA: 8,
-    visitsTotal: 10,
-    fieldSalesForStaffA: 2,
+    visitsTotal: 10 + analyticsSeed.visits,
+    portfolioAnalyticsVisits: analyticsSeed.visits,
+    fieldSalesTotal: 2 + analyticsSeed.fieldSales,
+    portfolioAnalyticsFieldSales: analyticsSeed.fieldSales,
     followUps: 4,
     managerOverdueFollowUpVisitId: managerVisit.id,
     callLogs: 2,
-    loginHint: "Run npm run auth:bootstrap-dev && npm run db:seed:mock for 300+ edge-case mock records",
+    portfolioHint:
+      "Analytics: admin@fineset.local → Dashboard → Analytics. Try city/store filters and 'Last 30 days revenue by source'. Portfolio: 7 businesses with mixed payment statuses.",
+    loginHint:
+      "DEV_AUTH_BYPASS: sign in with email only (e.g. admin@fineset.local). Optional password: FineSet#1dev",
     sampleVisitId: visitAnita.id,
   });
 }

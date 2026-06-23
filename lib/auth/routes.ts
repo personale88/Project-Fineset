@@ -15,8 +15,24 @@ export const PROTECTED_PORTAL_ROUTES: ReadonlyArray<{
   { prefix: STAFF_DASHBOARD_PATH, roles: ["STAFF"] },
   { prefix: STORE_MANAGER_DASHBOARD_PATH, roles: ["STORE_MANAGER"] },
   { prefix: BUSINESS_OWNER_DASHBOARD_PATH, roles: ["BUSINESS_OWNER"] },
-  { prefix: ADMIN_DASHBOARD_PATH, roles: ["MASTER_ADMIN"] },
+  { prefix: ADMIN_DASHBOARD_PATH, roles: ["MASTER_ADMIN", "PLATFORM_ADMIN"] },
 ];
+
+export const PROTECTED_API_ROUTES: ReadonlyArray<{
+  prefix: string;
+  roles: readonly UserRole[];
+}> = [
+  { prefix: "/api/admin", roles: ["MASTER_ADMIN", "PLATFORM_ADMIN"] },
+  { prefix: "/api/stores", roles: ["MASTER_ADMIN", "PLATFORM_ADMIN"] },
+  { prefix: "/api/audit", roles: ["BUSINESS_OWNER", "MASTER_ADMIN", "PLATFORM_ADMIN"] },
+];
+
+export function getProtectedApiRouteForPath(pathname: string) {
+  return PROTECTED_API_ROUTES.find(
+    (route) =>
+      pathname === route.prefix || pathname.startsWith(`${route.prefix}/`),
+  );
+}
 
 export function getRedirectForRole(role: AppSession["role"]): string {
   switch (role) {
@@ -27,6 +43,7 @@ export function getRedirectForRole(role: AppSession["role"]): string {
     case "BUSINESS_OWNER":
       return BUSINESS_OWNER_DASHBOARD_PATH;
     case "MASTER_ADMIN":
+    case "PLATFORM_ADMIN":
       return ADMIN_DASHBOARD_PATH;
   }
 }

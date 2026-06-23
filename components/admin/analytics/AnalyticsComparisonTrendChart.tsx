@@ -57,7 +57,7 @@ export function AnalyticsComparisonTrendChart({
               fontFamily={NUMERIC_FONT_FAMILY}
               tickLine={false}
               axisLine={{ stroke: CHART_COLORS.grid }}
-              label={{ value: "Day of month", position: "insideBottom", offset: -4, fill: CHART_COLORS.axis }}
+              label={{ value: "Calendar day", position: "insideBottom", offset: -4, fill: CHART_COLORS.axis }}
             />
             <YAxis
               tickFormatter={(value: number) => formatCurrency(value)}

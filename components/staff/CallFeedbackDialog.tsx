@@ -13,8 +13,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { DatePicker } from "@/components/shared/DatePicker";
+import { FollowUpScheduleFields } from "@/components/shared/FollowUpScheduleFields";
+import { resolveFollowUpDateTime } from "@/lib/utils/follow-up-datetime";
 import { cn } from "@/lib/utils";
+import { modalFooterSafeClassName } from "@/lib/utils/modal-safe-area";
 import type { Content } from "@/content/en";
 import type { StaffCallDialResult, StaffCallListItem } from "@/types";
 import type { StaffCallOutcomeInput } from "@/lib/validations/staff-calls.schema";
@@ -46,12 +48,14 @@ export function CallFeedbackDialog({
   const [feedback, setFeedback] = useState("");
   const [scheduleFollowUp, setScheduleFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState<Date | undefined>(undefined);
+  const [followUpPreferredTime, setFollowUpPreferredTime] = useState("");
 
   function resetForm() {
     setAnswered(null);
     setFeedback("");
     setScheduleFollowUp(false);
     setFollowUpDate(undefined);
+    setFollowUpPreferredTime("");
   }
 
   function handleOpenChange(nextOpen: boolean) {
@@ -70,7 +74,7 @@ export function CallFeedbackDialog({
       scheduleFollowUp: answered === "ANSWERED" ? scheduleFollowUp : false,
       followUpDate:
         answered === "ANSWERED" && scheduleFollowUp && followUpDate
-          ? followUpDate
+          ? resolveFollowUpDateTime(followUpDate, followUpPreferredTime)
           : undefined,
     });
   }
@@ -163,15 +167,17 @@ export function CallFeedbackDialog({
               </div>
 
               {scheduleFollowUp && (
-                <div className="space-y-2">
-                  <Label htmlFor="follow-up-date">{copy.dialog.followUpDateLabel}</Label>
-                  <DatePicker
-                    id="follow-up-date"
-                    value={followUpDate}
-                    onChange={setFollowUpDate}
-                    fromDate={new Date()}
-                  />
-                </div>
+                <FollowUpScheduleFields
+                  date={followUpDate}
+                  onDateChange={setFollowUpDate}
+                  preferredTime={followUpPreferredTime}
+                  onPreferredTimeChange={setFollowUpPreferredTime}
+                  dateLabel={copy.dialog.followUpDateLabel}
+                  timeLabel={copy.dialog.followUpTimeLabel}
+                  timeOptionalHint={copy.dialog.followUpTimeHint}
+                  dateId="follow-up-date"
+                  timeId="follow-up-time"
+                />
               )}
             </div>
           )}
@@ -192,7 +198,7 @@ export function CallFeedbackDialog({
           )}
         </div>
 
-        <div className="border-t border-border px-6 py-4">
+        <div className={cn("border-t border-border px-6 pt-4", modalFooterSafeClassName)}>
           <Button
             type="button"
             className="h-12 w-full"

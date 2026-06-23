@@ -1,9 +1,9 @@
+import { redirect } from "next/navigation";
 import { content } from "@/content/en";
-import { StaffAnalytics } from "@/components/admin/StaffAnalytics";
-import {
-  fetchInitialStaffFilterStores,
-  fetchInitialStaffPerformance,
-} from "@/lib/data/staff";
+import { AdminStoreSectionShell } from "@/components/admin/AdminStoreSectionShell";
+import { StaffManagement } from "@/components/store/StaffManagement";
+import { fetchInitialAdminStoreStaff } from "@/lib/data/staff";
+import { adminStoreDetailPath } from "@/lib/utils/admin-dashboard-url";
 
 interface AdminStaffPageProps {
   searchParams: Promise<{ storeId?: string }>;
@@ -11,23 +11,25 @@ interface AdminStaffPageProps {
 
 export default async function AdminStaffPage({ searchParams }: AdminStaffPageProps) {
   const { storeId } = await searchParams;
-  const [performance, stores] = await Promise.all([
-    fetchInitialStaffPerformance(storeId),
-    fetchInitialStaffFilterStores(),
-  ]);
+
+  if (!storeId) {
+    redirect("/admin/dashboard/accounts");
+  }
+
+  const initialStaff = await fetchInitialAdminStoreStaff(storeId);
 
   return (
-    <StaffAnalytics
-      admin={content.admin}
-      common={content.common}
-      emptyMessage={content.empty.staff}
-      allStoresLabel={content.admin.staff.allStores}
-      initialStoreId={storeId}
-      initialPerformance={performance?.data}
-      initialStoreFilter={performance?.storeFilter}
-      initialStores={stores?.data}
-      backHref={storeId ? `/admin/dashboard/stores/${storeId}` : undefined}
-      backLabel={content.common.back}
-    />
+    <AdminStoreSectionShell admin={content.admin} storeId={storeId} section="staff">
+      <StaffManagement
+        store={content.store}
+        storeId={storeId}
+        emptyMessage={content.empty.staff}
+        errors={content.errors}
+        initialStaff={initialStaff?.data}
+        backHref={adminStoreDetailPath(storeId)}
+        backLabel={content.common.back}
+        showImport
+      />
+    </AdminStoreSectionShell>
   );
 }

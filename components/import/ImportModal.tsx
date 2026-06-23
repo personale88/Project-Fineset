@@ -8,6 +8,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
+import { modalScrollSafeClassName } from "@/lib/utils/modal-safe-area";
 import { ImportStepIndicator } from "@/components/import/shared/ImportStepIndicator";
 import { UploadStep } from "@/components/import/steps/UploadStep";
 import { MappingStep } from "@/components/import/steps/MappingStep";
@@ -274,7 +276,7 @@ export function ImportModal({
           <ImportStepIndicator currentStep={step} />
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+        <div className={cn("min-h-0 flex-1 overflow-y-auto px-6 py-4", modalScrollSafeClassName)}>
           {error && step !== "upload" && step !== "progress" && (
             <div className="mb-4 rounded-card border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
               {error}

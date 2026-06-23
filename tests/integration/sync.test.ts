@@ -10,6 +10,12 @@ describe.skipIf(!process.env.DATABASE_URL)("sync version with database", () => {
         role: "MASTER_ADMIN",
         userId: "test-admin",
         email: "admin@test.local",
+        permissions: {
+          portfolio: true,
+          accounts: true,
+          analytics: true,
+          billing: true,
+        },
       },
       ["stores"],
     );

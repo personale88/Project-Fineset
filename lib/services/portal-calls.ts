@@ -343,13 +343,13 @@ async function getPortalAvailableYears(storeId?: string, staffId?: string): Prom
       ? Prisma.sql`WHERE ${Prisma.join(parts, " AND ")}`
       : Prisma.empty;
 
-  const rows = await prisma.$queryRaw<YearRow[]>`
+  const rows = await prisma.$queryRaw<YearRow[]>(Prisma.sql`
     SELECT DISTINCT EXTRACT(YEAR FROM "visitDate")::int AS year
     FROM "Visit"
     ${whereClause}
     ORDER BY year DESC
     LIMIT 10
-  `;
+  `);
 
   const years = new Set(rows.map((r) => Number(r.year)));
   years.add(new Date().getFullYear());

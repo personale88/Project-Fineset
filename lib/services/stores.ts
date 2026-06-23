@@ -6,6 +6,8 @@ import {
 } from "@/lib/services/manager-stores";
 import { validatePassword } from "@/lib/auth/password-policy";
 import { ensureProductionStoreSchema } from "@/lib/db/ensure-production-store-schema";
+import { computeOnboardingDefaultDates } from "@/lib/platform/onboarding-dates";
+import { getPlatformSettings } from "@/lib/services/platform-settings";
 import { prisma } from "@/lib/db/prisma";
 import {
   mergeDeletedStoreWhere,
@@ -14,6 +16,10 @@ import {
   storeNotDeletedWhere,
 } from "@/lib/db/store-scope";
 import { StoreServiceError } from "@/lib/services/store-service-error";
+import {
+  findSiblingBusinessDates,
+  syncBusinessDatesForEmail,
+} from "@/lib/services/store-business-dates";
 import {
   normalizeStoreManagerEmail,
   syncStoreManagerEmail,
@@ -24,8 +30,9 @@ import { invalidateStoreDerivedCaches } from "@/lib/sync/store-cache";
 
 export { StoreServiceError } from "@/lib/services/store-service-error";
 import type { CreateStoreInput, UpdateStoreInput } from "@/lib/validations/store.schema";
+import { parseStoreDateField } from "@/lib/validations/store.schema";
 import type { Store } from "@prisma/client";
-import type { AnalyticsPeriodLabel, StorePerformanceRow } from "@/types";
+import type { AdminStorePortfolioRow, AnalyticsPeriodLabel, StorePerformanceRow } from "@/types";
 import type { Prisma, PurchaseStatus } from "@prisma/client";
 import {
   calculateAvgTransaction,
@@ -48,7 +55,8 @@ export async function listStores(params: {
   const { start, end } = getPeriodRange(period);
   const filters: Prisma.StoreWhereInput = {};
 
-  if (params.activeOnly) {
+  // Soft-deleted stores are always inactive; skip activeOnly when listing trash.
+  if (params.activeOnly && !params.includeDeleted) {
     filters.isActive = true;
   }
 
@@ -101,6 +109,8 @@ export async function listStores(params: {
       revenue: calculateTotalRevenue(store.visits),
       conversionRate: calculateConversionRate(store.visits),
       createdAt: store.createdAt.toISOString(),
+      dataExpiryAt: store.dataExpiryAt?.toISOString() ?? null,
+      renewalDueAt: store.renewalDueAt?.toISOString() ?? null,
     }));
 
   return {
@@ -126,6 +136,31 @@ export async function createStore(input: CreateStoreInput): Promise<CreateStoreR
     storeFields.category === "OTHER" ? storeFields.customCategory?.trim() : undefined;
   const managerEmail = storeFields.businessOwnerEmail?.trim().toLowerCase();
 
+  let dataExpiryAt = storeFields.dataExpiryAt
+    ? parseStoreDateField(storeFields.dataExpiryAt) ?? null
+    : null;
+  let renewalDueAt = storeFields.renewalDueAt
+    ? parseStoreDateField(storeFields.renewalDueAt) ?? null
+    : null;
+  if (
+    managerEmail &&
+    dataExpiryAt == null &&
+    renewalDueAt == null
+  ) {
+    const siblingDates = await findSiblingBusinessDates(managerEmail);
+    if (siblingDates) {
+      dataExpiryAt = siblingDates.dataExpiryAt;
+      renewalDueAt = siblingDates.renewalDueAt;
+    }
+  }
+
+  if (dataExpiryAt == null && renewalDueAt == null) {
+    const settings = await getPlatformSettings();
+    const defaults = computeOnboardingDefaultDates(settings.onboarding);
+    dataExpiryAt = parseStoreDateField(defaults.dataExpiryAt) ?? null;
+    renewalDueAt = parseStoreDateField(defaults.renewalDueAt) ?? null;
+  }
+
   let store: Store | undefined;
   try {
     store = await prisma.store.create({
@@ -138,6 +173,8 @@ export async function createStore(input: CreateStoreInput): Promise<CreateStoreR
         pincode: storeFields.pincode ?? null,
         businessOwnerName: storeFields.businessOwnerName ?? null,
         businessOwnerEmail: managerEmail ?? null,
+        dataExpiryAt,
+        renewalDueAt,
       },
     });
 
@@ -145,7 +182,11 @@ export async function createStore(input: CreateStoreInput): Promise<CreateStoreR
       await prisma.storeCategoryOption.upsert({
         where: { name: normalizedCustomCategory },
         update: {},
-        create: { name: normalizedCustomCategory },
+        create: {
+          name: normalizedCustomCategory,
+          label: normalizedCustomCategory,
+          isBuiltin: false,
+        },
       });
     }
 
@@ -171,6 +212,9 @@ export async function createStore(input: CreateStoreInput): Promise<CreateStoreR
     }
 
     const result = { store: store!, manager };
+    if (managerEmail && (dataExpiryAt != null || renewalDueAt != null)) {
+      await syncBusinessDatesForEmail(managerEmail, { dataExpiryAt, renewalDueAt });
+    }
     invalidateStoreDerivedCaches({
       storeId: store!.id,
       businessOwnerEmail: store!.businessOwnerEmail,
@@ -221,7 +265,11 @@ export async function updateStore(storeId: string, input: UpdateStoreInput) {
     await prisma.storeCategoryOption.upsert({
       where: { name: normalizedCustomCategory },
       update: {},
-      create: { name: normalizedCustomCategory },
+      create: {
+        name: normalizedCustomCategory,
+        label: normalizedCustomCategory,
+        isBuiltin: false,
+      },
     });
   }
 
@@ -229,6 +277,15 @@ export async function updateStore(storeId: string, input: UpdateStoreInput) {
     storeId: store.id,
     businessOwnerEmail: store.businessOwnerEmail,
   });
+
+  if (input.dataExpiryAt !== undefined || input.renewalDueAt !== undefined) {
+    await syncBusinessDatesForEmail(store.businessOwnerEmail, {
+      dataExpiryAt: store.dataExpiryAt,
+      renewalDueAt: store.renewalDueAt,
+    });
+    const refreshed = await prisma.store.findUniqueOrThrow({ where: { id: storeId } });
+    return refreshed;
+  }
 
   return store;
 }
@@ -354,7 +411,10 @@ export async function softDeleteStore(
   };
 }
 
-export async function restoreStore(storeId: string): Promise<Store> {
+export async function restoreStore(
+  storeId: string,
+  restoredByEmail: string,
+): Promise<Store> {
   const store = await prisma.store.findFirst({
     where: {
       id: storeId,
@@ -406,8 +466,12 @@ export async function restoreStore(storeId: string): Promise<Store> {
 
   void logAuthEvent({
     event: "STORE_RESTORED",
-    email: store.deletedByEmail,
-    metadata: { storeId, storeName: store.name },
+    email: restoredByEmail.trim().toLowerCase(),
+    metadata: {
+      storeId,
+      storeName: store.name,
+      previouslyDeletedBy: store.deletedByEmail,
+    },
   });
 
   invalidateStoreDerivedCaches({
@@ -470,6 +534,8 @@ export async function getStorePerformanceRows(
         city: true,
         state: true,
         isActive: true,
+        businessOwnerName: true,
+        businessOwnerEmail: true,
         staff: {
           where: { role: "STORE_MANAGER" },
           orderBy: [{ isActive: "desc" }, { name: "asc" }],
@@ -606,6 +672,8 @@ export async function getStorePerformanceRows(
       city: store.city,
       state: store.state,
       isActive: store.isActive,
+      businessOwnerName: store.businessOwnerName,
+      businessOwnerEmail: store.businessOwnerEmail,
       storeManagerName: store.staff[0]?.name ?? null,
       storeManagerPhone: store.staff[0]?.phone ?? null,
       visits,
@@ -626,6 +694,93 @@ export async function getStorePerformanceRows(
         userCalls: calculateDelta(userCalls, previousUserCalls),
       },
     };
+  });
+}
+
+export async function getAdminPortfolioStoreRows(): Promise<AdminStorePortfolioRow[]> {
+  await ensureProductionStoreSchema();
+
+  const stores = await prisma.store.findMany({
+    where: storeNotDeletedWhere,
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      category: true,
+      customCategory: true,
+      city: true,
+      state: true,
+      pincode: true,
+      businessOwnerName: true,
+      businessOwnerEmail: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
+      deletedAt: true,
+      purgeAt: true,
+      dataExpiryAt: true,
+      renewalDueAt: true,
+      staff: {
+        where: { isActive: true },
+        select: { name: true, phone: true, role: true },
+      },
+      _count: { select: { staff: { where: { isActive: true } } } },
+    },
+  });
+
+  const ownerEmails = [
+    ...new Set(
+      stores
+        .map((store) => store.businessOwnerEmail?.trim().toLowerCase())
+        .filter((email): email is string => Boolean(email)),
+    ),
+  ];
+
+  const owners =
+    ownerEmails.length > 0
+      ? await prisma.appUser.findMany({
+          where: {
+            role: "BUSINESS_OWNER",
+            email: { in: ownerEmails },
+          },
+          select: { email: true, lastLoginAt: true },
+        })
+      : [];
+
+  const lastLoginByEmail = new Map(
+    owners.map((owner) => [owner.email.toLowerCase(), owner.lastLoginAt?.toISOString() ?? null]),
+  );
+
+  return stores.map((store) => {
+    const manager = store.staff.find((member) => member.role === "STORE_MANAGER");
+    const staffWithPhone = store.staff.find((member) => member.phone?.trim());
+    const contactPhone =
+      manager?.phone?.trim() || staffWithPhone?.phone?.trim() || null;
+
+    return {
+    storeId: store.id,
+    storeName: store.name,
+    category: store.category,
+    customCategory: store.customCategory,
+    city: store.city,
+    state: store.state,
+    pincode: store.pincode,
+    isActive: store.isActive,
+    businessOwnerName: store.businessOwnerName,
+    businessOwnerEmail: store.businessOwnerEmail,
+    storeManagerName: manager?.name ?? staffWithPhone?.name ?? null,
+    storeManagerPhone: contactPhone,
+    staffCount: store._count.staff,
+    createdAt: store.createdAt.toISOString(),
+    updatedAt: store.updatedAt.toISOString(),
+    deletedAt: store.deletedAt?.toISOString() ?? null,
+    purgeAt: store.purgeAt?.toISOString() ?? null,
+    dataExpiryAt: store.dataExpiryAt?.toISOString() ?? null,
+    renewalDueAt: store.renewalDueAt?.toISOString() ?? null,
+    ownerLastLoginAt: store.businessOwnerEmail
+      ? lastLoginByEmail.get(store.businessOwnerEmail.trim().toLowerCase()) ?? null
+      : null,
+  };
   });
 }
 

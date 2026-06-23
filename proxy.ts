@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import {
+  getProtectedApiRouteForPath,
   getProtectedRouteForPath,
   getRedirectForRole,
   LEGACY_STORE_DASHBOARD_PATH,
@@ -37,6 +38,22 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(destination);
   }
 
+  const protectedApiRoute = getProtectedApiRouteForPath(pathname);
+
+  if (protectedApiRoute) {
+    const apiRole = await resolveRole();
+
+    if (!apiRole) {
+      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!protectedApiRoute.roles.includes(apiRole)) {
+      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
+    }
+
+    return NextResponse.next({ request });
+  }
+
   const protectedRoute = getProtectedRouteForPath(pathname);
 
   if (!protectedRoute) {
@@ -62,6 +79,9 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/api/admin/:path*",
+    "/api/stores/:path*",
+    "/api/audit/:path*",
     "/api/sync/:path*",
     "/api/analytics/:path*",
     "/api/staff/:path*",

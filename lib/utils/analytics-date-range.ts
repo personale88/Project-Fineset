@@ -1,5 +1,6 @@
 import type { AdminBusinessAnalyticsQuery } from "@/lib/validations/admin-business-analytics.schema";
 import { getPeriodRange } from "@/lib/utils/analytics";
+import type { AnalyticsPeriodLabel } from "@/types";
 
 export type AnalyticsDateMode = NonNullable<AdminBusinessAnalyticsQuery["dateMode"]>;
 
@@ -78,6 +79,44 @@ function getCustomRange(startDate: Date, endDate: Date): ResolvedDateRange {
   return { start, end, label };
 }
 
+function formatDateRangeLabel(start: Date, end: Date): string {
+  const sameDay = start.toDateString() === end.toDateString();
+  if (sameDay) {
+    return start.toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+  return `${start.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
+}
+
+export function formatPresetPeriodLabel(
+  period: AnalyticsPeriodLabel,
+  start: Date,
+  end: Date,
+): string {
+  const rangeLabel = formatDateRangeLabel(start, end);
+  switch (period) {
+    case "today":
+      return `Today (${rangeLabel})`;
+    case "yesterday":
+      return `Yesterday (${rangeLabel})`;
+    case "week":
+      return `Last 7 days (${rangeLabel})`;
+    case "month":
+      return `This month (${rangeLabel})`;
+    case "last30days":
+      return `Last 30 days (${rangeLabel})`;
+    case "last3months":
+      return `Last 90 days (${rangeLabel})`;
+    case "last6months":
+      return `Last 6 months (${rangeLabel})`;
+    default:
+      return rangeLabel;
+  }
+}
+
 export function resolveAnalyticsDates(
   query: AdminBusinessAnalyticsQuery,
 ): ResolvedAnalyticsDates {
@@ -117,21 +156,12 @@ export function resolveAnalyticsDates(
     return { kind: "single", range: getCustomRange(query.startDate, query.endDate) };
   }
 
-  const period = query.period ?? "month";
+  const period = query.period ?? "last30days";
   const { start, end } = getPeriodRange(period);
-  const label =
-    period === "today"
-      ? "Today"
-      : period === "yesterday"
-        ? "Yesterday"
-        : period === "week"
-          ? "Last 7 days"
-          : period === "month"
-            ? "Last 30 days"
-            : period === "last3months"
-              ? "Last 90 days"
-              : "Last 6 months";
-  return { kind: "single", range: { start, end, label } };
+  return {
+    kind: "single",
+    range: { start, end, label: formatPresetPeriodLabel(period, start, end) },
+  };
 }
 
 export function percentDelta(current: number, previous: number): number {

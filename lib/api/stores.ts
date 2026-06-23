@@ -1,8 +1,41 @@
 import { apiFetch, buildQueryString } from "@/lib/api/client";
 import type { CreateStoreInput, UpdateStoreInput } from "@/lib/validations/store.schema";
+import type { SoftDeleteStoreInput } from "@/lib/validations/store-delete.schema";
+import type { RestoreStoreInput } from "@/lib/validations/store-restore.schema";
+import type { UpdateStoreManagerPasswordInput } from "@/lib/validations/store-password.schema";
 import type { PaginatedResponse, StoreCategory } from "@/types";
 import type { CreateStoreResult } from "@/lib/services/stores";
-import type { Store } from "@prisma/client";
+
+export interface StoreDetail {
+  id: string;
+  name: string;
+  category: StoreCategory;
+  customCategory: string | null;
+  city: string;
+  state: string;
+  pincode: string | null;
+  businessOwnerName: string | null;
+  businessOwnerEmail: string | null;
+  isActive: boolean;
+  deletedAt: string | null;
+  purgeAt: string | null;
+  dataExpiryAt: string | null;
+  renewalDueAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count: {
+    staff: number;
+    visits: number;
+    customers: number;
+  };
+}
+
+export interface SoftDeleteStoreResult {
+  id: string;
+  name: string;
+  deletedAt: string;
+  purgeAt: string;
+}
 
 interface StoreListItem {
   id: string;
@@ -22,6 +55,8 @@ interface StoreListItem {
   revenue: number;
   conversionRate: number;
   createdAt: string;
+  dataExpiryAt?: string | null;
+  renewalDueAt?: string | null;
 }
 
 interface GetStoresParams {
@@ -55,53 +90,49 @@ export async function createStore(payload: CreateStoreInput): Promise<CreateStor
   });
 }
 
+export async function getStoreById(storeId: string): Promise<StoreDetail> {
+  return apiFetch<StoreDetail>(`/api/stores/${storeId}`);
+}
+
 export async function updateStore(
   storeId: string,
   payload: UpdateStoreInput,
-): Promise<Store> {
-  return apiFetch<Store>(`/api/stores/${storeId}`, {
+): Promise<StoreDetail> {
+  return apiFetch<StoreDetail>(`/api/stores/${storeId}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
   });
 }
 
-export interface SoftDeleteStorePayload {
-  password: string;
-  storeNameConfirm: string;
-}
-
-export interface SoftDeleteStoreResponse {
-  id: string;
-  name: string;
-  deletedAt: string;
-  purgeAt: string;
-}
-
 export async function deleteStore(
   storeId: string,
-  payload: SoftDeleteStorePayload,
-): Promise<SoftDeleteStoreResponse> {
-  return apiFetch<SoftDeleteStoreResponse>(`/api/stores/${storeId}`, {
+  payload: SoftDeleteStoreInput,
+): Promise<SoftDeleteStoreResult> {
+  return apiFetch<SoftDeleteStoreResult>(`/api/stores/${storeId}`, {
     method: "DELETE",
     body: JSON.stringify(payload),
   });
 }
 
-export async function restoreStore(storeId: string): Promise<Store> {
-  return apiFetch<Store>(`/api/stores/${storeId}/restore`, {
+export async function restoreStore(
+  storeId: string,
+  payload: RestoreStoreInput,
+): Promise<StoreDetail> {
+  return apiFetch<StoreDetail>(`/api/stores/${storeId}/restore`, {
     method: "POST",
+    body: JSON.stringify(payload),
   });
 }
 
 export async function updateStoreManagerPassword(
   storeId: string,
-  password: string,
+  payload: UpdateStoreManagerPasswordInput,
 ): Promise<{ appUserId: string; email: string }> {
   return apiFetch<{ appUserId: string; email: string }>(
     `/api/stores/${storeId}/password`,
     {
       method: "PATCH",
-      body: JSON.stringify({ password }),
+      body: JSON.stringify(payload),
     },
   );
 }

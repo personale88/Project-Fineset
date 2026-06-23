@@ -48,10 +48,20 @@ export const fetchInitialStoreStaff = cache(
   },
 );
 
+export const fetchInitialAdminStoreStaff = cache(
+  async (storeId: string): Promise<InitialStoreStaffPayload | null> => {
+    const session = await getServerSession();
+    if (!requireRole(session, ["MASTER_ADMIN", "PLATFORM_ADMIN"])) return null;
+
+    const data = await listStaff(storeId);
+    return { data, storeId };
+  },
+);
+
 export const fetchInitialStaffPerformance = cache(
   async (storeId?: string): Promise<InitialStaffPerformancePayload | null> => {
     const session = await getServerSession();
-    if (!requireRole(session, ["MASTER_ADMIN"])) return null;
+    if (!requireRole(session, ["MASTER_ADMIN", "PLATFORM_ADMIN"])) return null;
 
     const storeFilter = storeId ?? "all";
     const data = await getStaffPerformance(
@@ -65,7 +75,7 @@ export const fetchInitialStaffPerformance = cache(
 export const fetchInitialStaffFilterStores = cache(
   async (): Promise<InitialStaffFilterStoresPayload | null> => {
     const session = await getServerSession();
-    if (!requireRole(session, ["MASTER_ADMIN"])) return null;
+    if (!requireRole(session, ["MASTER_ADMIN", "PLATFORM_ADMIN"])) return null;
 
     const data = await listStores(DEFAULT_STORES_FILTER_PARAMS);
     return {

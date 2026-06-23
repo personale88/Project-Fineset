@@ -69,7 +69,7 @@ export function FieldSalesFormSections({
       )}
 
       {shouldShowSection("noEnrollment", activeSection, mode) &&
-        !schemesPitched.includes("NONE") &&
+        !(schemesPitched ?? []).includes("NONE") &&
         (enrollmentOutcome === "DECLINED" || enrollmentOutcome === "CALLBACK") && (
           <NoEnrollmentSection copy={copy} control={control} />
         )}

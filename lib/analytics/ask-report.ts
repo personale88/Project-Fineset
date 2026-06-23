@@ -6,7 +6,26 @@ import type { AdminBusinessAnalytics } from "@/types/admin-business-analytics";
 export function buildRuleBasedAskReport(
   analytics: AdminBusinessAnalytics,
   breakdownDimension: CohortPivotDimension,
+  options?: {
+    dataAvailability?: "ok" | "empty" | "sparse";
+    emptyMessage?: string;
+    sparseMessage?: string;
+  },
 ): AnalyticsAskReport {
+  if (options?.dataAvailability === "empty" && options.emptyMessage) {
+    return {
+      summary: options.emptyMessage,
+      highlights: [
+        "No visit records matched your selected period and scope.",
+        "Charts and KPIs show zero because nothing was logged in Tribly for this window.",
+      ],
+      recommendations: [
+        "Widen the date range or remove city/category/store filters.",
+        "Confirm staff are logging visits in the store portal for this period.",
+      ],
+    };
+  }
+
   const { summary } = analytics;
   const highlights: string[] = [];
   const recommendations: string[] = [];
@@ -83,11 +102,15 @@ export function buildRuleBasedAskReport(
     ? `For ${analytics.period.label} compared with ${analytics.comparison.period.label}, the portfolio recorded ${summary.totalVisits} visits and ${formatCurrency(summary.totalRevenue)} in revenue at ${summary.conversionRate}% conversion.`
     : `For ${analytics.period.label}, the portfolio recorded ${summary.totalVisits} visits and ${formatCurrency(summary.totalRevenue)} in revenue at ${summary.conversionRate}% conversion.`;
 
-  return {
-    summary: summaryText,
+  const report: AnalyticsAskReport = {
+    summary: options?.sparseMessage
+      ? `${summaryText} ${options.sparseMessage}`
+      : summaryText,
     highlights: highlights.slice(0, 5),
     recommendations: recommendations.slice(0, 5),
   };
+
+  return report;
 }
 
 function getBreakdownRowsForReport(

@@ -1,4 +1,6 @@
 import type { CohortPivotDimension } from "@/lib/analytics/cohort-pivot";
+import { formatPresetPeriodLabel } from "@/lib/utils/analytics-date-range";
+import { getPeriodRange } from "@/lib/utils/analytics";
 import type { ParsedAnalyticsAskIntent } from "@/lib/validations/admin-business-analytics-ask.schema";
 import { formatMonthYearLabel } from "@/lib/utils/analytics-date-range";
 import type { AnalyticsAskChartType } from "@/types/admin-business-analytics-ask";
@@ -206,6 +208,28 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
     };
   }
 
+  if (/\blast 30 days?\b|\b30d\b/.test(text)) {
+    return {
+      dateMode: "preset",
+      period: "last30days",
+      chartTypes,
+      breakdownDimension: breakdownDimension ?? "customerType",
+      activeFilters: filterPart.activeFilters ?? [],
+      ...filterPart,
+    };
+  }
+
+  if (/\bthis month\b|\bmonth to date\b|\bmtd\b/.test(text)) {
+    return {
+      dateMode: "preset",
+      period: "month",
+      chartTypes,
+      breakdownDimension: breakdownDimension ?? "customerType",
+      activeFilters: filterPart.activeFilters ?? [],
+      ...filterPart,
+    };
+  }
+
   if (/\blast 7 days?\b|\b7d\b|\bweek\b/.test(text)) {
     return {
       dateMode: "preset",
@@ -276,7 +300,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
 
   return {
     dateMode: "preset",
-    period: "month",
+    period: "last30days",
     chartTypes,
     breakdownDimension: breakdownDimension ?? "customerType",
     activeFilters: filterPart.activeFilters ?? [],
@@ -300,17 +324,11 @@ export function describeParsedIntent(intent: ParsedAnalyticsAskIntent): string {
   } else if (intent.dateMode === "month" && intent.month && intent.year) {
     parts.push(formatMonthYearLabel(intent.month, intent.year));
   } else if (intent.period) {
-    const labels: Record<string, string> = {
-      today: "Today",
-      yesterday: "Yesterday",
-      week: "Last 7 days",
-      month: "Last 30 days",
-      last3months: "Last 90 days",
-      last6months: "Last 6 months",
-    };
-    parts.push(labels[intent.period] ?? intent.period);
+    const { start, end } = getPeriodRange(intent.period);
+    parts.push(formatPresetPeriodLabel(intent.period, start, end));
   } else {
-    parts.push("Last 30 days");
+    const { start, end } = getPeriodRange("last30days");
+    parts.push(formatPresetPeriodLabel("last30days", start, end));
   }
 
   if (intent.segment && intent.segment !== "ALL") {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { handleRouteError } from "@/lib/api/route-handler";
-import { resolveStorePortalStoreId } from "@/lib/auth/resolve-manager-store-id";
+import { resolveStaffWriteStoreId } from "@/lib/auth/resolve-staff-store-id";
 import {
   badRequest,
   getServerSession,
@@ -24,10 +24,14 @@ export async function PATCH(req: Request, { params }: RouteParams) {
   const { id } = await params;
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["BUSINESS_OWNER"])) return unauthorized();
+    if (
+      !requireRole(session, ["BUSINESS_OWNER", "MASTER_ADMIN", "PLATFORM_ADMIN"])
+    ) {
+      return unauthorized();
+    }
 
     const { searchParams } = new URL(req.url);
-    const resolved = await resolveStorePortalStoreId(
+    const resolved = await resolveStaffWriteStoreId(
       session,
       searchParams.get("storeId") ?? undefined,
     );
@@ -53,10 +57,14 @@ export async function DELETE(req: Request, { params }: RouteParams) {
   const { id } = await params;
   try {
     const session = await getServerSession();
-    if (!requireRole(session, ["BUSINESS_OWNER"])) return unauthorized();
+    if (
+      !requireRole(session, ["BUSINESS_OWNER", "MASTER_ADMIN", "PLATFORM_ADMIN"])
+    ) {
+      return unauthorized();
+    }
 
     const { searchParams } = new URL(req.url);
-    const resolved = await resolveStorePortalStoreId(
+    const resolved = await resolveStaffWriteStoreId(
       session,
       searchParams.get("storeId") ?? undefined,
     );

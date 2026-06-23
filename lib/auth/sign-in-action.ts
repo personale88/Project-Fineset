@@ -13,6 +13,7 @@ import {
   checkLoginRateLimit,
   getRequestIdentifier,
 } from "@/lib/rate-limit";
+import { isLocalAuthBypassEnabled } from "@/lib/auth/dev-auth-bypass";
 
 export type SignInResult =
   | { ok: true; redirectTo: string }
@@ -33,7 +34,9 @@ export async function signInAction(
   const startedAt = Date.now();
   const normalizedEmail = email.trim().toLowerCase();
 
-  if (!normalizedEmail || !password) {
+  const bypassPassword = isLocalAuthBypassEnabled();
+
+  if (!normalizedEmail || (!bypassPassword && !password)) {
     return { ok: false, code: "generic" };
   }
 

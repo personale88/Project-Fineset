@@ -48,6 +48,12 @@ describe.skipIf(!hasDb)("performance API routes", () => {
       role: "MASTER_ADMIN",
       userId: "perf-admin",
       email: "perf-admin@test.local",
+      permissions: {
+        portfolio: true,
+        accounts: true,
+        analytics: true,
+        billing: true,
+      },
     };
   }, 60_000);
 

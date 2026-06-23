@@ -1,8 +1,45 @@
 import { z } from "zod";
 import { passwordPolicySchema } from "@/lib/auth/password-policy";
+import { formatCalendarDate, isCalendarDateString, parseCalendarDate } from "@/lib/utils/calendar-date";
 import { paginationQuerySchema, periodQuerySchema } from "./common.schema";
 
 const storeCategorySchema = z.enum(["JEWELRY", "HANDBAGS", "WATCHES", "OTHER"]);
+
+function parseOptionalCalendarDate(value: string): Date | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (isCalendarDateString(trimmed)) return parseCalendarDate(trimmed);
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new Error("Invalid date");
+  }
+  return parseCalendarDate(formatCalendarDate(parsed));
+}
+
+const optionalCalendarDateField = z
+  .string()
+  .optional()
+  .transform((value) => {
+    if (value === undefined || value.trim() === "") return undefined;
+    try {
+      return parseOptionalCalendarDate(value) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  });
+
+const nullableCalendarDateField = z
+  .union([z.string(), z.null()])
+  .optional()
+  .transform((value) => {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    try {
+      return parseOptionalCalendarDate(value);
+    } catch {
+      return null;
+    }
+  });
 
 export const createStoreSchema = z
   .object({
@@ -31,15 +68,10 @@ export const createStoreSchema = z
       .transform((v) => v.trim())
       .transform((v) => (v === "" ? undefined : v))
       .optional(),
+    dataExpiryAt: z.string().optional().transform((value) => value?.trim() ?? ""),
+    renewalDueAt: z.string().optional().transform((value) => value?.trim() ?? ""),
   })
   .superRefine((data, ctx) => {
-    if (data.category === "OTHER" && !data.customCategory?.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Custom category is required when category is Other",
-        path: ["customCategory"],
-      });
-    }
     if (data.password) {
       const passwordCheck = passwordPolicySchema.safeParse(data.password);
       if (!passwordCheck.success) {
@@ -80,9 +112,20 @@ export const editStoreSchema = z.object({
       message: "Enter a valid email address",
     })
     .transform((v) => (v === "" ? undefined : v)),
+  dataExpiryAt: z.string().optional().transform((value) => value?.trim() ?? ""),
+  renewalDueAt: z.string().optional().transform((value) => value?.trim() ?? ""),
 });
 
 export type EditStoreInput = z.infer<typeof editStoreSchema>;
+
+export function parseStoreDateField(value: string | undefined): Date | null | undefined {
+  if (value === undefined) return undefined;
+  try {
+    return parseOptionalCalendarDate(value);
+  } catch {
+    return null;
+  }
+}
 
 export const updateStoreSchema = z.object({
   isActive: z.boolean().optional(),
@@ -98,6 +141,8 @@ export const updateStoreSchema = z.object({
     .optional(),
   businessOwnerName: z.string().min(1).max(100).nullable().optional(),
   businessOwnerEmail: z.string().email().max(255).nullable().optional(),
+  dataExpiryAt: nullableCalendarDateField,
+  renewalDueAt: nullableCalendarDateField,
 });
 
 export const getStoresQuerySchema = paginationQuerySchema.extend({

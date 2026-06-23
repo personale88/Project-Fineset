@@ -1,19 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { AdminDashboardNav } from "@/components/admin/AdminDashboardNav";
+import { useEffect, useMemo, useState } from "react";
+import { AdminPageIntro } from "@/components/admin/AdminPageIntro";
 import { AnalyticsAskPanel } from "@/components/admin/analytics/AnalyticsAskPanel";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { getStores } from "@/lib/api/stores";
-import { LIVE_QUERY_OPTIONS } from "@/lib/sync/constants";
+  AnalyticsScopeFilters,
+  buildAnalyticsScopeSummary,
+  resolveAnalyticsStoreId,
+  toAnalyticsScopePayload,
+  type AnalyticsScopeFilterValues,
+} from "@/components/admin/analytics/AnalyticsScopeFilters";
+import { useAllStoresForFilter } from "@/hooks/useAllStoresForFilter";
 import type { Content } from "@/content/en";
 
 type AnalyticsContent = Content["admin"]["analytics"];
@@ -21,68 +18,116 @@ type AnalyticsContent = Content["admin"]["analytics"];
 interface AdminBusinessAnalyticsProps {
   copy: AnalyticsContent;
   nav: Content["admin"]["nav"];
+  categories: Content["admin"]["categories"];
   common: Content["common"];
   errors: Content["errors"];
 }
 
+const defaultScopeFilters: AnalyticsScopeFilterValues = {
+  city: "all",
+  category: "all",
+  storeId: "",
+};
+
 export function AdminBusinessAnalytics({
   copy,
   nav,
+  categories,
   common,
   errors,
 }: AdminBusinessAnalyticsProps) {
-  const [storeFilter, setStoreFilter] = useState("all");
+  const [scopeFilters, setScopeFilters] =
+    useState<AnalyticsScopeFilterValues>(defaultScopeFilters);
 
   useEffect(() => {
-    document.documentElement.classList.add("analytics-no-overscroll");
-    return () => document.documentElement.classList.remove("analytics-no-overscroll");
+    const mediaQuery = window.matchMedia("(max-width: 1023px)");
+
+    const syncOverscrollClass = () => {
+      document.documentElement.classList.toggle("analytics-no-overscroll", mediaQuery.matches);
+    };
+
+    syncOverscrollClass();
+    mediaQuery.addEventListener("change", syncOverscrollClass);
+    return () => {
+      mediaQuery.removeEventListener("change", syncOverscrollClass);
+      document.documentElement.classList.remove("analytics-no-overscroll");
+    };
   }, []);
 
-  const { data: stores } = useQuery({
-    queryKey: ["stores", "analytics-filter"],
-    queryFn: () => getStores({ page: 1, pageSize: 100 }),
-    ...LIVE_QUERY_OPTIONS,
-  });
+  const { data: storesResult } = useAllStoresForFilter();
 
-  const selectedStoreId = storeFilter === "all" ? undefined : storeFilter;
+  const storeOptions = useMemo(
+    () =>
+      (storesResult?.data ?? []).map((store) => ({
+        id: store.id,
+        name: store.name,
+        city: store.city,
+        category: store.category,
+      })),
+    [storesResult?.data],
+  );
+
+  useEffect(() => {
+    if (storeOptions.length === 0) return;
+
+    setScopeFilters((current) => {
+      const storeId = resolveAnalyticsStoreId(current, storeOptions);
+      if (storeId === current.storeId) return current;
+      return { ...current, storeId };
+    });
+  }, [storeOptions]);
+
+  const scopePayload = useMemo(
+    () => toAnalyticsScopePayload(scopeFilters),
+    [scopeFilters],
+  );
+
+  const scopeSummary = useMemo(
+    () =>
+      buildAnalyticsScopeSummary(
+        scopeFilters,
+        storeOptions,
+        categories,
+        copy.selectStoreLabel,
+      ),
+    [scopeFilters, storeOptions, categories, copy.selectStoreLabel],
+  );
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 overscroll-y-none" data-analytics-page>
-      <div className="space-y-4">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-center font-display text-2xl font-bold tracking-tight text-text-primary md:text-3xl sm:text-left">
-            {copy.title}
-          </h1>
-          <div className="shrink-0 space-y-1 sm:text-right">
-            <Label htmlFor="analytics-store-filter" className="sr-only">
-              {copy.storeFilterLabel}
-            </Label>
-            <Select value={storeFilter} onValueChange={setStoreFilter}>
-              <SelectTrigger id="analytics-store-filter" className="w-full sm:w-56">
-                <SelectValue placeholder={common.filter} />
-              </SelectTrigger>
-              <SelectContent align="end">
-                <SelectItem value="all">{copy.allStoresLabel}</SelectItem>
-                {stores?.data.map((store) => (
-                  <SelectItem key={store.id} value={store.id}>
-                    {store.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </header>
-        <AdminDashboardNav labels={nav} />
+    <div
+      className="mx-auto flex max-w-7xl min-h-0 flex-col max-lg:h-[var(--analytics-mobile-height)] max-lg:max-h-[var(--analytics-mobile-height)] max-lg:overflow-hidden max-lg:-mx-page-x max-lg:-my-4 lg:space-y-6 lg:py-0"
+      data-analytics-page
+    >
+      <div className="shrink-0 space-y-0 lg:space-y-4">
+        <AdminPageIntro
+          title={copy.title}
+          subtitle={copy.subtitle}
+          nav={nav}
+          className="px-page-x lg:px-0"
+          navClassName="px-page-x lg:px-0"
+        />
+        <AnalyticsScopeFilters
+          copy={copy}
+          categories={categories}
+          stores={storeOptions}
+          values={scopeFilters}
+          scopeSummary={scopeSummary}
+          onChange={setScopeFilters}
+        />
       </div>
 
       <AnalyticsAskPanel
-        key={storeFilter}
+        className="min-h-0 flex-1"
         copy={copy.ask}
+        creditsCopy={copy.credits}
         common={common}
         errors={errors}
         kpis={copy.kpis}
         emptyBreakdown={copy.emptyBreakdown}
-        storeId={selectedStoreId}
+        scopeSummary={scopeSummary}
+        storeId={scopePayload.storeId}
+        city={scopePayload.city}
+        storeCategory={scopePayload.storeCategory}
       />
     </div>
   );

@@ -133,6 +133,20 @@ export async function checkSseRateLimit(
   return checkLimit(getSseLimiter(), identifier);
 }
 
+let analyticsAskLimiter: Ratelimit | null | undefined;
+
+function getAnalyticsAskLimiter(): Ratelimit | null {
+  if (!isRateLimitEnabled()) return null;
+  analyticsAskLimiter ??= createLimiter("fineset:analytics-ask", 30, "15 m");
+  return analyticsAskLimiter;
+}
+
+export async function checkAnalyticsAskRateLimit(
+  identifier: string,
+): Promise<RateLimitResult> {
+  return checkLimit(getAnalyticsAskLimiter(), identifier);
+}
+
 export async function checkPhoneRevealRateLimit(
   identifier: string,
 ): Promise<RateLimitResult> {

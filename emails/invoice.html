@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice {{ .InvoiceNumber }}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f5f1ea;
+      font-family: Georgia, "Times New Roman", serif;
+      color: #1a1a1a;
+    }
+    .wrap {
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 32px 16px;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e5dfd3;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .header {
+      background: #1a1a1a;
+      color: #ffffff;
+      padding: 28px 24px;
+    }
+    .header h1 {
+      margin: 0 0 6px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+    .header p {
+      margin: 0;
+      font-size: 14px;
+      color: #d4c4a0;
+    }
+    .body {
+      padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .meta {
+      margin: 0 0 20px;
+      color: #666666;
+      font-size: 13px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #eee8dc;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #888888;
+      font-weight: 600;
+    }
+    td.amount {
+      text-align: right;
+      white-space: nowrap;
+    }
+    th.amount {
+      text-align: right;
+    }
+    .total-row td {
+      font-weight: 600;
+      padding-top: 12px;
+    }
+    .grand-total td {
+      border-bottom: none;
+      font-size: 15px;
+      padding-top: 16px;
+    }
+    .note {
+      margin: 0 0 16px;
+      font-size: 13px;
+      color: #666666;
+    }
+    .footer {
+      padding: 20px 24px 24px;
+      border-top: 1px solid #eee8dc;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 12px;
+      color: #777777;
+      line-height: 1.5;
+    }
+    a { color: #9a7b2f; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="header">
+        <h1>Invoice</h1>
+        <p>{{ .InvoiceNumber }}</p>
+      </div>
+      <div class="body">
+        <p>Hello {{ .OwnerName }},</p>
+        <p>
+          Please find your monthly {{ .PlatformName }} subscription invoice for
+          <strong>{{ .BusinessName }}</strong>.
+        </p>
+        <p class="meta">
+          Invoice date: {{ .InvoiceDate }}<br />
+          Bill to: {{ .BusinessEmail }}<br />
+          Renewal due: {{ .RenewalDue }} · Data access until: {{ .DataExpiry }}
+        </p>
+        <p class="note">All amounts in INR. Base price is exclusive of GST; GST @ 18% is shown separately.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Store</th>
+              <th>Plan</th>
+              <th class="amount">Excl. GST</th>
+              <th class="amount">GST (18%)</th>
+              <th class="amount">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{ .LineItemsHtml }}
+            <tr class="total-row">
+              <td colspan="2">Subtotal (excl. GST)</td>
+              <td class="amount">{{ .Subtotal }}</td>
+              <td class="amount">—</td>
+              <td class="amount">—</td>
+            </tr>
+            <tr class="total-row">
+              <td colspan="2">GST (18%)</td>
+              <td class="amount">—</td>
+              <td class="amount">{{ .GstTotal }}</td>
+              <td class="amount">—</td>
+            </tr>
+            <tr class="total-row grand-total">
+              <td colspan="2">Total due (monthly, incl. GST)</td>
+              <td class="amount">—</td>
+              <td class="amount">—</td>
+              <td class="amount">{{ .GrandTotal }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Account status: {{ .PaymentStatus }}<br />
+          To pay or discuss billing, reply to this email or contact
+          <a href="mailto:{{ .SupportEmail }}">{{ .SupportEmail }}</a>.
+        </p>
+      </div>
+      <div class="footer">
+        Sent by {{ .PlatformName }} · {{ .SupportEmail }}<br />
+        <a href="{{ .SiteURL }}">{{ .SiteURL }}</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

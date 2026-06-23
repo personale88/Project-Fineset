@@ -1,24 +1,23 @@
 import { mergeStoreWhere, storeNotDeletedWhere } from "@/lib/db/store-scope";
 import { prisma } from "@/lib/db/prisma";
 import { unstable_cache } from "next/cache";
+import {
+  groupStoresByBusiness,
+} from "@/lib/utils/group-stores-by-business";
 import type {
   AdminDashboardOverview,
   AnalyticsData,
-  StoreDetailAnalytics,
   StoreManagerPortfolio,
 } from "@/types";
 import type { AnalyticsPeriod } from "@/types";
 import type { PurchaseStatus, SourceChannel } from "@prisma/client";
 import {
-  aggregateVisitsByDay,
   buildStoreKPIs,
-  calculateConversionRate,
   calculateDelta,
-  calculateTotalRevenue,
   getPeriodRange,
   getPreviousPeriodRange,
 } from "@/lib/utils/analytics";
-import { getManagerStorePerformanceRows, getStorePerformanceRows } from "./stores";
+import { getAdminPortfolioStoreRows, getManagerStorePerformanceRows } from "./stores";
 
 const visitAnalyticsSelect = {
   visitDate: true,
@@ -153,24 +152,27 @@ export const getStoreManagerPortfolio = unstable_cache(
 );
 
 export const getAdminDashboardOverview = unstable_cache(
-  async (period: AnalyticsPeriod["label"]): Promise<AdminDashboardOverview> => {
+  async (): Promise<AdminDashboardOverview> => {
     const startedAt = Date.now();
     try {
     const [totalStores, activeStores, stores] = await Promise.all([
       prisma.store.count({ where: storeNotDeletedWhere }),
       prisma.store.count({ where: mergeStoreWhere({ isActive: true }) }),
-      getStorePerformanceRows(period),
+      getAdminPortfolioStoreRows(),
     ]);
+
+    const businesses = groupStoresByBusiness(stores);
 
     return {
       totalStores,
       activeStores,
-      period,
+      inactiveStores: totalStores - activeStores,
+      totalBusinesses: businesses.length,
+      businesses,
       stores,
     };
   } catch (error) {
     console.error("[services.analytics] getAdminDashboardOverview failed", {
-      period,
       elapsedMs: Date.now() - startedAt,
       error,
     });
@@ -180,86 +182,6 @@ export const getAdminDashboardOverview = unstable_cache(
   ["getAdminDashboardOverview"],
   { revalidate: 60, tags: ["analytics"] },
 );
-
-export async function getAdminStoreDetailAnalytics(
-  storeId: string,
-  period: AnalyticsPeriod["label"],
-): Promise<StoreDetailAnalytics> {
-  const { start, end } = getPeriodRange(period);
-  const previousRange = getPreviousPeriodRange(period);
-
-  const [store, visits, previousVisits, openFollowUps] = await Promise.all([
-    prisma.store.findFirst({
-      where: mergeStoreWhere({ id: storeId }),
-      select: {
-        id: true,
-        name: true,
-        category: true,
-        city: true,
-        state: true,
-        isActive: true,
-      },
-    }),
-    prisma.visit.findMany({
-      where: {
-        storeId,
-        visitDate: { gte: start, lte: end },
-      },
-      select: visitAnalyticsSelect,
-    }),
-    prisma.visit.findMany({
-      where: {
-        storeId,
-        visitDate: { gte: previousRange.start, lte: previousRange.end },
-      },
-      select: {
-        purchaseStatus: true,
-        transactionAmount: true,
-        customerType: true,
-        schemeEnrolled: true,
-      },
-    }),
-    prisma.followUp.count({
-      where: {
-        visit: { storeId },
-        status: "OPEN",
-      },
-    }),
-  ]);
-
-  if (!store) {
-    throw new Error("Store not found");
-  }
-
-  const kpis = buildStoreKPIs(visits, openFollowUps);
-  const previousKpis = buildStoreKPIs(previousVisits, openFollowUps);
-
-  const kpiDeltas = {
-    totalVisits: calculateDelta(kpis.totalVisits, previousKpis.totalVisits),
-    totalRevenue: calculateDelta(kpis.totalRevenue, previousKpis.totalRevenue),
-    conversionRate: calculateDelta(kpis.conversionRate, previousKpis.conversionRate),
-    avgTransaction: calculateDelta(kpis.avgTransaction, previousKpis.avgTransaction),
-    newCustomers: calculateDelta(kpis.newCustomers, previousKpis.newCustomers),
-    repeatCustomers: calculateDelta(
-      kpis.repeatCustomers,
-      previousKpis.repeatCustomers,
-    ),
-    schemesEnrolled: calculateDelta(
-      kpis.schemesEnrolled,
-      previousKpis.schemesEnrolled,
-    ),
-  };
-
-  const breakdowns = buildVisitBreakdowns(visits);
-
-  return {
-    store,
-    kpis,
-    kpiDeltas,
-    visitsByDay: aggregateVisitsByDay(visits),
-    ...breakdowns,
-  };
-}
 
 export async function assertStoreExists(storeId: string): Promise<boolean> {
   const count = await prisma.store.count({

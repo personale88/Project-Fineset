@@ -8,6 +8,7 @@ import { validatePassword } from "@/lib/auth/password-policy";
 import { sendInviteEmail } from "@/lib/email/templates/auth-emails";
 import { isSmtpConfigured } from "@/lib/email/env";
 import { SmtpNotConfiguredError } from "@/lib/email/errors";
+import { sanitizeAdminPermissionsInput } from "@/lib/auth/admin-permissions";
 import type { InviteUserInput } from "@/lib/validations/user-invite.schema";
 import type { AppRole } from "@prisma/client";
 
@@ -96,6 +97,11 @@ export async function inviteUser(
       role: input.role,
       storeId: input.storeId,
       staffId,
+      phone: input.phone?.trim() || undefined,
+      adminPermissions:
+        input.role === "PLATFORM_ADMIN"
+          ? sanitizeAdminPermissionsInput(input.permissions)
+          : undefined,
       passwordHash,
       isActive: provisionedWithPassword,
       invitedAt: now,

@@ -117,6 +117,15 @@ export async function authenticateWithPassword(
     return { ok: true, profile };
   }
 
-  // TEMPORARY BYPASS FOR STAGING
+  if (!profile.passwordHash) {
+    return { ok: false, reason: "no_password" };
+  }
+
+  const { verifyCredential } = await import("@/lib/auth/credentials");
+  const valid = await verifyCredential(password, profile.passwordHash);
+  if (!valid) {
+    return { ok: false, reason: "invalid_credentials" };
+  }
+
   return { ok: true, profile };
 }

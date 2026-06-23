@@ -6,6 +6,7 @@ import {
   unauthorized,
 } from "@/lib/auth/session";
 import { handleRouteError } from "@/lib/api/route-handler";
+import { isPortalDataReadBlocked } from "@/lib/auth/billing-access-guard";
 import {
   STAFF_CALLS_ROLES,
   requireStaffCallsContext,
@@ -41,6 +42,23 @@ export async function GET(req: Request) {
       query.data.personalScope,
     );
     if (!staff) return unauthorized();
+
+    const blocked = await isPortalDataReadBlocked(session, staff.storeId);
+    if (blocked) {
+      return NextResponse.json({
+        data: [],
+        total: 0,
+        page: query.data.page,
+        pageSize: query.data.pageSize,
+        filters: {
+          master: { all: 0, store: 0, user: 0 },
+          segments: [],
+          valueTiers: [],
+          queues: [],
+        },
+        billingRestricted: true,
+      });
+    }
 
     if (query.data.viewStaffId) {
       const valid = await assertViewStaffInStore(query.data.viewStaffId, staff.storeId);

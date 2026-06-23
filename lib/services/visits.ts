@@ -5,6 +5,7 @@ import type { VisitListItem } from "@/types";
 import type { Prisma, SourceChannel, Visit } from "@prisma/client";
 import { visitDenormFields } from "@/lib/services/call-record-denorm";
 import { buildVisitSearchWhere } from "@/lib/services/customer-search";
+import { callOnlyVisitShellExclusion } from "@/lib/services/visit-list-filters";
 import {
   decryptCustomerFields,
   decryptVisitPii,
@@ -21,6 +22,7 @@ import {
   resolveCalendarDayFromInstant,
   startOfCalendarDay,
 } from "@/lib/utils/calendar-date";
+import { normalizeStoredFollowUpDate } from "@/lib/utils/follow-up-datetime";
 
 interface CreateVisitParams extends CreateVisitInput {
   storeId: string;
@@ -117,7 +119,9 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
       inTime && outTime !== null ? calculateDurationMins(inTime, outTime) : null;
     const visitDate = inTime ?? visitDay;
     const resolvedFollowUpDate =
-      followUpNeeded && followUpDate ? startOfCalendarDay(followUpDate) : null;
+      followUpNeeded && followUpDate
+        ? normalizeStoredFollowUpDate(followUpDate)
+        : null;
 
     const denorm = visitDenormFields({
       transactionAmount: visitData.transactionAmount ?? null,
@@ -238,6 +242,11 @@ export async function listVisits(
 
   if (params.sourceChannel) {
     where.sourceChannel = params.sourceChannel;
+  } else {
+    where.AND = [
+      ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+      callOnlyVisitShellExclusion(),
+    ];
   }
 
   const searchWhere = params.search

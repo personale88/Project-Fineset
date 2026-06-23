@@ -1,5 +1,6 @@
 import { resolveEffectiveRole } from "@/lib/auth/resolve-effective-role";
-import type { AppSession } from "@/types";
+import { normalizeAdminPermissions } from "@/lib/auth/admin-permissions";
+import type { AppSession, AdminPortalRole } from "@/types";
 import type { AppUser, Store } from "@prisma/client";
 
 export type AppUserWithRelations = AppUser & {
@@ -10,6 +11,19 @@ export type AppUserWithRelations = AppUser & {
     store: Pick<Store, "name"> | null;
   } | null;
 };
+
+function adminSessionFromProfile(
+  profile: AppUserWithRelations,
+  email: string,
+  role: AdminPortalRole,
+): AppSession {
+  return {
+    userId: profile.id,
+    email: email.toLowerCase(),
+    role,
+    permissions: normalizeAdminPermissions(role, profile.adminPermissions),
+  };
+}
 
 export function appSessionFromProfile(
   profile: AppUserWithRelations,
@@ -67,10 +81,9 @@ export function appSessionFromProfile(
       };
     }
     case "MASTER_ADMIN":
-      return {
-        ...base,
-        role: "MASTER_ADMIN",
-      };
+      return adminSessionFromProfile(profile, email, "MASTER_ADMIN");
+    case "PLATFORM_ADMIN":
+      return adminSessionFromProfile(profile, email, "PLATFORM_ADMIN");
     default: {
       const _exhaustive: never = profile.role;
       throw new Error(`Unknown role: ${String(_exhaustive)}`);

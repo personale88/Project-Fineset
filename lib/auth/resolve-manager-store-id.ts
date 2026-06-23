@@ -1,3 +1,4 @@
+import { isAdminPortalRole } from "@/lib/auth/admin-permissions";
 import { requireStaffContext } from "@/lib/auth/resolve-staff";
 import {
   badRequest,
@@ -26,15 +27,17 @@ export async function resolvePortalStoreIdForSession(
       ? requestedStoreId.trim()
       : undefined;
 
-  if (session.role === "MASTER_ADMIN") {
-    if (!normalized) {
+  if (isAdminPortalRole(session.role)) {
+    const adminSession = session as import("@/types").AdminSession;
+    const effectiveStoreId = normalized ?? adminSession.impersonatedStoreId;
+    if (!effectiveStoreId) {
       return badRequest({ storeId: ["storeId is required"] });
     }
-    const exists = await assertStoreExists(normalized);
+    const exists = await assertStoreExists(effectiveStoreId);
     if (!exists) {
       return notFound("Store not found");
     }
-    return normalized;
+    return effectiveStoreId;
   }
 
   if (session.role === "STAFF") {
@@ -74,7 +77,7 @@ export async function resolveAnalyticsStoreId(
   session: AppSession,
   requestedStoreId?: string,
 ): Promise<string | NextResponse> {
-  if (session.role === "MASTER_ADMIN") {
+  if (isAdminPortalRole(session.role)) {
     if (!requestedStoreId) {
       return badRequest({ storeId: ["storeId is required"] });
     }

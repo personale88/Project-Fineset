@@ -49,6 +49,14 @@ async function main(): Promise<void> {
   });
 
   console.log(`MASTER_ADMIN ready: ${email} (AppUser ${appUser.id})`);
+
+  const { grantAnalyticsCredits } = await import("../lib/services/analytics-credits");
+  await grantAnalyticsCredits({
+    appUserId: appUser.id,
+    credits: 50,
+    description: "Bootstrap grant for master admin",
+  });
+  console.log("Granted 50 analytics credits to master admin.");
 }
 
 main()

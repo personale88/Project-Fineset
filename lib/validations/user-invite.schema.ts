@@ -2,7 +2,13 @@ import { passwordPolicySchema } from "@/lib/auth/password-policy";
 import { phoneSchema } from "@/lib/validations/common.schema";
 import { z } from "zod";
 
-const appRoleSchema = z.enum(["MASTER_ADMIN", "BUSINESS_OWNER", "STORE_MANAGER", "STAFF"]);
+const appRoleSchema = z.enum([
+  "MASTER_ADMIN",
+  "PLATFORM_ADMIN",
+  "BUSINESS_OWNER",
+  "STORE_MANAGER",
+  "STAFF",
+]);
 
 export const inviteUserSchema = z
   .object({
@@ -18,6 +24,14 @@ export const inviteUserSchema = z
       .optional(),
     password: passwordPolicySchema.optional(),
     phone: phoneSchema.optional(),
+    permissions: z
+      .object({
+        portfolio: z.boolean().optional(),
+        accounts: z.boolean().optional(),
+        analytics: z.boolean().optional(),
+        billing: z.boolean().optional(),
+      })
+      .optional(),
   })
   .superRefine((data, ctx) => {
     if (data.role === "STAFF" && !data.employeeId) {
@@ -43,6 +57,13 @@ export const inviteUserSchema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "Admin users cannot be assigned to a store",
+        path: ["storeId"],
+      });
+    }
+    if (data.role === "PLATFORM_ADMIN" && data.storeId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Platform admin users cannot be assigned to a store",
         path: ["storeId"],
       });
     }

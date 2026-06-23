@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
+import { DEV_PASSWORD, loginWithEmail } from "./helpers/login";
+import { devPortalUsersReady } from "./helpers/fixtures";
 
-const DEV_PASSWORD = "FineSet#1dev";
+const portalUsersReady = devPortalUsersReady();
 
 const PORTAL_USERS = [
   {
@@ -31,14 +33,17 @@ const PORTAL_USERS = [
 
 for (const user of PORTAL_USERS) {
   test(`login as ${user.label} reaches dashboard`, async ({ page }) => {
-    const password = "password" in user ? user.password : DEV_PASSWORD;
+    test.skip(
+      user.label !== "master admin" && !portalUsersReady,
+      "Run npm run db:seed (Store Alpha) so E2E dev portal users exist",
+    );
 
-    await page.goto("/");
-    await page.fill('[name="email"]', user.email);
-    await page.fill('[name="password"]', password);
-    await page.click('button[type="submit"]');
+    await loginWithEmail(page, {
+      email: user.email,
+      password: "password" in user ? user.password : DEV_PASSWORD,
+      dashboardPattern: user.dashboard,
+    });
 
-    await page.waitForURL(user.dashboard, { timeout: 15_000 });
     await expect(page.getByTestId("portal-shell")).toBeVisible();
   });
 }

@@ -1,75 +1,71 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import {
-  ArrowLeftRight,
-  BarChart3,
-  CalendarRange,
-  Clock3,
-  Crown,
-  Gem,
-  LayoutGrid,
-  MapPin,
-  Radar,
-  Share2,
-  Sparkles,
-  Target,
-  TrendingUp,
-  UserCheck,
-  Users,
-} from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Loader2, Sparkles } from "lucide-react";
+import { AnalyticsChatComposer } from "@/components/admin/analytics/AnalyticsChatComposer";
+import { AnalyticsCreditsRechargePane } from "@/components/admin/analytics/AnalyticsCreditsRechargePane";
+import { AnalyticsPromptPicker } from "@/components/admin/analytics/AnalyticsPromptPicker";
+import { AnalyticsQuickSuggestions } from "@/components/admin/analytics/AnalyticsQuickSuggestions";
+import { AnalyticsScopeCreditsBar, formatShortPeriodLabel } from "@/components/admin/analytics/AnalyticsScopeCreditsBar";
 import { AnalyticsBreakdownChart } from "@/components/admin/analytics/AnalyticsBreakdownChart";
 import { AnalyticsComparisonTrendChart } from "@/components/admin/analytics/AnalyticsComparisonTrendChart";
+import { AnalyticsParseConfirmation } from "@/components/admin/analytics/AnalyticsParseConfirmation";
 import { AnalyticsPieChart } from "@/components/admin/analytics/AnalyticsPieChart";
 import { AnalyticsRadarChart } from "@/components/admin/analytics/AnalyticsRadarChart";
+import { AnalyticsTokenEstimate } from "@/components/admin/analytics/AnalyticsTokenEstimate";
 import { KPICard } from "@/components/analytics/KPICard";
 import { SalesLineChart } from "@/components/charts/lazy";
 import { QueryLoadState } from "@/components/shared/QueryLoadState";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
-import { useAdminBusinessAnalyticsAsk } from "@/hooks/useAdminBusinessAnalyticsAsk";
+import {
+  Sheet,
+  SheetBody,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useAnalyticsAskStream } from "@/hooks/useAnalyticsAskStream";
+import { AnalyticsStreamingText } from "@/components/admin/analytics/AnalyticsStreamingText";
+import { DataConfidenceBadge } from "@/components/admin/analytics/DataConfidenceBadge";
+import {
+  ANALYTICS_CREDITS_QUERY_KEY,
+  useAnalyticsCredits,
+} from "@/hooks/useAnalyticsCredits";
 import { buildAnalyticsAskExamples } from "@/lib/analytics/ask-example-prompts";
 import { cn } from "@/lib/utils/cn";
 import { formatCurrency } from "@/lib/utils/formatters";
-import type { AdminBusinessAnalyticsAskResult } from "@/types/admin-business-analytics-ask";
 import type { Content } from "@/content/en";
-import { ApiError } from "@/types";
 
 type AskCopy = Content["admin"]["analytics"]["ask"];
-
-const EXAMPLE_ICONS = {
-  compare: ArrowLeftRight,
-  "compare-visits": BarChart3,
-  trend: TrendingUp,
-  week: CalendarRange,
-  segment: Users,
-  breakdown: LayoutGrid,
-  conversion: Target,
-  source: Share2,
-  area: MapPin,
-  vip: Crown,
-  scheme: Gem,
-  retained: UserCheck,
-  overview: Radar,
-} as const;
+type CreditsCopy = Content["admin"]["analytics"]["credits"];
 
 interface AnalyticsAskPanelProps {
   copy: AskCopy;
+  creditsCopy: CreditsCopy;
   common: Content["common"];
   errors: Content["errors"];
   kpis: Content["admin"]["analytics"]["kpis"];
   emptyBreakdown: string;
+  scopeSummary: string;
   storeId?: string;
+  city?: string;
+  storeCategory?: "JEWELRY" | "HANDBAGS" | "WATCHES" | "OTHER";
+  className?: string;
 }
 
 export function AnalyticsAskPanel({
   copy,
+  creditsCopy,
   common,
   errors,
   kpis,
   emptyBreakdown,
+  scopeSummary,
   storeId,
+  city,
+  storeCategory,
+  className,
 }: AnalyticsAskPanelProps) {
   const [prompt, setPrompt] = useState("");
   const [activePrompt, setActivePrompt] = useState<string | null>(null);
@@ -77,71 +73,231 @@ export function AnalyticsAskPanel({
     "recommendations",
   );
   const [historyPrompts, setHistoryPrompts] = useState<string[]>([]);
-  const [result, setResult] = useState<AdminBusinessAnalyticsAskResult | null>(null);
+  const [scopeChanged, setScopeChanged] = useState(false);
+  const [rechargeOpen, setRechargeOpen] = useState(false);
+  const [promptsSheetOpen, setPromptsSheetOpen] = useState(false);
+  const initialScopeRef = useRef(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollContentRef = useRef<HTMLDivElement>(null);
+  const scrollRafRef = useRef(0);
+  const scrollDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { mutate, isPending, isError, error, reset } = useAdminBusinessAnalyticsAsk();
+  const queryClient = useQueryClient();
+  const { data: credits, isLoading: creditsLoading, isError: creditsError, refetch: refetchCredits } =
+    useAnalyticsCredits();
+
+  const {
+    phase,
+    statusMessage,
+    intent,
+    parseSource,
+    kpis: streamKpis,
+    reportText,
+    report,
+    tokenUsage,
+    balanceCredits: streamBalance,
+    error: streamError,
+    ask,
+    reset: resetStream,
+  } = useAnalyticsAskStream();
+
+  const isPending = phase === "parsing" || phase === "querying" || phase === "thinking";
+  const isError = phase === "error";
+
+  // Confirmation required is signalled as a special error code
+  const isConfirmationRequired = streamError?.code === "CONFIRMATION_REQUIRED";
+  const confirmation = isConfirmationRequired
+    ? {
+        status: "confirmation_required" as const,
+        interpretedQuery: intent ?? "",
+        parseSource: (parseSource ?? "rules") as import("@/lib/analytics/ask-confidence").ParseSource,
+        parseConfidence: "low" as import("@/lib/analytics/ask-confidence").ParseConfidence,
+        geminiConfigured: false,
+        tokenUsage: null,
+        message: streamError?.message ?? "",
+      }
+    : null;
+
+  const result = streamKpis && !isConfirmationRequired
+    ? {
+        status: (streamKpis.dataAvailability === "empty" ? "no_data" : "success") as "success" | "no_data",
+        interpretedQuery: intent ?? "",
+        scopeLabel: streamKpis.scopeLabel,
+        appliedFilters: streamKpis.appliedFilters,
+        parseSource: (parseSource ?? "rules") as import("@/lib/analytics/ask-confidence").ParseSource,
+        parseConfidence: (parseSource ?? "rules") as import("@/lib/analytics/ask-confidence").ParseConfidence,
+        aiPowered: parseSource === "gemini",
+        geminiConfigured: parseSource === "gemini",
+        tokenUsage,
+        balanceCredits: streamBalance ?? undefined,
+        dataAvailability: streamKpis.dataAvailability,
+        period: streamKpis.period,
+        comparisonPeriod: streamKpis.comparisonPeriod,
+        summary: streamKpis.summary,
+        comparisonSummary: streamKpis.comparisonSummary,
+        deltas: streamKpis.deltas,
+        charts: streamKpis.charts,
+        report: report ?? { summary: reportText, highlights: [], recommendations: [] },
+      }
+    : null;
+
+  const balanceCredits = streamBalance ?? credits?.balanceCredits;
+  const outOfCredits = balanceCredits === 0;
+
+  const scopeKey = useMemo(
+    () => JSON.stringify({ storeId, city, storeCategory }),
+    [storeId, city, storeCategory],
+  );
+
+  const askPayload = useMemo(
+    () => ({ storeId, city, storeCategory }),
+    [storeId, city, storeCategory],
+  );
+
+  const runAsk = useCallback(
+    (textOverride?: string, options?: { confirmLowConfidence?: boolean }) => {
+      const text = (textOverride ?? prompt).trim();
+      if (text.length < 3) return;
+
+      setActivePrompt(text);
+      setScopeChanged(false);
+      setPromptsSheetOpen(false);
+      if (!options?.confirmLowConfidence) {
+        setHistoryPrompts((current) =>
+          [text, ...current.filter((item) => item !== text)].slice(0, 25),
+        );
+      }
+      if (textOverride) setPrompt(textOverride);
+      ask({
+        prompt: text,
+        ...askPayload,
+        confirmLowConfidence: options?.confirmLowConfidence ?? false,
+      });
+    },
+    [askPayload, ask, prompt],
+  );
+
+  // Invalidate credits query when balance updates after a successful ask
+  useEffect(() => {
+    if (phase === "done") {
+      void queryClient.invalidateQueries({ queryKey: ANALYTICS_CREDITS_QUERY_KEY });
+    }
+  }, [phase, queryClient]);
+
+  useEffect(() => {
+    if (initialScopeRef.current) {
+      initialScopeRef.current = false;
+      return;
+    }
+
+    if (!activePrompt) return;
+
+    setScopeChanged(true);
+    ask({ prompt: activePrompt, ...askPayload, confirmLowConfidence: true });
+    setScopeChanged(false);
+  }, [scopeKey]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh only when scope changes
 
   const examples = useMemo(
     () => buildAnalyticsAskExamples(copy.examplePrompts),
     [copy.examplePrompts],
   );
 
+  const quickExamples = useMemo(() => examples.slice(0, 4), [examples]);
+
   const errorLabel =
-    error instanceof ApiError && error.body.message
-      ? error.body.message
+    streamError && !isConfirmationRequired
+      ? (streamError.message || errors.generic)
       : errors.generic;
 
-  function runAsk(example?: string) {
-    const text = (example ?? prompt).trim();
-    if (text.length < 3) return;
+  useEffect(() => {
+    if (streamError?.code === "INSUFFICIENT_CREDITS") {
+      setRechargeOpen(true);
+    }
+  }, [streamError]);
 
-    setActivePrompt(text);
-    setHistoryPrompts((current) => [text, ...current.filter((item) => item !== text)].slice(0, 25));
-    setResult(null);
-    mutate(
-      { prompt: text, storeId },
-      {
-        onSuccess: (data) => {
-          setResult(data);
-          if (example) setPrompt(example);
-        },
-      },
-    );
-  }
+  const displayedScope = result?.scopeLabel ?? scopeSummary;
+  const showEmptyChat = !activePrompt && phase === "idle";
+  const canSubmit = prompt.trim().length >= 3 && !isPending && !outOfCredits;
+  const showSuggestions = !isPending && !confirmation;
 
-  const showEmptyChat = !activePrompt && !result && !isPending;
+  const scrollToBottom = useCallback((behavior: ScrollBehavior = "smooth") => {
+    cancelAnimationFrame(scrollRafRef.current);
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = requestAnimationFrame(() => {
+        const container = scrollRef.current;
+        if (!container) return;
 
-  const promptComposer = (
-    <div className="border-t border-border pt-5">
-      <label className="sr-only" htmlFor="analytics-ask-prompt">
-        {copy.promptLabel}
-      </label>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <Textarea
-          id="analytics-ask-prompt"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder={copy.promptPlaceholder}
-          rows={3}
-          className="min-h-[4.5rem] flex-1 resize-none bg-surface-primary focus-visible:bg-surface-primary sm:min-h-[3.5rem]"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault();
-              runAsk();
-            }
-          }}
-        />
-        <Button
-          type="button"
-          className="shrink-0 sm:min-w-[7rem]"
-          disabled={prompt.trim().length < 3 || isPending}
-          onClick={() => runAsk()}
-        >
-          {copy.analyzeButton}
-        </Button>
-      </div>
-    </div>
-  );
+        const canScrollContainer = container.scrollHeight > container.clientHeight + 1;
+        if (canScrollContainer) {
+          const top = Math.max(0, container.scrollHeight - container.clientHeight);
+          container.scrollTo({ top, behavior });
+          return;
+        }
+
+        const anchor = scrollContentRef.current?.lastElementChild;
+        if (anchor instanceof HTMLElement) {
+          anchor.scrollIntoView({ behavior, block: "end" });
+        }
+      });
+    });
+  }, []);
+
+  const scrollToBottomRef = useRef(scrollToBottom);
+  scrollToBottomRef.current = scrollToBottom;
+
+  useLayoutEffect(() => {
+    if (!activePrompt || showEmptyChat) return;
+    scrollToBottom("auto");
+  }, [activePrompt, showEmptyChat, scrollToBottom]);
+
+  useLayoutEffect(() => {
+    if (!activePrompt || showEmptyChat) return;
+
+    if (isPending) {
+      scrollToBottom("auto");
+      return;
+    }
+
+    if (result || confirmation) {
+      scrollToBottom("smooth");
+    }
+  }, [activePrompt, isPending, result, confirmation, showEmptyChat, scrollToBottom]);
+
+  useEffect(() => {
+    const content = scrollContentRef.current;
+    if (!content || showEmptyChat) return;
+
+    const observer = new ResizeObserver(() => {
+      const container = scrollRef.current;
+      if (container) {
+        const distance = container.scrollHeight - container.scrollTop - container.clientHeight;
+        if (distance >= 120) return;
+      }
+
+      if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
+      scrollDebounceRef.current = setTimeout(() => {
+        scrollToBottomRef.current("smooth");
+      }, 120);
+    });
+
+    observer.observe(content);
+    return () => {
+      observer.disconnect();
+      if (scrollDebounceRef.current) clearTimeout(scrollDebounceRef.current);
+    };
+  }, [showEmptyChat, activePrompt]);
+
+  const promptPickerProps = {
+    copy,
+    examples,
+    historyPrompts,
+    activePrompt,
+    activeTab: activeLeftTab,
+    onTabChange: setActiveLeftTab,
+    isPending,
+    outOfCredits,
+    onSelectPrompt: runAsk,
+  };
 
   const panelCard =
     "rounded-card border border-border bg-surface-card p-4 shadow-card sm:p-5";
@@ -149,193 +305,212 @@ export function AnalyticsAskPanel({
     "overflow-hidden rounded-card border border-border bg-surface-card shadow-card";
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)] lg:items-start">
-      <div className="min-h-0 lg:flex lg:flex-col">
-        <aside
-          className={cn(
-            panelCard,
-            "flex min-h-0 flex-col",
-            "lg:sticky lg:top-[calc(var(--portal-header-offset)+var(--portal-sticky-gap,0.75rem))] lg:z-[5] lg:max-h-[calc(100svh-var(--portal-header-offset)-var(--portal-sticky-gap,0.75rem)-var(--portal-sticky-gap,0.75rem))] lg:overscroll-none lg:self-start",
-          )}
-          aria-labelledby="analytics-ask-examples"
-        >
-          <Tabs
-            value={activeLeftTab}
-            onValueChange={(value) =>
-              setActiveLeftTab(value === "history" ? "history" : "recommendations")
-            }
-            className="flex min-h-0 flex-1 flex-col"
-          >
-            <TabsList
-              aria-labelledby="analytics-ask-examples"
-              className="grid h-10 w-full grid-cols-2"
-            >
-              <TabsTrigger
-                value="recommendations"
-                className="min-w-0 overflow-hidden px-2 text-xs sm:px-3 sm:text-sm"
-                title={copy.examplesLabel}
-              >
-                <span className="truncate sm:hidden">Recommendations</span>
-                <span className="hidden truncate sm:inline">{copy.examplesLabel}</span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="history"
-                className="min-w-0 overflow-hidden px-2 text-xs sm:px-3 sm:text-sm"
-                title={copy.historyTabLabel}
-              >
-                {copy.historyTabLabel}
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent
-              value="recommendations"
-              className="mt-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-none lg:[scrollbar-width:none] lg:[-ms-overflow-style:none] lg:[&::-webkit-scrollbar]:hidden"
-              data-recommendations-scroll
-            >
-              <ul className="flex flex-col gap-2">
-                {examples.map((example) => {
-                  const Icon = EXAMPLE_ICONS[example.id as keyof typeof EXAMPLE_ICONS] ?? LayoutGrid;
-                  const isActive = activePrompt === example.prompt;
-                  return (
-                    <li key={example.id}>
-                      <button
-                        type="button"
-                        disabled={isPending}
-                        onClick={() => runAsk(example.prompt)}
-                        className={cn(
-                          "group flex w-full gap-3 rounded-card border px-3.5 py-3 text-left transition-[border-color,background-color,box-shadow]",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/45 disabled:cursor-not-allowed disabled:opacity-60",
-                          isActive
-                            ? "border-brand-gold/50 bg-brand-gold/5 shadow-sm"
-                            : "border-border bg-surface-card shadow-sm hover:border-brand-gold/35 hover:bg-surface-secondary/40",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
-                            isActive
-                              ? "bg-brand-gold/20 text-brand-gold"
-                              : "bg-brand-gold/10 text-brand-gold group-hover:bg-brand-gold/15",
-                          )}
-                        >
-                          <Icon className="h-4 w-4" aria-hidden />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          {example.hint ? (
-                            <span className="block text-[11px] font-medium uppercase tracking-wider text-text-muted">
-                              {example.hint}
-                            </span>
-                          ) : null}
-                          <span className="mt-0.5 block text-sm leading-snug text-text-secondary transition-colors group-hover:text-text-primary">
-                            {example.prompt}
-                          </span>
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </TabsContent>
-
-            <TabsContent
-              value="history"
-              className="mt-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-none lg:[scrollbar-width:none] lg:[-ms-overflow-style:none] lg:[&::-webkit-scrollbar]:hidden"
-            >
-              {historyPrompts.length === 0 ? (
-                <p className="rounded-card border border-border bg-surface-secondary/30 px-3.5 py-3 text-sm text-text-muted">
-                  {copy.historyEmpty}
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {historyPrompts.map((question) => {
-                    const isActive = activePrompt === question;
-                    return (
-                      <li key={question}>
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => runAsk(question)}
-                          className={cn(
-                            "group flex w-full gap-3 rounded-card border px-3.5 py-3 text-left transition-[border-color,background-color,box-shadow]",
-                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/45 disabled:cursor-not-allowed disabled:opacity-60",
-                            isActive
-                              ? "border-brand-gold/50 bg-brand-gold/5 shadow-sm"
-                              : "border-border bg-surface-card shadow-sm hover:border-brand-gold/35 hover:bg-surface-secondary/40",
-                          )}
-                        >
-                          <span
-                            className={cn(
-                              "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
-                              isActive
-                                ? "bg-brand-gold/20 text-brand-gold"
-                                : "bg-brand-gold/10 text-brand-gold group-hover:bg-brand-gold/15",
-                            )}
-                          >
-                            <Clock3 className="h-4 w-4" aria-hidden />
-                          </span>
-                          <span className="min-w-0 flex-1 text-sm leading-snug text-text-secondary transition-colors group-hover:text-text-primary">
-                            {question}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </TabsContent>
-          </Tabs>
-        </aside>
-      </div>
-
-      <section
-        className={cn(chatPanelCard, "min-w-0 w-full lg:self-start")}
-        aria-label="Analytics chat"
+    <>
+      <div
+        className={cn(
+          "flex min-h-0 flex-1 flex-col lg:grid lg:grid-cols-[minmax(16rem,20rem)_minmax(0,1fr)] lg:items-start lg:gap-6",
+          className,
+        )}
       >
-        <div className="border-b border-border bg-surface-card px-4 py-3 sm:px-5">
-          <p className="text-sm leading-relaxed text-text-muted">{copy.chatPanelIntro}</p>
+        <div className="hidden min-h-0 lg:block lg:self-start">
+          <aside
+            className={cn(
+              panelCard,
+              "flex w-full flex-col overflow-hidden",
+              "lg:sticky lg:top-[calc(var(--portal-header-offset)+var(--portal-sticky-gap,0.75rem))] lg:z-[5]",
+              "lg:h-[calc(100svh-var(--portal-header-offset)-var(--portal-sticky-gap,0.75rem)-var(--portal-sticky-gap,0.75rem))]",
+              "lg:max-h-[calc(100svh-var(--portal-header-offset)-var(--portal-sticky-gap,0.75rem)-var(--portal-sticky-gap,0.75rem))]",
+            )}
+            aria-labelledby="analytics-ask-examples"
+          >
+            <p id="analytics-ask-examples" className="sr-only">
+              {copy.examplesLabel}
+            </p>
+            <AnalyticsPromptPicker {...promptPickerProps} className="min-h-0 flex-1" />
+          </aside>
         </div>
-        <div className="space-y-5 p-4 sm:p-5">
-          {showEmptyChat ? (
-            <div className="flex flex-col items-center justify-center px-4 py-5 text-center">
-                <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-brand-gold/10 text-brand-gold">
-                  <Sparkles className="h-5 w-5" aria-hidden />
-                </span>
-                <p className="font-medium text-text-primary">{copy.chatEmptyTitle}</p>
-                <p className="mt-1 max-w-sm text-sm text-text-muted">{copy.chatEmptyDescription}</p>
+
+        <section
+          className={cn(
+            chatPanelCard,
+            "flex min-w-0 flex-col",
+            "max-lg:min-h-0 max-lg:flex-1 max-lg:rounded-none max-lg:border-x-0 max-lg:border-b-0 max-lg:shadow-none",
+            "lg:overflow-visible lg:self-start",
+          )}
+          aria-label="Analytics chat"
+        >
+          <div className="shrink-0 border-b border-border bg-surface-card/95 px-4 py-2 backdrop-blur-sm sm:px-5 sm:py-2.5">
+            <div
+              className={cn(
+                "flex items-center gap-2 sm:gap-3",
+                result?.period.label ? "justify-between" : "justify-end lg:justify-between",
+              )}
+            >
+              {(result?.period.label ?? streamKpis?.period.label) ? (
+                <p className="min-w-0 flex-1 truncate text-xs font-medium text-text-secondary lg:hidden">
+                  {formatShortPeriodLabel((result?.period.label ?? streamKpis?.period.label)!)}
+                </p>
+              ) : null}
+              <div className="hidden min-w-0 flex-1 lg:block">
+                <p className="truncate text-xs leading-snug text-text-muted">
+                  <span className="font-medium text-text-secondary">{copy.scopeLabel}:</span>{" "}
+                  <span className="font-medium text-text-primary">{displayedScope}</span>
+                </p>
               </div>
-          ) : (
-            <div className="space-y-5">
-              {activePrompt ? (
+              <AnalyticsScopeCreditsBar
+                copy={creditsCopy}
+                periodLabel={result?.period.label}
+                periodCaption={copy.periodLabel}
+                balanceCredits={balanceCredits}
+                lowBalanceThreshold={credits?.lowBalanceThreshold}
+                isLoading={creditsLoading}
+                isError={creditsError}
+                onRetry={() => void refetchCredits()}
+                onRecharge={() => setRechargeOpen(true)}
+              />
+            </div>
+            {outOfCredits ? (
+              <p className="mt-2 text-xs text-status-error">{creditsCopy.emptyBanner}</p>
+            ) : null}
+            {scopeChanged && activePrompt ? (
+              <p className="mt-2 text-xs text-status-warning">{copy.scopeChangedHint}</p>
+            ) : null}
+          </div>
+
+          <div
+            ref={scrollRef}
+            data-analytics-chat-scroll
+            className={cn(
+              "px-4 py-4 sm:px-5 sm:py-5",
+              "max-lg:min-h-0 max-lg:flex-1 max-lg:touch-pan-y max-lg:overflow-y-auto max-lg:overscroll-contain",
+              "lg:overflow-visible lg:flex-none",
+            )}
+          >
+            {showEmptyChat ? (
+              <div className="flex min-h-[12rem] flex-col justify-center lg:min-h-0 lg:py-6">
+                <div className="text-center">
+                  <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-gold/10 text-brand-gold">
+                    <Sparkles className="h-5 w-5" aria-hidden />
+                  </span>
+                  <p className="font-display text-base font-semibold text-text-primary">
+                    {copy.chatEmptyTitle}
+                  </p>
+                  <p className="mx-auto mt-1.5 max-w-xs text-sm leading-relaxed text-text-muted lg:hidden">
+                    {copy.chatEmptyDescription}
+                  </p>
+                  <p className="mx-auto mt-1 hidden max-w-sm text-sm text-text-muted lg:block">
+                    {copy.chatEmptyDescriptionDesktop}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div ref={scrollContentRef} className="space-y-4 sm:space-y-5">
+                {activePrompt ? (
                   <div className="flex justify-end">
-                    <div className="max-w-[92%] rounded-2xl rounded-br-md border border-border bg-surface-secondary/35 px-4 py-2.5 text-sm text-text-primary">
+                    <div className="max-w-[88%] rounded-2xl rounded-br-md bg-brand-gold px-4 py-2.5 text-sm leading-snug text-white shadow-sm">
                       {activePrompt}
                     </div>
                   </div>
                 ) : null}
 
+                {(isPending || (phase !== "idle" && intent && !result)) ? (
+                  <div className="flex items-start gap-2.5">
+                    <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-gold/10 text-brand-gold">
+                      <Sparkles className="h-4 w-4" aria-hidden />
+                    </span>
+                    <div className="rounded-2xl rounded-bl-md border border-border bg-surface-secondary/40 px-4 py-3 text-sm text-text-secondary">
+                      <span className="inline-flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin text-brand-gold" aria-hidden />
+                        {statusMessage ?? common.loading}
+                      </span>
+                    </div>
+                  </div>
+                ) : null}
+
                 <QueryLoadState
-                  isLoading={isPending}
-                  isError={isError}
+                  isLoading={false}
+                  isError={isError && !isConfirmationRequired}
                   loadingLabel={common.loading}
                   errorLabel={errorLabel}
                   retryLabel={errors.tryAgain}
                   onRetry={() => {
-                    reset();
-                    runAsk();
+                    resetStream();
+                    if (activePrompt) runAsk(activePrompt);
                   }}
                 >
-                  {result && (
-                    <div className="space-y-6">
+                  {confirmation ? (
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-gold/10 text-brand-gold">
+                        <Sparkles className="h-4 w-4" aria-hidden />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <AnalyticsParseConfirmation
+                          copy={copy.confirmation}
+                          tokenCopy={copy.tokenUsage}
+                          preview={confirmation}
+                          prompt={activePrompt ?? prompt}
+                          isPending={isPending}
+                          onConfirm={() =>
+                            runAsk(activePrompt ?? prompt, { confirmLowConfidence: true })
+                          }
+                          onEdit={() => {
+                            resetStream();
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {result ? (
+                    <div className="flex items-start gap-2.5">
+                      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-gold/10 text-brand-gold">
+                        <Sparkles className="h-4 w-4" aria-hidden />
+                      </span>
+                      <div className="min-w-0 flex-1 space-y-4 sm:space-y-6">
+                      {result.status === "no_data" ? (
+                        <div className="rounded-card border border-border bg-surface-secondary/30 px-4 py-3 text-sm text-text-secondary">
+                          {copy.noDataBanner}
+                        </div>
+                      ) : null}
                       <div className="rounded-card border border-border bg-surface-card p-4 text-sm shadow-sm">
                         <p className="font-medium text-text-primary">{copy.interpretedLabel}</p>
                         <p className="mt-1 text-text-secondary">{result.interpretedQuery}</p>
+                        <p className="mt-2 hidden text-xs text-text-muted lg:block">
+                          <span className="font-medium text-text-secondary">
+                            {copy.periodLabel}:
+                          </span>{" "}
+                          {result.period.label}
+                        </p>
+                        {result.scopeLabel ? (
+                          <p className="mt-2 hidden text-xs text-text-muted lg:block">
+                            <span className="font-medium text-text-secondary">
+                              {copy.scopeLabel}:
+                            </span>{" "}
+                            {result.scopeLabel}
+                          </p>
+                        ) : null}
                         <p className="mt-2 text-xs text-text-muted">
                           {result.aiPowered ? copy.aiPowered : copy.rulePowered}
                           {result.geminiConfigured ? "" : ` · ${copy.geminiNotConfigured}`}
                         </p>
+                        <div className="mt-3 hidden border-t border-border pt-3 sm:block">
+                          <AnalyticsTokenEstimate
+                            copy={copy.tokenUsage}
+                            prompt={activePrompt ?? prompt}
+                            geminiConfigured={result.geminiConfigured}
+                            usage={result.tokenUsage}
+                          />
+                        </div>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 [&>*]:min-w-0">
+                      {streamKpis?.dataConfidence ? (
+                        <DataConfidenceBadge
+                          confidence={streamKpis.dataConfidence}
+                          totalVisits={result.summary.totalVisits}
+                        />
+                      ) : null}
+
+                      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 [&>*]:min-w-0">
                         <KPICard label={kpis.visits} value={result.summary.totalVisits} />
                         <KPICard
                           label={kpis.revenue}
@@ -346,9 +521,18 @@ export function AnalyticsAskPanel({
                           value={result.summary.conversionRate}
                           unit="%"
                         />
+                        <KPICard
+                          label={kpis.avgTransaction}
+                          value={formatCurrency(result.summary.avgTransaction)}
+                        />
+                        <KPICard label={kpis.fieldSales} value={result.summary.fieldSalesCount} />
+                        <KPICard
+                          label={kpis.uniqueCustomers}
+                          value={result.summary.uniqueCustomers}
+                        />
                       </div>
 
-                      <div className="grid gap-6 xl:grid-cols-2">
+                      <div className="grid gap-4 sm:gap-6 xl:grid-cols-2">
                         {result.charts.map((chart, index) => {
                           const key = `${chart.type}-${index}`;
                           switch (chart.type) {
@@ -409,47 +593,138 @@ export function AnalyticsAskPanel({
                         })}
                       </div>
 
-                      <div className="rounded-card border border-border bg-surface-card p-4 shadow-card sm:p-6">
-                        <h3 className="font-display text-lg font-semibold text-text-primary">
-                          {copy.reportTitle}
-                        </h3>
-                        <p className="mt-3 text-sm leading-relaxed text-text-secondary">
-                          {result.report.summary}
-                        </p>
-                        {result.report.highlights.length > 0 && (
-                          <div className="mt-4">
-                            <p className="text-sm font-medium text-text-primary">
-                              {copy.highlightsTitle}
-                            </p>
-                            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-text-secondary">
-                              {result.report.highlights.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        {result.report.recommendations.length > 0 && (
-                          <div className="mt-4">
-                            <p className="text-sm font-medium text-text-primary">
-                              {copy.recommendationsTitle}
-                            </p>
-                            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-text-secondary">
-                              {result.report.recommendations.map((item) => (
-                                <li key={item}>{item}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
+                      {(phase === "thinking" || phase === "done" || reportText) ? (
+                        <div className="rounded-card border border-border bg-surface-card p-4 shadow-card sm:p-6">
+                          <h3 className="font-display text-lg font-semibold text-text-primary">
+                            {copy.reportTitle}
+                          </h3>
+                          {/* Streaming AI text — shows token-by-token while thinking */}
+                          {phase === "thinking" || (reportText && !report) ? (
+                            <AnalyticsStreamingText
+                              text={reportText}
+                              isStreaming={phase === "thinking"}
+                              className="mt-3 text-text-secondary"
+                            />
+                          ) : null}
+                          {/* Structured report — shown once report_complete fires */}
+                          {report ? (
+                            <>
+                              <p className="mt-3 text-sm leading-relaxed text-text-secondary">
+                                {report.summary}
+                              </p>
+                              {report.highlights.length > 0 ? (
+                                <div className="mt-4">
+                                  <p className="text-sm font-medium text-text-primary">
+                                    {copy.highlightsTitle}
+                                  </p>
+                                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-text-secondary">
+                                    {report.highlights.map((item) => (
+                                      <li key={item}>{item}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                              {report.recommendations.length > 0 ? (
+                                <div className="mt-4">
+                                  <p className="text-sm font-medium text-text-primary">
+                                    {copy.recommendationsTitle}
+                                  </p>
+                                  <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-text-secondary">
+                                    {report.recommendations.map((item) => (
+                                      <li key={item}>{item}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              ) : null}
+                            </>
+                          ) : null}
+                        </div>
+                      ) : null}
                       </div>
                     </div>
-                  )}
-              </QueryLoadState>
-            </div>
-          )}
+                  ) : null}
+                </QueryLoadState>
+                <div className="h-px w-full shrink-0" aria-hidden />
+              </div>
+            )}
+          </div>
 
-          {promptComposer}
-        </div>
-      </section>
-    </div>
+          <div className="z-10 shrink-0 bg-surface-card/95 backdrop-blur-sm max-lg:sticky max-lg:bottom-0 max-lg:border-t max-lg:border-border/80 max-lg:shadow-[0_-8px_24px_-12px_rgba(0,0,0,0.12)] lg:static lg:bg-transparent lg:shadow-none">
+            {showSuggestions ? (
+              <AnalyticsQuickSuggestions
+                className="pt-2 lg:hidden"
+                label={copy.mobileQuickPromptsLabel}
+                browseLabel={copy.promptsMoreLabel}
+                examples={quickExamples}
+                activePrompt={activePrompt}
+                isPending={isPending}
+                outOfCredits={outOfCredits}
+                onSelect={runAsk}
+                onBrowse={() => setPromptsSheetOpen(true)}
+              />
+            ) : null}
+
+            <AnalyticsChatComposer
+              id="analytics-ask-prompt"
+              label={copy.promptLabel}
+              value={prompt}
+              placeholder={copy.promptPlaceholderMobile}
+              submitLabel={copy.analyzeButton}
+              rechargeLabel={creditsCopy.rechargeCta}
+              canSubmit={canSubmit}
+              outOfCredits={outOfCredits}
+              onChange={setPrompt}
+              onSubmit={() => runAsk()}
+              onRecharge={() => setRechargeOpen(true)}
+              variant="mobile"
+              className={cn("lg:hidden", showSuggestions && "pt-1.5")}
+            />
+
+            <div className="hidden lg:block">
+              <AnalyticsChatComposer
+                id="analytics-ask-prompt-desktop"
+                label={copy.promptLabel}
+                value={prompt}
+                placeholder={copy.promptPlaceholder}
+                submitLabel={copy.analyzeButton}
+                rechargeLabel={creditsCopy.rechargeCta}
+                canSubmit={canSubmit}
+                outOfCredits={outOfCredits}
+                onChange={setPrompt}
+                onSubmit={() => runAsk()}
+                onRecharge={() => setRechargeOpen(true)}
+                variant="desktop"
+                footer={
+                  <AnalyticsTokenEstimate
+                    copy={copy.tokenUsage}
+                    prompt={prompt}
+                    geminiConfigured={parseSource === "gemini" || confirmation?.geminiConfigured === true}
+                    usage={tokenUsage ?? confirmation?.tokenUsage}
+                  />
+                }
+              />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <Sheet open={promptsSheetOpen} onOpenChange={setPromptsSheetOpen}>
+        <SheetContent side="right" className="flex w-full flex-col p-0 sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>{copy.promptsSheetTitle}</SheetTitle>
+            <SheetDescription>{copy.chatEmptyDescription}</SheetDescription>
+          </SheetHeader>
+          <SheetBody className="flex min-h-0 flex-1 flex-col pb-6">
+            <AnalyticsPromptPicker {...promptPickerProps} className="min-h-0 flex-1" />
+          </SheetBody>
+        </SheetContent>
+      </Sheet>
+
+      <AnalyticsCreditsRechargePane
+        open={rechargeOpen}
+        onOpenChange={setRechargeOpen}
+        copy={creditsCopy}
+      />
+    </>
   );
 }

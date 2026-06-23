@@ -26,6 +26,10 @@ const envSchema = z.object({
   MASTER_ADMIN_PASSWORD: optionalEnv(z.string().min(8).optional()),
   MASTER_ADMIN_NAME: optionalEnv(z.string().min(1).optional()),
   SKIP_ENV_VALIDATION: optionalEnv(z.string().optional()),
+  PAYMENT_PROVIDER: optionalEnv(
+    z.enum(["none", "noop", "razorpay", "stripe"]).optional(),
+  ),
+  ALLOW_ADMIN_IMPERSONATION: optionalEnv(z.string().optional()),
 });
 
 export type Env = z.infer<typeof envSchema>;

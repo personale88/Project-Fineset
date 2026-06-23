@@ -21,8 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DatePicker } from "@/components/shared/DatePicker";
+import { FollowUpScheduleFields } from "@/components/shared/FollowUpScheduleFields";
+import { resolveFollowUpDateTime } from "@/lib/utils/follow-up-datetime";
 import { cn } from "@/lib/utils";
+import { modalFooterSafeClassName } from "@/lib/utils/modal-safe-area";
 import type { Content } from "@/content/en";
 import type { ManualStaffCallInput } from "@/lib/validations/staff-calls.schema";
 
@@ -58,6 +60,7 @@ export function ManualCallDialog({
   const [feedback, setFeedback] = useState("");
   const [scheduleFollowUp, setScheduleFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState<Date | undefined>(undefined);
+  const [followUpPreferredTime, setFollowUpPreferredTime] = useState("");
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
   const normalizedPhone = useMemo(() => normalizePhone(customerPhone), [customerPhone]);
@@ -73,6 +76,7 @@ export function ManualCallDialog({
     setFeedback("");
     setScheduleFollowUp(false);
     setFollowUpDate(undefined);
+    setFollowUpPreferredTime("");
     setPhoneError(null);
   }
 
@@ -103,7 +107,7 @@ export function ManualCallDialog({
       scheduleFollowUp: answered === "ANSWERED" ? scheduleFollowUp : false,
       followUpDate:
         answered === "ANSWERED" && scheduleFollowUp && followUpDate
-          ? followUpDate
+          ? resolveFollowUpDateTime(followUpDate, followUpPreferredTime)
           : undefined,
     });
   }
@@ -249,15 +253,17 @@ export function ManualCallDialog({
               </div>
 
               {scheduleFollowUp && (
-                <div className="space-y-2">
-                  <Label htmlFor="manual-follow-up-date">{copy.dialog.followUpDateLabel}</Label>
-                  <DatePicker
-                    id="manual-follow-up-date"
-                    value={followUpDate}
-                    onChange={setFollowUpDate}
-                    fromDate={new Date()}
-                  />
-                </div>
+                <FollowUpScheduleFields
+                  date={followUpDate}
+                  onDateChange={setFollowUpDate}
+                  preferredTime={followUpPreferredTime}
+                  onPreferredTimeChange={setFollowUpPreferredTime}
+                  dateLabel={copy.dialog.followUpDateLabel}
+                  timeLabel={copy.dialog.followUpTimeLabel}
+                  timeOptionalHint={copy.dialog.followUpTimeHint}
+                  dateId="manual-follow-up-date"
+                  timeId="manual-follow-up-time"
+                />
               )}
             </div>
           )}
@@ -278,7 +284,7 @@ export function ManualCallDialog({
           )}
         </div>
 
-        <div className="border-t border-border px-6 py-4">
+        <div className={cn("border-t border-border px-6 pt-4", modalFooterSafeClassName)}>
           <Button
             type="button"
             className="h-12 w-full"

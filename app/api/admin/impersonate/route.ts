@@ -1,56 +1,77 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import { handleRouteError } from "@/lib/api/route-handler";
 import {
-  isImpersonationAllowed,
-  startStoreImpersonation,
-  stopStoreImpersonation,
+  clearImpersonationCookieOnResponse,
+  isImpersonationAllowedForPlatform,
+  setImpersonationCookieOnResponse,
+  startImpersonation,
+  stopImpersonation,
+  validateImpersonationStore,
 } from "@/lib/auth/impersonation";
 import {
   badRequest,
+  forbidden,
   getServerSession,
   requireRole,
   unauthorized,
 } from "@/lib/auth/session";
-import { prisma } from "@/lib/db/prisma";
+import { z } from "zod";
 
 const bodySchema = z.object({
   storeId: z.string().cuid().nullable(),
 });
 
 export async function POST(req: Request) {
-  try {
-    if (!isImpersonationAllowed()) {
-      return NextResponse.json({ message: "Not found" }, { status: 404 });
-    }
+  const session = await getServerSession();
+  if (!session) return unauthorized();
+  if (!requireRole(session, ["MASTER_ADMIN"])) return forbidden();
 
-    const session = await getServerSession();
-    if (!requireRole(session, ["MASTER_ADMIN"])) return unauthorized();
-
-    const parsed = bodySchema.safeParse(await req.json());
-    if (!parsed.success) return badRequest(parsed.error.flatten());
-
-    if (parsed.data.storeId === null) {
-      await stopStoreImpersonation(session.email);
-      return NextResponse.json({ ok: true });
-    }
-
-    const store = await prisma.store.findUnique({
-      where: { id: parsed.data.storeId },
-      select: { id: true, name: true },
-    });
-    if (!store) {
-      return NextResponse.json({ message: "Store not found" }, { status: 404 });
-    }
-
-    await startStoreImpersonation({
-      adminSession: session,
-      storeId: store.id,
-      storeName: store.name,
-    });
-
-    return NextResponse.json({ ok: true, storeId: store.id });
-  } catch (error) {
-    return handleRouteError(error);
+  if (!(await isImpersonationAllowedForPlatform())) {
+    return forbidden(
+      "Store impersonation is disabled. Enable it in Master Settings or set ALLOW_ADMIN_IMPERSONATION=true.",
+    );
   }
+
+  let json: unknown;
+  try {
+    json = await req.json();
+  } catch {
+    return badRequest({ message: "Invalid JSON body" });
+  }
+
+  const parsed = bodySchema.safeParse(json);
+  if (!parsed.success) return badRequest(parsed.error.flatten());
+
+  const responseBody: Record<string, unknown> = { ok: true };
+
+  if (parsed.data.storeId === null) {
+    await stopImpersonation({
+      adminEmail: session.email,
+      adminAuthId: session.userId,
+    });
+    const response = NextResponse.json(responseBody);
+    await clearImpersonationCookieOnResponse(response);
+    return response;
+  }
+
+  const storeId = parsed.data.storeId;
+  const valid = await validateImpersonationStore(storeId);
+  if (!valid) {
+    return NextResponse.json({ message: "Store not found or deleted." }, { status: 404 });
+  }
+
+  const started = await startImpersonation({
+    storeId,
+    adminEmail: session.email,
+    adminAuthId: session.userId,
+  });
+  if (!started) {
+    return NextResponse.json({ message: "Store not found." }, { status: 404 });
+  }
+
+  responseBody.storeId = started.storeId;
+  responseBody.storeName = started.storeName;
+
+  const response = NextResponse.json(responseBody);
+  await setImpersonationCookieOnResponse(response, started.storeId);
+  return response;
 }

@@ -1,4 +1,5 @@
 import { content } from "@/content/en";
+import { AdminStoreSectionShell } from "@/components/admin/AdminStoreSectionShell";
 import { StaffCallList } from "@/components/staff/StaffCallList";
 import { fetchInitialAdminCalls } from "@/lib/data/staff-calls";
 import { adminStoreDetailPath } from "@/lib/utils/admin-dashboard-url";
@@ -24,14 +25,16 @@ export default async function AdminCallsPage({ searchParams }: AdminCallsPagePro
   const initial = await fetchInitialAdminCalls(storeId, urlFilters);
 
   return (
-    <StaffCallList
-      copy={content.staff}
-      emptyMessage={content.empty.staffCalls}
-      storeId={storeId}
-      initialCallsParams={urlFilters}
-      initialData={initial?.data}
-      initialParams={initial?.params}
-      backHref={adminStoreDetailPath(storeId)}
-    />
+    <AdminStoreSectionShell admin={content.admin} storeId={storeId} section="calls">
+      <StaffCallList
+        copy={content.staff}
+        emptyMessage={content.empty.staffCalls}
+        storeId={storeId}
+        initialCallsParams={urlFilters}
+        initialData={initial?.data}
+        initialParams={initial?.params}
+        backHref={adminStoreDetailPath(storeId)}
+      />
+    </AdminStoreSectionShell>
   );
 }

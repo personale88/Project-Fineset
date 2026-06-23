@@ -1,8 +1,11 @@
 import { test, expect } from "@playwright/test";
+import { DEV_PASSWORD, loginWithEmail } from "./helpers/login";
+import { devPortalUsersReady } from "./helpers/fixtures";
 
-const e2eEmail = process.env.E2E_USER_EMAIL ?? process.env.MASTER_ADMIN_EMAIL;
-const e2ePassword = process.env.E2E_USER_PASSWORD ?? process.env.MASTER_ADMIN_PASSWORD;
-const canRunLiveAuthTests = Boolean(e2eEmail && e2ePassword);
+const e2eEmail = process.env.E2E_USER_EMAIL ?? process.env.MASTER_ADMIN_EMAIL ?? "admin@fineset.local";
+const e2ePassword = process.env.E2E_USER_PASSWORD ?? process.env.MASTER_ADMIN_PASSWORD ?? DEV_PASSWORD;
+const canRunLiveAuthTests = Boolean(e2eEmail);
+const e2eStoreEmail = "store-manager@store-alpha.local";
 
 test.describe("Public routes", () => {
   test("home page loads login", async ({ page }) => {
@@ -60,18 +63,17 @@ test.describe("Protected dashboard routes", () => {
 test.describe("Auth performance", () => {
   test.skip(
     !canRunLiveAuthTests,
-    "Set E2E_USER_EMAIL and E2E_USER_PASSWORD to run login perf test",
+    "Set E2E_USER_EMAIL (or MASTER_ADMIN_EMAIL) to run login perf test",
   );
 
   test("login reaches dashboard shell under 2s", async ({ page }) => {
     const start = Date.now();
 
-    await page.goto("/");
-    await page.fill('[name="email"]', e2eEmail!);
-    await page.fill('[name="password"]', e2ePassword!);
-    await page.click('button[type="submit"]');
-
-    await page.waitForURL(/\/dashboard/);
+    await loginWithEmail(page, {
+      email: e2eEmail,
+      password: e2ePassword,
+      dashboardPattern: /\/dashboard/,
+    });
     await expect(page.getByTestId("portal-shell")).toBeVisible();
 
     const elapsed = Date.now() - start;
@@ -82,15 +84,17 @@ test.describe("Auth performance", () => {
 test.describe("API performance", () => {
   test.skip(
     !canRunLiveAuthTests,
-    "Set E2E_USER_EMAIL and E2E_USER_PASSWORD to run API perf tests",
+    "Set E2E_USER_EMAIL (or MASTER_ADMIN_EMAIL) to run API perf tests",
   );
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await page.fill('[name="email"]', e2eEmail!);
-    await page.fill('[name="password"]', e2ePassword!);
-    await page.click('button[type="submit"]');
-    await page.waitForURL(/\/dashboard/);
+    test.skip(!devPortalUsersReady(), "Run npm run db:seed so Store Alpha E2E users exist");
+
+    await loginWithEmail(page, {
+      email: e2eStoreEmail,
+      password: e2ePassword,
+      dashboardPattern: /\/store-manager\/dashboard/,
+    });
   });
 
   test("store overview bundle responds under 5s", async ({ page }) => {

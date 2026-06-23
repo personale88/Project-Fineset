@@ -93,6 +93,32 @@ export async function ensureProductionStoreSchema(): Promise<void> {
       CREATE UNIQUE INDEX IF NOT EXISTS "StoreCategoryOption_name_key"
       ON "StoreCategoryOption"("name")
     `;
+    await client.$executeRaw`
+      ALTER TABLE "StoreCategoryOption" ADD COLUMN IF NOT EXISTS "label" TEXT
+    `;
+    await client.$executeRaw`
+      ALTER TABLE "StoreCategoryOption" ADD COLUMN IF NOT EXISTS "isBuiltin" BOOLEAN NOT NULL DEFAULT false
+    `;
+    await client.$executeRaw`
+      UPDATE "StoreCategoryOption" SET "label" = "name" WHERE "label" IS NULL OR TRIM("label") = ''
+    `;
+
+    await client.$executeRaw`
+      ALTER TABLE "Store" ADD COLUMN IF NOT EXISTS "dataExpiryAt" TIMESTAMP(3)
+    `;
+    await client.$executeRaw`
+      ALTER TABLE "Store" ADD COLUMN IF NOT EXISTS "renewalDueAt" TIMESTAMP(3)
+    `;
+
+    await client.$executeRaw`
+      CREATE TABLE IF NOT EXISTS "PlatformSettings" (
+        "id" TEXT NOT NULL DEFAULT 'platform',
+        "config" JSONB NOT NULL,
+        "updatedAt" TIMESTAMP(3) NOT NULL,
+        "updatedByEmail" TEXT,
+        CONSTRAINT "PlatformSettings_pkey" PRIMARY KEY ("id")
+      )
+    `;
 
     try {
       await client.$executeRaw`

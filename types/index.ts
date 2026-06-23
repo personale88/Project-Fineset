@@ -22,7 +22,22 @@ export type {
   VisitType,
 };
 
-export type UserRole = "STAFF" | "STORE_MANAGER" | "BUSINESS_OWNER" | "MASTER_ADMIN";
+export type UserRole =
+  | "STAFF"
+  | "STORE_MANAGER"
+  | "BUSINESS_OWNER"
+  | "MASTER_ADMIN"
+  | "PLATFORM_ADMIN";
+
+export type AdminPortalRole = "MASTER_ADMIN" | "PLATFORM_ADMIN";
+
+export type AdminPermissionKey =
+  | "portfolio"
+  | "accounts"
+  | "analytics"
+  | "billing";
+
+export type AdminPermissions = Partial<Record<AdminPermissionKey, boolean>>;
 
 interface SessionBase {
   userId: string;
@@ -49,9 +64,19 @@ export interface BusinessOwnerSession extends SessionBase {
   storeName: string;
 }
 
-export interface AdminSession extends SessionBase {
+export interface MasterAdminSession extends SessionBase {
   role: "MASTER_ADMIN";
+  permissions: AdminPermissions;
+  impersonatedStoreId?: string;
 }
+
+export interface PlatformAdminSession extends SessionBase {
+  role: "PLATFORM_ADMIN";
+  permissions: AdminPermissions;
+  impersonatedStoreId?: string;
+}
+
+export type AdminSession = MasterAdminSession | PlatformAdminSession;
 
 export type AppSession = StaffSession | StoreSession | BusinessOwnerSession | AdminSession;
 
@@ -94,6 +119,7 @@ export type AnalyticsPeriodLabel =
   | "today"
   | "week"
   | "month"
+  | "last30days"
   | "last3months"
   | "last6months";
 
@@ -141,6 +167,8 @@ export interface StorePerformanceRow {
   city: string;
   state: string;
   isActive: boolean;
+  businessOwnerName?: string | null;
+  businessOwnerEmail?: string | null;
   storeManagerName: string | null;
   storeManagerPhone: string | null;
   visits: number;
@@ -154,11 +182,52 @@ export interface StorePerformanceRow {
   deltas?: StorePerformanceDeltas;
 }
 
+export interface AdminStorePortfolioRow {
+  storeId: string;
+  storeName: string;
+  category: StoreCategory;
+  customCategory?: string | null;
+  city: string;
+  state: string;
+  pincode?: string | null;
+  isActive: boolean;
+  businessOwnerName?: string | null;
+  businessOwnerEmail?: string | null;
+  storeManagerName: string | null;
+  storeManagerPhone: string | null;
+  staffCount: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  purgeAt: string | null;
+  dataExpiryAt: string | null;
+  renewalDueAt: string | null;
+  ownerLastLoginAt?: string | null;
+}
+
+export interface BusinessPortfolioRow {
+  businessKey: string;
+  businessName: string;
+  ownerName: string | null;
+  businessEmail: string | null;
+  businessPhone: string | null;
+  hasBusinessEmail: boolean;
+  storeCount: number;
+  activeStoreCount: number;
+  inactiveStoreCount: number;
+  dataExpiryAt: string | null;
+  renewalDueAt: string | null;
+  ownerLastLoginAt: string | null;
+  stores: AdminStorePortfolioRow[];
+}
+
 export interface AdminDashboardOverview {
   totalStores: number;
   activeStores: number;
-  period: AnalyticsPeriodLabel;
-  stores: StorePerformanceRow[];
+  inactiveStores: number;
+  totalBusinesses: number;
+  businesses: BusinessPortfolioRow[];
+  stores: AdminStorePortfolioRow[];
 }
 
 export interface StaffPerformanceRow {
@@ -618,23 +687,6 @@ export interface GetFieldSalesListParams {
   personalScope?: boolean;
   enrollmentOutcome?: string;
   activityType?: string;
-}
-
-export interface StoreDetailAnalytics {
-  store: {
-    id: string;
-    name: string;
-    category: StoreCategory;
-    city: string;
-    state: string;
-    isActive: boolean;
-  };
-  kpis: StoreKPIs;
-  kpiDeltas: StoreKPIDeltas;
-  visitsByDay: Array<{ date: string; visits: number; revenue: number }>;
-  sourceBreakdown: Array<{ channel: SourceChannel; count: number }>;
-  purchaseStatusBreakdown: Array<{ status: PurchaseStatus; count: number }>;
-  noPurchaseReasons: Array<{ reason: string; count: number }>;
 }
 
 export interface AnalyticsData {

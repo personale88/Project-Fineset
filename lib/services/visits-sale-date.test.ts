@@ -4,6 +4,7 @@ import {
   parseCalendarDate,
   resolveCalendarDayFromInstant,
 } from "@/lib/utils/calendar-date";
+import { normalizeStoredFollowUpDate } from "@/lib/utils/follow-up-datetime";
 import { createVisit } from "@/lib/services/visits";
 
 const mockCustomerUpsert = vi.fn();
@@ -40,6 +41,10 @@ vi.mock("@/lib/services/call-record-denorm", () => ({
 
 vi.mock("@/lib/sync/broadcaster", () => ({
   broadcastSyncEvent: vi.fn(),
+}));
+
+vi.mock("@/lib/sync/notify-change", () => ({
+  notifyPortalDataChangeNow: vi.fn(),
 }));
 
 const baseVisitInput = {
@@ -147,7 +152,7 @@ describe("createVisit sale date handling", () => {
     expect(mockFollowUpCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          followUpDate: resolveCalendarDayFromInstant(followUpDate),
+          followUpDate: normalizeStoredFollowUpDate(followUpDate),
         }),
       }),
     );

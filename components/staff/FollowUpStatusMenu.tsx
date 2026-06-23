@@ -6,7 +6,11 @@ import { content } from "@/content/en";
 import { useUpdateFollowUp } from "@/hooks/useFollowUps";
 import { toast } from "@/hooks/useToast";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
-import { formatDate } from "@/lib/utils/formatters";
+import {
+  extractPreferredTime,
+  formatFollowUpSchedule,
+  resolveFollowUpDateTime,
+} from "@/lib/utils/follow-up-datetime";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,7 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { DatePicker } from "@/components/shared/DatePicker";
+import { FollowUpScheduleFields } from "@/components/shared/FollowUpScheduleFields";
 import type { FollowUpAction } from "@/lib/validations/follow-ups.schema";
 import type { FollowUpListItem } from "@/types";
 import type { FollowUpQuery } from "@/hooks/useFollowUps";
@@ -31,6 +35,10 @@ interface FollowUpStatusMenuProps {
   storeId?: string;
   listParams?: FollowUpQuery;
   onUpdated?: () => void;
+}
+
+function initialScheduleDate(item: FollowUpListItem): Date | undefined {
+  return item.followUpDate ? new Date(item.followUpDate) : undefined;
 }
 
 export function FollowUpStatusMenu({
@@ -44,7 +52,10 @@ export function FollowUpStatusMenu({
 
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleDate, setScheduleDate] = useState<Date | undefined>(() =>
-    item.followUpDate ? new Date(item.followUpDate) : undefined,
+    initialScheduleDate(item),
+  );
+  const [scheduleTime, setScheduleTime] = useState(() =>
+    item.followUpDate ? extractPreferredTime(item.followUpDate) : "",
   );
   const [pendingAction, setPendingAction] = useState<FollowUpAction | null>(null);
 
@@ -85,8 +96,9 @@ export function FollowUpStatusMenu({
 
   function handleScheduleConfirm() {
     if (!scheduleDate) return;
+    const followUpDate = resolveFollowUpDateTime(scheduleDate, scheduleTime);
     setScheduleOpen(false);
-    void runAction("schedule", scheduleDate);
+    void runAction("schedule", followUpDate);
   }
 
   return (
@@ -131,8 +143,9 @@ export function FollowUpStatusMenu({
             disabled={isPending}
             onSelect={(event) => {
               event.preventDefault();
-              setScheduleDate(
-                item.followUpDate ? new Date(item.followUpDate) : new Date(),
+              setScheduleDate(initialScheduleDate(item) ?? new Date());
+              setScheduleTime(
+                item.followUpDate ? extractPreferredTime(item.followUpDate) : "",
               );
               setScheduleOpen(true);
             }}
@@ -150,16 +163,23 @@ export function FollowUpStatusMenu({
             <DialogDescription>{copy.scheduleDialog.description}</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-text-primary">{item.customerName}</p>
-            <p className="text-xs text-text-muted">
-              {copy.dueLabel}: {formatDate(item.followUpDate)}
-            </p>
-            <DatePicker
-              value={scheduleDate}
-              onChange={setScheduleDate}
-              fromDate={new Date()}
-              placeholder={copy.scheduleDialog.dateLabel}
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-text-primary">{item.customerName}</p>
+              <p className="text-xs text-text-muted">
+                {copy.dueLabel}: {formatFollowUpSchedule(item.followUpDate)}
+              </p>
+            </div>
+            <FollowUpScheduleFields
+              date={scheduleDate}
+              onDateChange={setScheduleDate}
+              preferredTime={scheduleTime}
+              onPreferredTimeChange={setScheduleTime}
+              dateLabel={copy.scheduleDialog.dateLabel}
+              timeLabel={copy.scheduleDialog.timeLabel}
+              timeOptionalHint={copy.scheduleDialog.timeHint}
+              dateId="follow-up-schedule-date"
+              timeId="follow-up-schedule-time"
             />
           </div>
 

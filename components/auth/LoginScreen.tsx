@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { content } from "@/content/en";
 import { LoginForm } from "@/components/forms/LoginForm";
 import { Logo } from "@/components/shared/Logo";
+import { isLocalAuthBypassEnabled } from "@/lib/auth/dev-auth-bypass";
 
 interface LoginScreenProps {
   showLogo?: boolean;
@@ -9,6 +10,7 @@ interface LoginScreenProps {
 
 export function LoginScreen({ showLogo = false }: LoginScreenProps) {
   const c = content.auth.login;
+  const localAuthBypass = isLocalAuthBypassEnabled();
 
   return (
     <div className="flex w-full max-w-md flex-col gap-6">
@@ -20,8 +22,10 @@ export function LoginScreen({ showLogo = false }: LoginScreenProps) {
       <Suspense fallback={<div className="text-text-secondary">{content.common.loading}</div>}>
         <LoginForm
           title={c.title}
-          subtitle={c.subtitle}
+          subtitle={localAuthBypass ? c.localBypassSubtitle : c.subtitle}
           submitLabel={c.submitLabel}
+          localAuthBypass={localAuthBypass}
+          localBypassHint={localAuthBypass ? c.localBypassHint : undefined}
           errorInvalid={c.errorInvalid}
           errorInactive={c.errorInactive}
           errorDeactivated={c.errorDeactivated}

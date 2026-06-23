@@ -15,7 +15,7 @@ import { content } from "@/content/en";
 import { useStaffWorkQueue } from "@/hooks/useStaffWorkQueue";
 import { useStoreWorkQueue } from "@/hooks/useStoreWorkQueue";
 import { useIsClient } from "@/hooks/useIsClient";
-import type { PeriodValue } from "@/components/shared/PeriodSwitcher";
+import { buildPeriodSwitcherOptions } from "@/lib/utils/analytics-period-url";
 import { useStaffCallFlow } from "@/hooks/useStaffCallFlow";
 import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
@@ -23,6 +23,7 @@ import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
 import { buildStaffCallsSearchParams } from "@/lib/utils/staff-calls-url";
 import { defaultStaffCallsParams } from "@/lib/query/initial-data";
 import { QueryLoadState } from "@/components/shared/QueryLoadState";
+import { PeriodSwitcher, type PeriodValue } from "@/components/shared/PeriodSwitcher";
 import { DashboardNotifications } from "@/components/dashboard/DashboardNotifications";
 import { FollowUpCard } from "@/components/staff/FollowUpCard";
 import { StaffCallCard } from "@/components/shared/calls";
@@ -282,7 +283,11 @@ export function StaffWorkQueue({
 } = {}) {
   const copy = content.staff.workQueue;
   const callsCopy = content.staff.calls;
-  const personalQuery = useStaffWorkQueue(12);
+  const [personalPeriod, setPersonalPeriod] = useState<PeriodValue>("today");
+  const personalQuery = useStaffWorkQueue(
+    workQueueLimit,
+    dataSource === "personal" ? personalPeriod : undefined,
+  );
   const storeQuery = useStoreWorkQueue(workQueueStoreId, workQueueLimit, workQueuePeriod);
   const activeQuery = dataSource === "store" ? storeQuery : personalQuery;
   const { data, isLoading, isPending, isError, error, refetch, isSuccess } = activeQuery;
@@ -291,6 +296,11 @@ export function StaffWorkQueue({
   const callFlow = useStaffCallFlow(readOnly ? undefined : (callFlowStoreId ?? browseStoreId));
   const [mode, setMode] = useState<WorkQueueMode>("compact");
   const [openSections, setOpenSections] = useState<Set<StaffWorkQueueReason>>(new Set());
+  const periodOptions = buildPeriodSwitcherOptions(content.staff.period);
+
+  useEffect(() => {
+    setOpenSections(new Set());
+  }, [personalPeriod, workQueuePeriod]);
 
   useEffect(() => {
     if (readOnly && mode !== "compact") {
@@ -454,6 +464,16 @@ export function StaffWorkQueue({
         </div>
 
         {headerExtra}
+
+        {dataSource === "personal" ? (
+          <div className="mt-4">
+            <PeriodSwitcher
+              options={periodOptions}
+              value={personalPeriod}
+              onChange={setPersonalPeriod}
+            />
+          </div>
+        ) : null}
 
         {showStoreSummaries &&
         isClient &&
