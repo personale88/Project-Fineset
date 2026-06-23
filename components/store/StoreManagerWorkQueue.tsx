@@ -14,6 +14,7 @@ export function StoreManagerWorkQueue({ storeId, variant }: StoreManagerWorkQueu
 
   if (variant === "personal") {
     const copy = content.store.managerDashboard.personalWorkQueue;
+    const staffCopy = content.staff.workQueue;
     return (
       <StaffWorkQueue
         portalBasePath={base}
@@ -24,12 +25,15 @@ export function StoreManagerWorkQueue({ storeId, variant }: StoreManagerWorkQueu
         browseVariant="store_manager_personal"
         browseStoreId={storeId}
         callFlowStoreId={storeId}
+        viewTasksLabel={staffCopy.viewTasks}
+        viewCallsLabel={staffCopy.viewCalls}
       />
     );
   }
 
   const copy = content.store.managerDashboard.storeWorkQueue;
   const staffCopy = content.staff.workQueue;
+  const followUpsCopy = content.store.managerDashboard.followUps.store;
 
   return (
     <StaffWorkQueue
@@ -48,6 +52,9 @@ export function StoreManagerWorkQueue({ storeId, variant }: StoreManagerWorkQueu
       browseVariant="store_manager"
       browseStoreId={storeId}
       callFlowStoreId={storeId}
+      sectionLabelOverrides={{
+        mismatched_assignment: followUpsCopy.filters.mismatched,
+      }}
     />
   );
 }

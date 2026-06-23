@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { content } from "@/content/en";
 import { ManagerActorSetupBanner } from "@/components/store/ManagerActorSetupGate";
 import { StoreManagerHomeQueues } from "@/components/store/StoreManagerHomeQueues";
 import type { Content } from "@/content/en";
@@ -20,6 +21,7 @@ export function StoreManagerPortal({ copy, storeId }: StoreManagerPortalProps) {
           {dashboardCopy.title}
         </h1>
         <p className="text-text-secondary">{dashboardCopy.subtitle}</p>
+        <p className="mt-2 text-sm text-text-muted">{content.staff.portal.remindersGuide}</p>
       </header>
 
       <ManagerActorSetupBanner />

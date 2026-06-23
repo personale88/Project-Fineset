@@ -284,11 +284,19 @@ export function StaffWorkQueue({
   const copy = content.staff.workQueue;
   const callsCopy = content.staff.calls;
   const [personalPeriod, setPersonalPeriod] = useState<PeriodValue>("today");
+  const [internalStorePeriod, setInternalStorePeriod] = useState<PeriodValue>("today");
+  const effectiveStorePeriod = workQueuePeriod ?? internalStorePeriod;
+  const showPeriodSwitcher =
+    dataSource === "personal" || (dataSource === "store" && workQueuePeriod === undefined);
   const personalQuery = useStaffWorkQueue(
     workQueueLimit,
     dataSource === "personal" ? personalPeriod : undefined,
   );
-  const storeQuery = useStoreWorkQueue(workQueueStoreId, workQueueLimit, workQueuePeriod);
+  const storeQuery = useStoreWorkQueue(
+    workQueueStoreId,
+    workQueueLimit,
+    dataSource === "store" ? effectiveStorePeriod : undefined,
+  );
   const activeQuery = dataSource === "store" ? storeQuery : personalQuery;
   const { data, isLoading, isPending, isError, error, refetch, isSuccess } = activeQuery;
   const isClient = useIsClient();
@@ -298,7 +306,7 @@ export function StaffWorkQueue({
   const [openSections, setOpenSections] = useState<Set<StaffWorkQueueReason>>(new Set());
   const periodOptions = buildPeriodSwitcherOptions(content.staff.period);
 
-  const periodKey = `${personalPeriod}|${workQueuePeriod}`;
+  const periodKey = `${personalPeriod}|${effectiveStorePeriod}`;
   const [prevPeriodKey, setPrevPeriodKey] = useState(periodKey);
   if (periodKey !== prevPeriodKey) {
     setPrevPeriodKey(periodKey);
@@ -464,12 +472,12 @@ export function StaffWorkQueue({
 
         {headerExtra}
 
-        {dataSource === "personal" ? (
+        {showPeriodSwitcher ? (
           <div className="mt-4">
             <PeriodSwitcher
               options={periodOptions}
-              value={personalPeriod}
-              onChange={setPersonalPeriod}
+              value={dataSource === "personal" ? personalPeriod : internalStorePeriod}
+              onChange={dataSource === "personal" ? setPersonalPeriod : setInternalStorePeriod}
             />
           </div>
         ) : null}
