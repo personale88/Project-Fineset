@@ -2,6 +2,7 @@ import { config as loadDotenv } from "dotenv";
 import { existsSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import { PrismaClient, type Prisma } from "@prisma/client";
+import { applyDirectUrlNormalization } from "@/lib/db/normalize-direct-url";
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -36,6 +37,7 @@ function bustPrismaModuleCache(): void {
 
 function createPrismaClient(forceReload = false): PrismaClient {
   ensureDatabaseEnvLoaded();
+  applyDirectUrlNormalization(process.env);
   const url = process.env.DATABASE_URL ?? "";
   const directUrl = process.env.DIRECT_URL ?? "";
   if (
