@@ -12,6 +12,7 @@
     "dev": "next dev --hostname 0.0.0.0",
     "dev:staging": "dotenv -e .env.staging.local -- next dev --hostname 0.0.0.0",
     "build": "next build",
+    "prestart": "prisma migrate deploy",
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
