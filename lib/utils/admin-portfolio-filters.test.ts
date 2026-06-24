@@ -20,6 +20,7 @@ function business(
     inactiveStoreCount: 0,
     dataExpiryAt: null,
     renewalDueAt: null,
+    billingAnchorAt: null,
     ownerLastLoginAt: null,
     stores: [
       {
@@ -44,21 +45,35 @@ function business(
   };
 }
 
+const ANCHOR = "2026-01-15T00:00:00.000Z";
+
 describe("getBusinessPaymentStatus", () => {
-  it("marks grace period as due soon", () => {
+  it("marks within due window as due soon", () => {
     expect(
       getBusinessPaymentStatus(
-        { renewalDueAt: "2020-01-01T00:00:00.000Z", dataExpiryAt: null },
-        new Date("2026-06-05"),
+        {
+          renewalDueAt: "2020-01-01T00:00:00.000Z",
+          dataExpiryAt: null,
+          billingAnchorAt: ANCHOR,
+        },
+        new Date("2026-02-20T12:00:00.000Z"),
+        "UNPAID",
+        null,
       ),
     ).toBe("DUE_SOON");
   });
 
-  it("marks unpaid after the 10th as overdue", () => {
+  it("marks unpaid after due date as overdue", () => {
     expect(
       getBusinessPaymentStatus(
-        { renewalDueAt: "2020-01-01T00:00:00.000Z", dataExpiryAt: null },
-        new Date("2026-06-15"),
+        {
+          renewalDueAt: "2020-01-01T00:00:00.000Z",
+          dataExpiryAt: null,
+          billingAnchorAt: ANCHOR,
+        },
+        new Date("2026-02-26T12:00:00.000Z"),
+        "UNPAID",
+        null,
       ),
     ).toBe("OVERDUE");
   });
@@ -66,10 +81,14 @@ describe("getBusinessPaymentStatus", () => {
   it("marks paid current-cycle businesses as current", () => {
     expect(
       getBusinessPaymentStatus(
-        { renewalDueAt: "2020-01-01T00:00:00.000Z", dataExpiryAt: null },
-        new Date("2026-06-15"),
+        {
+          renewalDueAt: "2020-01-01T00:00:00.000Z",
+          dataExpiryAt: null,
+          billingAnchorAt: ANCHOR,
+        },
+        new Date("2026-03-20T12:00:00.000Z"),
         "PAID",
-        "2026-06-12T00:00:00.000Z",
+        "2026-03-16T00:00:00.000Z",
       ),
     ).toBe("CURRENT");
   });
@@ -77,7 +96,11 @@ describe("getBusinessPaymentStatus", () => {
   it("marks expired data", () => {
     expect(
       getBusinessPaymentStatus(
-        { renewalDueAt: "2030-01-01T00:00:00.000Z", dataExpiryAt: "2020-01-01T00:00:00.000Z" },
+        {
+          renewalDueAt: "2030-01-01T00:00:00.000Z",
+          dataExpiryAt: "2020-01-01T00:00:00.000Z",
+          billingAnchorAt: ANCHOR,
+        },
         new Date("2026-06-01"),
       ),
     ).toBe("EXPIRED");
@@ -94,19 +117,21 @@ describe("businessMatchesAreaFilter", () => {
 
 describe("countBusinessesByPaymentStatus", () => {
   it("counts businesses by payment status after the payment deadline", () => {
-    const reference = new Date("2026-06-15");
+    const reference = new Date("2026-02-26T12:00:00.000Z");
     const counts = countBusinessesByPaymentStatus(
       [
         business({
           businessKey: "overdue",
           renewalDueAt: "2020-01-01T00:00:00.000Z",
+          billingAnchorAt: ANCHOR,
         }),
         business({
           businessKey: "future-dates",
           renewalDueAt: "2030-01-01T00:00:00.000Z",
           dataExpiryAt: "2031-01-01T00:00:00.000Z",
+          billingAnchorAt: ANCHOR,
         }),
-        business({ businessKey: "unknown" }),
+        business({ businessKey: "unknown", billingAnchorAt: ANCHOR }),
       ],
       reference,
     );
@@ -116,13 +141,17 @@ describe("countBusinessesByPaymentStatus", () => {
   });
 
   it("counts paid businesses as current", () => {
-    const reference = new Date("2026-06-15");
+    const reference = new Date("2026-03-20T12:00:00.000Z");
     expect(
       getBusinessPaymentStatus(
-        { renewalDueAt: "2020-01-01T00:00:00.000Z", dataExpiryAt: null },
+        {
+          renewalDueAt: "2020-01-01T00:00:00.000Z",
+          dataExpiryAt: null,
+          billingAnchorAt: ANCHOR,
+        },
         reference,
         "PAID",
-        "2026-06-12T00:00:00.000Z",
+        "2026-03-16T00:00:00.000Z",
       ),
     ).toBe("CURRENT");
   });

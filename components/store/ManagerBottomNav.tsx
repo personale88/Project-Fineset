@@ -45,8 +45,6 @@ export function ManagerBottomNav() {
     "/follow-ups",
     "/visits",
     "/field-sales",
-    "/staff",
-    "/activity",
   ];
   const teamActive =
     hubParam === "team" ||

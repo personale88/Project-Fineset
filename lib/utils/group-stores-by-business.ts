@@ -1,5 +1,6 @@
 import type { AdminStorePortfolioRow, BusinessPortfolioRow } from "@/types";
 import { earliestDate, latestDate } from "@/lib/utils/business-date-aggregate";
+import { resolveBusinessBillingAnchor } from "@/lib/billing/activation-cycle";
 
 export function normalizeBusinessEmail(
   email: string | null | undefined,
@@ -138,6 +139,10 @@ export function groupStoresByBusiness(
       storeCount: sortedStores.length,
       activeStoreCount: sortedStores.filter((store) => store.isActive).length,
       inactiveStoreCount: sortedStores.filter((store) => !store.isActive).length,
+      billingAnchorAt:
+        resolveBusinessBillingAnchor(
+          sortedStores.map((store) => ({ createdAt: store.createdAt })),
+        )?.toISOString() ?? null,
       ...aggregateBusinessDates(sortedStores),
       stores: sortedStores,
     });

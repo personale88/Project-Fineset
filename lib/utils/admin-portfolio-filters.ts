@@ -1,11 +1,7 @@
 import type { BillingPaymentStatus } from "@prisma/client";
 import type { BusinessPortfolioRow } from "@/types";
 import type { BillingCycleSettings } from "@/lib/utils/billing-cycle";
-import {
-  getPaymentDeadline,
-  isWithinPaymentGracePeriod,
-  DEFAULT_BILLING_CYCLE_SETTINGS,
-} from "@/lib/utils/billing-cycle";
+import { DEFAULT_BILLING_CYCLE_SETTINGS } from "@/lib/utils/billing-cycle";
 import { resolvePortalBillingAccess } from "@/lib/utils/portal-billing-access";
 
 export type AdminPortfolioPaymentStatus =
@@ -22,11 +18,16 @@ function startOfToday(reference = new Date()): Date {
 }
 
 export function getBusinessPaymentStatus(
-  business: Pick<BusinessPortfolioRow, "renewalDueAt" | "dataExpiryAt">,
+  business: Pick<
+    BusinessPortfolioRow,
+    "renewalDueAt" | "dataExpiryAt" | "billingAnchorAt"
+  >,
   reference = new Date(),
   billingPaymentStatus?: BillingPaymentStatus | null,
   paidAt?: Date | string | null,
   cycleSettings: BillingCycleSettings = DEFAULT_BILLING_CYCLE_SETTINGS,
+  restrictPortalOnOverdue?: boolean,
+  paidThroughPeriodEnd?: Date | string | null,
 ): AdminPortfolioPaymentStatus {
   const today = startOfToday(reference);
 
@@ -39,9 +40,11 @@ export function getBusinessPaymentStatus(
     {
       paymentStatus: billingPaymentStatus ?? null,
       paidAt: paidAt ?? null,
+      paidThroughPeriodEnd: paidThroughPeriodEnd ?? null,
+      billingAnchorAt: business.billingAnchorAt,
+      restrictPortalOnOverdue,
     },
     reference,
-    cycleSettings,
   );
 
   if (portalAccess.canReadData && portalAccess.reason === "PAID") {
@@ -52,21 +55,18 @@ export function getBusinessPaymentStatus(
     return "CURRENT";
   }
 
-  if (isWithinPaymentGracePeriod(reference, cycleSettings)) {
+  if (portalAccess.isGracePeriod) {
     return "DUE_SOON";
   }
 
-  if (!portalAccess.canReadData) {
+  if (portalAccess.restrictionTier !== "NONE") {
     return "OVERDUE";
   }
 
   if (business.renewalDueAt) {
     const due = startOfToday(new Date(business.renewalDueAt));
     if (due.getTime() < today.getTime()) return "OVERDUE";
-
-    const deadline = startOfToday(getPaymentDeadline(reference, cycleSettings));
-    if (due.getTime() <= deadline.getTime()) return "DUE_SOON";
-
+    if (due.getTime() <= today.getTime() + 7 * 86_400_000) return "DUE_SOON";
     return "CURRENT";
   }
 

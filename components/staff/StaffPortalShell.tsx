@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { content } from "@/content/en";
+import { BillingAccessProvider } from "@/components/billing/BillingAccessProvider";
+import { BillingAccessBanner } from "@/components/billing/BillingAccessBanner";
 import { PortalShell } from "@/components/layout/PortalShell";
 import { GlobalSearchDialog } from "@/components/search/GlobalSearchDialog";
 import { buildStaffDesktopNav } from "@/components/store/staff-desktop-nav";
@@ -21,21 +23,26 @@ export function StaffPortalShell({ storeId, children }: StaffPortalShellProps) {
   const hideBottomNav = shouldHidePortalBottomNav(pathname);
 
   return (
-    <PortalShell
-      title={content.staff.shell.title}
-      homeHref={STAFF_DASHBOARD_PATH}
-      navItems={buildStaffDesktopNav()}
-      showDesktopNav
-      signOutLabel={content.common.signOut}
-      headerActions={
-        <>
-          <GlobalSearchDialog storeId={storeId} />
-          <StaffNotificationBell />
-        </>
-      }
-      bottomNav={hideBottomNav ? undefined : <StaffBottomNav />}
-    >
-      {children}
-    </PortalShell>
+    <BillingAccessProvider storeId={storeId}>
+      <PortalShell
+        title={content.staff.shell.title}
+        homeHref={STAFF_DASHBOARD_PATH}
+        navItems={buildStaffDesktopNav()}
+        showDesktopNav
+        signOutLabel={content.common.signOut}
+        headerActions={
+          <>
+            <GlobalSearchDialog storeId={storeId} />
+            <StaffNotificationBell />
+          </>
+        }
+        bottomNav={hideBottomNav ? undefined : <StaffBottomNav />}
+      >
+        <div className="space-y-4">
+          <BillingAccessBanner />
+          {children}
+        </div>
+      </PortalShell>
+    </BillingAccessProvider>
   );
 }

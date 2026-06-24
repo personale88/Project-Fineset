@@ -9,14 +9,14 @@ interface BillingRestrictedValueProps {
   className?: string;
 }
 
-/** Blurs metric values when billing restricts data access. */
+/** Blurs metric values when billing restricts metric visibility for this role. */
 export function BillingRestrictedValue({
   children,
   className,
 }: BillingRestrictedValueProps) {
-  const { isRestricted, isLoading } = useBillingAccessContext();
+  const { metricsBlurred, isLoading } = useBillingAccessContext();
 
-  if (isLoading || !isRestricted) {
+  if (isLoading || !metricsBlurred) {
     return <span className={className}>{children}</span>;
   }
 
@@ -35,13 +35,13 @@ interface BillingRestrictedMetricAreaProps {
   className?: string;
 }
 
-/** Blurs all metric content when billing restricts data access. */
+/** Blurs all metric content when billing restricts metric visibility for this role. */
 export function BillingRestrictedMetricArea({
   children,
   className,
 }: BillingRestrictedMetricAreaProps) {
-  const { isRestricted, isLoading } = useBillingAccessContext();
-  const shouldBlur = !isLoading && isRestricted;
+  const { metricsBlurred, isLoading } = useBillingAccessContext();
+  const shouldBlur = !isLoading && metricsBlurred;
 
   return (
     <div

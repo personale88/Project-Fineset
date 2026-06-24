@@ -34,6 +34,7 @@ describe("computeAdminPortfolioExpansionKpis", () => {
       inactiveStoreCount: 0,
       dataExpiryAt: null,
       renewalDueAt: null,
+      billingAnchorAt: null,
       ownerLastLoginAt: null,
       stores: [
         {

@@ -1,5 +1,6 @@
-import { OwnerAuditLog } from "@/components/store/OwnerAuditLog";
+import { redirect } from "next/navigation";
+import { portalProfileSectionPath } from "@/lib/utils/store-dashboard-url";
 
 export default function OwnerAuditPage() {
-  return <OwnerAuditLog />;
+  redirect(portalProfileSectionPath("BUSINESS_OWNER", "activity"));
 }

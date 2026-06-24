@@ -1,6 +1,11 @@
 import { getAppBaseUrl } from "@/lib/auth/get-app-url";
 import { logAuthEvent } from "@/lib/auth/audit";
 import { getBillingCycleSettings } from "@/lib/automation/billing-cycle-settings";
+import { getActivationBillingPeriod } from "@/lib/billing/activation-cycle";
+import {
+  consolidateOutstandingBilling,
+  outstandingPeriodBreakdownJson,
+} from "@/lib/billing/outstanding-billing";
 import {
   buildInvoiceNumber,
   renderInvoiceEmailHtml,
@@ -9,7 +14,11 @@ import {
 import { SmtpNotConfiguredError, SmtpSendError } from "@/lib/email/errors";
 import { isSmtpConfigured } from "@/lib/email/env";
 import { sendMail } from "@/lib/email/send-mail";
-import { logBillingInvoice } from "@/lib/services/billing-accounts";
+import {
+  buildOutstandingBillingForBusinessKey,
+  logBillingInvoice,
+} from "@/lib/services/billing-accounts";
+import { resolveBillingAnchorForBusinessKey } from "@/lib/services/billing-anchor";
 import { getBusinessPaymentStatus } from "@/lib/utils/admin-portfolio-filters";
 import { getBillingPaymentStatusLabel } from "@/lib/utils/billing-status-labels";
 import { groupStoresByBusiness } from "@/lib/utils/group-stores-by-business";
@@ -64,20 +73,39 @@ export async function sendBusinessInvoice(
     );
   }
 
-  const invoiceNumber = buildInvoiceNumber(businessKey);
-  const invoiceDate = formatDate(new Date());
+  const reference = new Date();
+  const invoiceNumber = buildInvoiceNumber(businessKey, reference);
+  const invoiceDate = formatDate(reference);
   const cycleSettings = await getBillingCycleSettings();
   const portfolioStatus = getBusinessPaymentStatus(
     business,
-    new Date(),
+    reference,
     undefined,
     undefined,
     cycleSettings,
   );
   const paymentStatus = getBillingPaymentStatusLabel(portfolioStatus, cycleSettings);
   const pricingConfig = await getActiveBillingPricingConfig();
-  const billing = calculateBusinessMonthlyBilling(business.stores, pricingConfig);
+  const billingAnchorAt = await resolveBillingAnchorForBusinessKey(
+    businessKey,
+    business.billingAnchorAt,
+  );
+  const outstanding =
+    (await buildOutstandingBillingForBusinessKey(businessKey, reference)) ??
+    null;
+  const billing =
+    outstanding && outstanding.unpaidPeriodCount > 0
+      ? consolidateOutstandingBilling(outstanding)
+      : calculateBusinessMonthlyBilling(business.stores, pricingConfig, {
+          billingAnchorAt,
+          reference,
+        });
+  const outstandingBilling =
+    outstanding && outstanding.unpaidPeriodCount > 0 ? outstanding : undefined;
   const branding = await getPlatformBranding();
+  const currentPeriod = billingAnchorAt
+    ? getActivationBillingPeriod(billingAnchorAt, reference)
+    : null;
 
   const emailContent = {
     invoiceNumber,
@@ -85,16 +113,24 @@ export async function sendBusinessInvoice(
     businessName: business.businessName,
     ownerName: business.ownerName ?? business.businessName,
     businessEmail: recipientEmail,
-    renewalDue: displayDate(business.renewalDueAt),
-    dataExpiry: displayDate(business.dataExpiryAt),
+    renewalDue: currentPeriod
+      ? formatDate(currentPeriod.dueDate)
+      : displayDate(business.renewalDueAt),
+    dataExpiry: currentPeriod
+      ? formatDate(currentPeriod.periodEnd)
+      : displayDate(business.dataExpiryAt),
     paymentStatus,
     siteUrl: getAppBaseUrl(),
     billing,
+    outstandingBilling,
     platformName: branding.platformName,
     supportEmail: branding.supportEmail,
   };
 
-  const subject = `Invoice ${invoiceNumber} — ${business.businessName}`;
+  const subject =
+    outstandingBilling && outstandingBilling.unpaidPeriodCount > 1
+      ? `Consolidated invoice ${invoiceNumber} — ${business.businessName}`
+      : `Invoice ${invoiceNumber} — ${business.businessName}`;
 
   try {
     await sendMail({
@@ -113,12 +149,21 @@ export async function sendBusinessInvoice(
     throw error;
   }
 
+  const firstPeriod = outstandingBilling?.periods[0];
+  const lastPeriod = outstandingBilling?.periods.at(-1);
+
   await logBillingInvoice({
     businessKey,
     invoiceNumber,
     sentTo: recipientEmail,
     grandTotal: billing.grandTotal,
     sentByEmail,
+    periodStart: firstPeriod ? new Date(firstPeriod.periodStart) : currentPeriod?.periodStart,
+    periodEnd: lastPeriod ? new Date(lastPeriod.periodEnd) : currentPeriod?.periodEnd,
+    unpaidPeriodCount: outstandingBilling?.unpaidPeriodCount ?? 1,
+    periodBreakdown: outstandingBilling
+      ? outstandingPeriodBreakdownJson(outstandingBilling)
+      : undefined,
   });
 
   await logAuthEvent({
@@ -129,6 +174,7 @@ export async function sendBusinessInvoice(
       invoiceNumber,
       sentTo: recipientEmail,
       grandTotal: billing.grandTotal,
+      unpaidPeriodCount: outstandingBilling?.unpaidPeriodCount ?? 1,
     },
   });
 

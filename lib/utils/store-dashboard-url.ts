@@ -20,6 +20,36 @@ export function appendStoreQuery(
   return qs ? `${base}?${qs}` : base;
 }
 
+export function businessOwnerProfilePath(): string {
+  return `${BUSINESS_OWNER_DASHBOARD_PATH}/profile`;
+}
+
+export function storeManagerProfilePath(): string {
+  return `${STORE_MANAGER_DASHBOARD_PATH}/profile`;
+}
+
+export function portalProfileSectionPath(
+  role: "STORE_MANAGER" | "BUSINESS_OWNER",
+  section:
+    | "staff"
+    | "activity"
+    | "billing"
+    | "preferences"
+    | "support"
+    | "signOut"
+    | "account",
+  storeId?: string | null,
+): string {
+  const base =
+    role === "BUSINESS_OWNER" ? businessOwnerProfilePath() : storeManagerProfilePath();
+  if (section === "account") {
+    return storeId ? appendStoreQuery(base, storeId) : base;
+  }
+  const params = new URLSearchParams({ section });
+  if (storeId) params.set("storeId", storeId);
+  return `${base}?${params.toString()}`;
+}
+
 export function portalDashboardPath(
   role: "STORE_MANAGER" | "BUSINESS_OWNER",
 ): string {

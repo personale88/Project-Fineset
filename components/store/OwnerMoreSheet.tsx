@@ -4,13 +4,13 @@ import {
   BarChart3,
   History,
   Route,
-  ScrollText,
-  Users,
+  User,
 } from "lucide-react";
 import { content } from "@/content/en";
 import { useStoreDashboard } from "@/components/store/StoreDashboardProvider";
 import { PortalActionBottomSheet } from "@/components/shared/PortalActionBottomSheet";
 import {
+  businessOwnerProfilePath,
   portalSectionPath,
   storeDetailPathForRole,
 } from "@/lib/utils/store-dashboard-url";
@@ -26,19 +26,14 @@ export function OwnerMoreSheet({ open, onOpenChange }: OwnerMoreSheetProps) {
 
   const links = [
     {
+      href: businessOwnerProfilePath(),
+      label: copy.profile,
+      icon: User,
+    },
+    {
       href: portalSectionPath("visits", "BUSINESS_OWNER", storeId),
       label: copy.visitsLog,
       icon: History,
-    },
-    {
-      href: portalSectionPath("staff", "BUSINESS_OWNER", storeId),
-      label: copy.staff,
-      icon: Users,
-    },
-    {
-      href: portalSectionPath("audit", "BUSINESS_OWNER"),
-      label: copy.auditLog,
-      icon: ScrollText,
     },
     {
       href: portalSectionPath("field-sales", "BUSINESS_OWNER", storeId),

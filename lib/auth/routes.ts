@@ -3,6 +3,8 @@ import type { AppSession, UserRole } from "@/types";
 export const STAFF_DASHBOARD_PATH = "/staff/dashboard";
 export const STORE_MANAGER_DASHBOARD_PATH = "/store-manager/dashboard";
 export const BUSINESS_OWNER_DASHBOARD_PATH = "/business-owner/dashboard";
+export const BUSINESS_OWNER_PROFILE_PATH = `${BUSINESS_OWNER_DASHBOARD_PATH}/profile`;
+export const STORE_MANAGER_PROFILE_PATH = `${STORE_MANAGER_DASHBOARD_PATH}/profile`;
 export const ADMIN_DASHBOARD_PATH = "/admin/dashboard";
 
 /** @deprecated Legacy prefix — remapped per role in proxy and post-auth redirects. */

@@ -7,13 +7,15 @@ import type {
 import { logAuthEvent } from "@/lib/auth/audit";
 import { prisma } from "@/lib/db/prisma";
 import { syncBusinessDatesForEmail } from "@/lib/services/store-business-dates";
-import { getBillingCycleSettings } from "@/lib/automation/billing-cycle-settings";
 import { getAutomationConfig } from "@/lib/services/automation-config";
-import { toBillingCycleSettings } from "@/lib/automation/merge-config";
+import { syncBillingAnchorForBusinessKey } from "@/lib/services/billing-anchor";
+import { getActivationBillingPeriod, resolveBusinessBillingAnchor } from "@/lib/billing/activation-cycle";
 import {
-  getBillingCycleStart,
-  getBillingDatesForPaidCycle,
-} from "@/lib/utils/billing-cycle";
+  calculateOutstandingBilling,
+  outstandingPeriodBreakdownJson,
+} from "@/lib/billing/outstanding-billing";
+import { settlementFromAccount } from "@/lib/billing/period-settlement";
+import { getActiveBillingPricingConfig } from "@/lib/platform/billing-pricing";
 import { groupStoresByBusiness } from "@/lib/utils/group-stores-by-business";
 import { getAdminPortfolioStoreRows } from "@/lib/services/stores";
 import type { BusinessPortfolioRow } from "@/types";
@@ -27,6 +29,79 @@ export class BillingAccountError extends Error {
     this.name = "BillingAccountError";
   }
 }
+
+async function resolvePaidThroughForBusinessKey(
+  businessKey: string,
+  reference = new Date(),
+): Promise<Date | null> {
+  const business = await resolveBusiness(businessKey);
+  if (!business) return null;
+
+  const account = await prisma.billingBusinessAccount.findUnique({
+    where: { businessKey },
+    select: { billingAnchorAt: true, paidAt: true, paidThroughPeriodEnd: true },
+  });
+
+  const billingAnchorAt =
+    account?.billingAnchorAt ??
+    resolveBusinessBillingAnchor(
+      business.stores.map((store) => ({ createdAt: store.createdAt })),
+    );
+  if (!billingAnchorAt) return null;
+
+  const pricingConfig = await getActiveBillingPricingConfig();
+  const outstanding = calculateOutstandingBilling(business.stores, pricingConfig, {
+    billingAnchorAt,
+    settlement: settlementFromAccount({
+      paidAt: account?.paidAt ?? null,
+      paidThroughPeriodEnd: account?.paidThroughPeriodEnd ?? null,
+    }),
+    reference,
+  });
+
+  const lastPeriod = outstanding.periods.at(-1);
+  if (lastPeriod) {
+    return new Date(lastPeriod.periodEnd);
+  }
+
+  return getActivationBillingPeriod(billingAnchorAt, reference).periodEnd;
+}
+
+export async function buildOutstandingBillingForBusinessKey(
+  businessKey: string,
+  reference = new Date(),
+) {
+  const business = await resolveBusiness(businessKey);
+  if (!business) return null;
+
+  const account = await prisma.billingBusinessAccount.findUnique({
+    where: { businessKey },
+    select: {
+      paidAt: true,
+      paidThroughPeriodEnd: true,
+      billingAnchorAt: true,
+    },
+  });
+
+  const billingAnchorAt =
+    account?.billingAnchorAt ??
+    resolveBusinessBillingAnchor(
+      business.stores.map((store) => ({ createdAt: store.createdAt })),
+    );
+  if (!billingAnchorAt) return null;
+
+  const pricingConfig = await getActiveBillingPricingConfig();
+  return calculateOutstandingBilling(business.stores, pricingConfig, {
+    billingAnchorAt,
+    settlement: settlementFromAccount({
+      paidAt: account?.paidAt ?? null,
+      paidThroughPeriodEnd: account?.paidThroughPeriodEnd ?? null,
+    }),
+    reference,
+  });
+}
+
+export { outstandingPeriodBreakdownJson };
 
 async function resolveBusiness(businessKey: string): Promise<BusinessPortfolioRow | null> {
   const stores = await getAdminPortfolioStoreRows();
@@ -52,6 +127,10 @@ export interface BillingInvoiceLogDto {
   grandTotal: number;
   sentByEmail: string | null;
   createdAt: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  unpaidPeriodCount: number | null;
+  periodBreakdown: unknown | null;
 }
 
 export interface BillingAccountSummaryDto {
@@ -74,6 +153,8 @@ export interface BillingAccountDetailDto {
   lastFollowUpAt: string | null;
   nextFollowUpAt: string | null;
   paidAt: string | null;
+  paidThroughPeriodEnd: string | null;
+  billingAnchorAt: string | null;
   followUpCount: number;
   followUps: BillingFollowUpDto[];
   invoiceLogs: BillingInvoiceLogDto[];
@@ -104,6 +185,10 @@ function mapInvoiceLog(
     grandTotal: row.grandTotal,
     sentByEmail: row.sentByEmail,
     createdAt: row.createdAt.toISOString(),
+    periodStart: row.periodStart?.toISOString() ?? null,
+    periodEnd: row.periodEnd?.toISOString() ?? null,
+    unpaidPeriodCount: row.unpaidPeriodCount ?? null,
+    periodBreakdown: row.periodBreakdown ?? null,
   };
 }
 
@@ -114,18 +199,26 @@ export async function ensureBillingAccount(
     where: { businessKey },
     select: { id: true, businessKey: true },
   });
-  if (existing) return existing;
+  if (existing) {
+    await syncBillingAnchorForBusinessKey(businessKey);
+    return existing;
+  }
 
   const business = await resolveBusiness(businessKey);
   if (!business) {
     throw new BillingAccountError("Business not found.", 404);
   }
 
+  const billingAnchorAt = resolveBusinessBillingAnchor(
+    business.stores.map((store) => ({ createdAt: store.createdAt })),
+  );
+
   const created = await prisma.billingBusinessAccount.create({
     data: {
       businessKey,
       businessName: business.businessName,
       businessEmail: business.businessEmail?.trim().toLowerCase() ?? null,
+      billingAnchorAt,
     },
     select: { id: true, businessKey: true },
   });
@@ -138,6 +231,10 @@ export async function logBillingInvoice(params: {
   sentTo: string;
   grandTotal: number;
   sentByEmail?: string | null;
+  periodStart?: Date | null;
+  periodEnd?: Date | null;
+  unpaidPeriodCount?: number;
+  periodBreakdown?: Prisma.InputJsonValue;
 }): Promise<void> {
   const account = await ensureBillingAccount(params.businessKey);
   const now = new Date();
@@ -157,6 +254,10 @@ export async function logBillingInvoice(params: {
         sentTo: params.sentTo,
         grandTotal: params.grandTotal,
         sentByEmail: params.sentByEmail ?? null,
+        periodStart: params.periodStart ?? null,
+        periodEnd: params.periodEnd ?? null,
+        unpaidPeriodCount: params.unpaidPeriodCount ?? null,
+        periodBreakdown: params.periodBreakdown ?? undefined,
       },
     }),
   ]);
@@ -196,6 +297,10 @@ export async function createBillingFollowUp(params: {
       accountUpdate.paymentStatus = "PAID";
       accountUpdate.paidAt = now;
       accountUpdate.nextFollowUpAt = null;
+      accountUpdate.paidThroughPeriodEnd = await resolvePaidThroughForBusinessKey(
+        params.businessKey,
+        now,
+      );
     } else if (params.outcome === "PARTIAL_PAYMENT") {
       accountUpdate.paymentStatus = "PARTIAL";
     } else if (params.outcome === "DISPUTED") {
@@ -245,40 +350,33 @@ async function syncStoreDatesForBusinessKey(
   const business = await resolveBusiness(businessKey);
   if (!business?.businessEmail) return;
 
-  const config = await getAutomationConfig().catch(() => null);
-  const cycleSettings = config
-    ? toBillingCycleSettings(config)
-    : await getBillingCycleSettings();
+  const billingAnchorAt = resolveBusinessBillingAnchor(
+    business.stores.map((store) => ({ createdAt: store.createdAt })),
+  );
+  if (!billingAnchorAt) return;
+
+  const reference = new Date();
+  const period = getActivationBillingPeriod(billingAnchorAt, reference);
 
   if (paymentStatus === "PAID" || paymentStatus === "WAIVED") {
+    const config = await getAutomationConfig().catch(() => null);
     if (config && !config.expiryRenewal.autoExtendOnPayment) {
       return;
     }
-    const { renewalDueAt, dataExpiryAt } = getBillingDatesForPaidCycle(
-      new Date(),
-      cycleSettings,
+    const nextPeriod = getActivationBillingPeriod(
+      billingAnchorAt,
+      new Date(period.periodEnd.getTime() + 86_400_000),
     );
     await syncBusinessDatesForEmail(business.businessEmail, {
-      renewalDueAt,
-      dataExpiryAt,
+      renewalDueAt: nextPeriod.dueDate,
+      dataExpiryAt: nextPeriod.periodEnd,
     });
     return;
   }
 
-  const cycleStart = getBillingCycleStart(new Date(), cycleSettings);
-  const renewalDueAt = new Date(
-    cycleStart.getFullYear(),
-    cycleStart.getMonth(),
-    cycleSettings.paymentDueDay,
-  );
-  const dataExpiryAt = new Date(
-    cycleStart.getFullYear(),
-    cycleStart.getMonth() + 1,
-    cycleSettings.cycleStartDay,
-  );
   await syncBusinessDatesForEmail(business.businessEmail, {
-    renewalDueAt,
-    dataExpiryAt,
+    renewalDueAt: period.dueDate,
+    dataExpiryAt: period.periodEnd,
   });
 }
 
@@ -293,11 +391,18 @@ export async function updateBillingPaymentStatus(params: {
   const now = new Date();
 
   await prisma.$transaction(async (tx) => {
+    const paidThroughPeriodEnd =
+      params.paymentStatus === "PAID"
+        ? await resolvePaidThroughForBusinessKey(params.businessKey, now)
+        : null;
+
     await tx.billingBusinessAccount.update({
       where: { id: account.id },
       data: {
         paymentStatus: params.paymentStatus,
         paidAt: params.paymentStatus === "PAID" ? now : null,
+        paidThroughPeriodEnd:
+          params.paymentStatus === "PAID" ? paidThroughPeriodEnd : null,
         nextFollowUpAt:
           params.paymentStatus === "PAID" ? null : undefined,
       },
@@ -382,6 +487,8 @@ export async function getBillingAccountDetail(
       lastFollowUpAt: null,
       nextFollowUpAt: null,
       paidAt: null,
+      paidThroughPeriodEnd: null,
+      billingAnchorAt: null,
       followUpCount: 0,
       followUps: [],
       invoiceLogs: [],
@@ -398,6 +505,8 @@ export async function getBillingAccountDetail(
     lastFollowUpAt: account.lastFollowUpAt?.toISOString() ?? null,
     nextFollowUpAt: account.nextFollowUpAt?.toISOString() ?? null,
     paidAt: account.paidAt?.toISOString() ?? null,
+    paidThroughPeriodEnd: account.paidThroughPeriodEnd?.toISOString() ?? null,
+    billingAnchorAt: account.billingAnchorAt?.toISOString() ?? null,
     followUpCount: account.followUps.length,
     followUps: account.followUps.map(mapFollowUp),
     invoiceLogs: account.invoiceLogs.map(mapInvoiceLog),

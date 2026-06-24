@@ -1,64 +1,94 @@
 import { describe, expect, it } from "vitest";
-import { resolvePortalBillingAccess } from "@/lib/utils/portal-billing-access";
+import {
+  applyPortalBillingAccessForRole,
+  resolvePortalBillingAccess,
+} from "@/lib/utils/portal-billing-access";
 
-describe("resolvePortalBillingAccess", () => {
-  it("allows read access during grace period (1st–10th)", () => {
+const ANCHOR = "2026-01-15T00:00:00.000Z";
+
+describe("resolvePortalBillingAccess (activation-based)", () => {
+  it("allows access within due window after period start", () => {
     const result = resolvePortalBillingAccess(
-      { paymentStatus: "UNPAID", paidAt: null },
-      new Date("2026-06-05T12:00:00.000Z"),
+      { paymentStatus: "UNPAID", paidAt: null, billingAnchorAt: ANCHOR },
+      new Date("2026-02-20T12:00:00.000Z"),
     );
     expect(result.canReadData).toBe(true);
-    expect(result.reason).toBe("GRACE_PERIOD");
+    expect(result.reason).toBe("WITHIN_DUE_WINDOW");
+    expect(result.isGracePeriod).toBe(true);
   });
 
-  it("allows read access on the 10th", () => {
+  it("restricts all roles after first overdue period", () => {
     const result = resolvePortalBillingAccess(
-      { paymentStatus: "UNPAID", paidAt: null },
-      new Date("2026-06-10T18:00:00.000Z"),
+      { paymentStatus: "UNPAID", paidAt: null, billingAnchorAt: ANCHOR },
+      new Date("2026-01-26T12:00:00.000Z"),
     );
-    expect(result.canReadData).toBe(true);
-    expect(result.reason).toBe("GRACE_PERIOD");
-  });
-
-  it("blocks read access after the 10th when unpaid", () => {
-    const result = resolvePortalBillingAccess(
-      { paymentStatus: "UNPAID", paidAt: null },
-      new Date("2026-06-11T08:00:00.000Z"),
-    );
+    expect(result.consecutiveUnpaidPeriods).toBe(1);
+    expect(result.restrictionTier).toBe("METRICS_BLURRED_ALL");
     expect(result.canReadData).toBe(false);
-    expect(result.reason).toBe("UNPAID_AFTER_DEADLINE");
   });
 
-  it("allows read access after the 10th when paid for current cycle", () => {
+  it("escalates to staff-ok tier after two overdue periods", () => {
+    const result = resolvePortalBillingAccess(
+      { paymentStatus: "UNPAID", paidAt: null, billingAnchorAt: ANCHOR },
+      new Date("2026-02-26T12:00:00.000Z"),
+    );
+    expect(result.consecutiveUnpaidPeriods).toBe(2);
+    expect(result.restrictionTier).toBe("LEADERS_RESTRICTED_STAFF_OK");
+  });
+
+  it("allows access when paid for current activation period", () => {
     const result = resolvePortalBillingAccess(
       {
         paymentStatus: "PAID",
-        paidAt: "2026-06-12T10:00:00.000Z",
+        paidAt: "2026-03-16T00:00:00.000Z",
+        billingAnchorAt: ANCHOR,
       },
-      new Date("2026-06-15T08:00:00.000Z"),
+      new Date("2026-03-26T12:00:00.000Z"),
     );
     expect(result.canReadData).toBe(true);
     expect(result.reason).toBe("PAID");
   });
 
-  it("blocks read access after the 10th when paid in a previous cycle", () => {
+  it("allows access when enforcement is disabled", () => {
     const result = resolvePortalBillingAccess(
       {
-        paymentStatus: "PAID",
-        paidAt: "2026-05-20T10:00:00.000Z",
+        paymentStatus: "UNPAID",
+        paidAt: null,
+        billingAnchorAt: ANCHOR,
+        restrictPortalOnOverdue: false,
       },
-      new Date("2026-06-15T08:00:00.000Z"),
-    );
-    expect(result.canReadData).toBe(false);
-    expect(result.reason).toBe("UNPAID_AFTER_DEADLINE");
-  });
-
-  it("always allows read access for waived accounts", () => {
-    const result = resolvePortalBillingAccess(
-      { paymentStatus: "WAIVED", paidAt: null },
-      new Date("2026-06-20T08:00:00.000Z"),
+      new Date("2026-03-26T12:00:00.000Z"),
     );
     expect(result.canReadData).toBe(true);
-    expect(result.reason).toBe("WAIVED");
+    expect(result.reason).toBe("UNPAID_AFTER_DUE");
+  });
+});
+
+describe("applyPortalBillingAccessForRole", () => {
+  it("restores staff access after two overdue periods", () => {
+    const base = resolvePortalBillingAccess(
+      { paymentStatus: "UNPAID", paidAt: null, billingAnchorAt: ANCHOR },
+      new Date("2026-02-26T12:00:00.000Z"),
+    );
+    const staff = applyPortalBillingAccessForRole(base, "STAFF");
+    const owner = applyPortalBillingAccessForRole(base, "BUSINESS_OWNER");
+
+    expect(staff.canReadData).toBe(true);
+    expect(staff.metricsBlurred).toBe(false);
+    expect(staff.billingRestricted).toBe(false);
+
+    expect(owner.canReadData).toBe(false);
+    expect(owner.metricsBlurred).toBe(true);
+    expect(owner.billingRestricted).toBe(true);
+  });
+
+  it("blocks staff during first overdue period", () => {
+    const base = resolvePortalBillingAccess(
+      { paymentStatus: "UNPAID", paidAt: null, billingAnchorAt: ANCHOR },
+      new Date("2026-01-26T12:00:00.000Z"),
+    );
+    const staff = applyPortalBillingAccessForRole(base, "STAFF");
+    expect(staff.metricsBlurred).toBe(true);
+    expect(staff.billingRestricted).toBe(true);
   });
 });

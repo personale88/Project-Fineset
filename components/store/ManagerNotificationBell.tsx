@@ -8,6 +8,7 @@ import { useManagerActor } from "@/components/store/ManagerActorProvider";
 import { useStaffDigest } from "@/hooks/useStaffWorkQueue";
 import { useMaxSm } from "@/hooks/useMaxSm";
 import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
+import { portalProfileSectionPath } from "@/lib/utils/store-dashboard-url";
 import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
 import { Button } from "@/components/ui/button";
 import { portalHeaderActionButtonClass } from "@/components/layout/portal-header-button";
@@ -69,7 +70,7 @@ export function ManagerNotificationBell() {
       return [
         {
           key: "staff-roster",
-          href: `${STORE_MANAGER_DASHBOARD_PATH}/staff`,
+          href: portalProfileSectionPath("STORE_MANAGER", "staff"),
           label: actorCopy.viewStaffRoster,
           icon: Users,
         },
@@ -150,7 +151,7 @@ export function ManagerNotificationBell() {
             <DropdownMenuItem disabled>{copy.unlinked}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href={`${STORE_MANAGER_DASHBOARD_PATH}/staff`}>
+              <Link href={portalProfileSectionPath("STORE_MANAGER", "staff")}>
                 {actorCopy.viewStaffRoster}
               </Link>
             </DropdownMenuItem>

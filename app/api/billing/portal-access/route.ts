@@ -1,10 +1,9 @@
 import { withAuthQuery } from "@/lib/api/route-handler";
-import { isPortalDataReadBlockedForSession } from "@/lib/auth/billing-access-guard";
+import type { AppSession } from "@/types";
+import { buildOutstandingBillingForBusinessKey } from "@/lib/services/billing-accounts";
 import { resolvePortalStoreIdForSession } from "@/lib/auth/resolve-manager-store-id";
 import { requireStaffContext } from "@/lib/auth/resolve-staff";
-import { getBillingCycleSettings } from "@/lib/automation/billing-cycle-settings";
-import { getPortalBillingAccessForStore } from "@/lib/services/portal-billing-access";
-import { formatBillingDeadlineFallback } from "@/lib/utils/billing-status-labels";
+import { getPortalBillingAccessForRole } from "@/lib/services/portal-billing-access";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -36,13 +35,12 @@ export const GET = withAuthQuery(
       if (staff) storeId = staff.storeId;
     }
 
-    const access = await getPortalBillingAccessForStore(storeId);
+    const access = await getPortalBillingAccessForRole(storeId, session.role);
     if (!access) {
       return NextResponse.json({ message: "Store not found" }, { status: 404 });
     }
 
-    const blocked = await isPortalDataReadBlockedForSession(session, storeId);
-    const cycleSettings = await getBillingCycleSettings();
+    const outstanding = await buildOutstandingBillingForBusinessKey(access.businessKey);
 
     return NextResponse.json({
       storeId,
@@ -53,9 +51,16 @@ export const GET = withAuthQuery(
       paidAt: access.paidAt,
       reason: access.reason,
       paymentDeadline: access.paymentDeadline.toISOString(),
-      paymentDeadlineFallback: formatBillingDeadlineFallback(cycleSettings),
+      paymentDeadlineFallback: access.paymentDeadline.toISOString(),
       billingCycleStart: access.billingCycleStart.toISOString(),
-      billingRestricted: blocked,
+      billingAnchorAt: access.billingAnchorAt?.toISOString() ?? null,
+      consecutiveUnpaidPeriods: access.consecutiveUnpaidPeriods,
+      restrictionTier: access.restrictionTier,
+      billingRestricted: access.billingRestricted,
+      metricsBlurred: access.metricsBlurred,
+      viewerRole: session.role as AppSession["role"],
+      outstandingGrandTotal: outstanding?.grandTotal ?? 0,
+      unpaidPeriodCount: outstanding?.unpaidPeriodCount ?? 0,
     });
   },
 );

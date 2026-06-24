@@ -77,7 +77,6 @@ export function buildManagerMyWorkHubLinks(): ManagerHubLink[] {
 export function buildManagerTeamHubLinks(_storeId: string): ManagerHubLink[] {
   const actions = content.store.managerDashboard.actions.team;
   const followUps = content.store.managerDashboard.followUps.store;
-  const shell = content.store.managerShell;
   const base = STORE_MANAGER_DASHBOARD_PATH;
 
   return [
@@ -101,20 +100,6 @@ export function buildManagerTeamHubLinks(_storeId: string): ManagerHubLink[] {
       title: actions.visitsLog.title,
       description: actions.visitsLog.description,
       cta: actions.visitsLog.cta,
-    },
-    {
-      id: "staffRoster",
-      href: `${base}/staff`,
-      title: actions.staffRoster.title,
-      description: actions.staffRoster.description,
-      cta: actions.staffRoster.cta,
-    },
-    {
-      id: "activity",
-      href: `${base}/activity`,
-      title: shell.activityLog.title,
-      description: shell.activityLog.hubDescription,
-      cta: shell.activityLog.cta,
     },
     {
       id: "fieldSalesLog",

@@ -1,21 +1,21 @@
 "use client";
 
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { content } from "@/content/en";
 import { useStoreDashboard } from "@/components/store/StoreDashboardProvider";
+import { ProfileStoreFilter } from "@/components/store/profile/ProfileStoreFilter";
 import { getStoreActivity } from "@/lib/api/store-activity";
 import { formatDateTime } from "@/lib/utils/formatters";
-import { cn } from "@/lib/utils";
-import { BUSINESS_OWNER_DASHBOARD_PATH } from "@/lib/auth/routes";
-import { storeManagerTeamHubHref } from "@/lib/utils/store-dashboard-url";
 
 interface PortalStoreActivityLogProps {
   portalRole: "STORE_MANAGER" | "BUSINESS_OWNER";
+  embedded?: boolean;
 }
 
-export function PortalStoreActivityLog({ portalRole }: PortalStoreActivityLogProps) {
+export function PortalStoreActivityLog({
+  portalRole,
+  embedded = false,
+}: PortalStoreActivityLogProps) {
   const copy =
     portalRole === "STORE_MANAGER"
       ? content.store.managerShell.activityLog
@@ -31,50 +31,16 @@ export function PortalStoreActivityLog({ portalRole }: PortalStoreActivityLogPro
   });
 
   const rows = data ?? [];
-  const backHref =
-    portalRole === "STORE_MANAGER"
-      ? storeManagerTeamHubHref()
-      : BUSINESS_OWNER_DASHBOARD_PATH;
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-3">
-        <Link
-          href={backHref}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary transition-colors hover:text-brand-gold"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden />
-          {content.common.back}
-        </Link>
-        <div>
-          <h1 className="font-display text-2xl font-bold text-text-primary">{copy.title}</h1>
-          <p className="mt-1 text-sm text-text-secondary">{copy.subtitle}</p>
-        </div>
-      </div>
-
+    <div className={embedded ? "space-y-4" : "space-y-4"}>
       {portalRole === "BUSINESS_OWNER" && hasMultipleStores ? (
-        <div
-          className="flex flex-wrap gap-2"
-          role="group"
-          aria-label={ownerActivityCopy.storeFilterLabel}
-        >
-          {stores.map((store) => (
-            <button
-              key={store.id}
-              type="button"
-              aria-pressed={activeStoreId === store.id}
-              onClick={() => setStoreId(store.id)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                activeStoreId === store.id
-                  ? "border-brand-gold bg-brand-gold/10 text-text-primary"
-                  : "border-border text-text-muted hover:border-brand-gold/30",
-              )}
-            >
-              {store.name}
-            </button>
-          ))}
-        </div>
+        <ProfileStoreFilter
+          stores={stores}
+          activeStoreId={activeStoreId ?? stores[0]!.id}
+          onSelect={setStoreId}
+          label={ownerActivityCopy.storeFilterLabel}
+        />
       ) : null}
 
       {isLoading ? (
@@ -110,7 +76,8 @@ export function PortalStoreActivityLog({ portalRole }: PortalStoreActivityLogPro
         <p className="text-xs text-text-muted">
           {ownerActivityCopy.storeHint.replace(
             "{store}",
-            stores.find((store) => store.id === activeStoreId)?.name ?? ownerActivityCopy.storeFallback,
+            stores.find((store) => store.id === activeStoreId)?.name ??
+              ownerActivityCopy.storeFallback,
           )}
         </p>
       ) : null}

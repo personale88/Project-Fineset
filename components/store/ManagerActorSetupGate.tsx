@@ -5,6 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import { content } from "@/content/en";
 import { useManagerActor } from "@/components/store/ManagerActorProvider";
 import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
+import { portalProfileSectionPath } from "@/lib/utils/store-dashboard-url";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -47,7 +48,9 @@ export function ManagerActorSetupGate({
         <p className="text-text-muted">{copy.hint}</p>
         <div className="flex flex-wrap gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link href={`${STORE_MANAGER_DASHBOARD_PATH}/staff`}>{copy.viewStaffRoster}</Link>
+            <Link href={portalProfileSectionPath("STORE_MANAGER", "staff")}>
+              {copy.viewStaffRoster}
+            </Link>
           </Button>
           <Button asChild variant="ghost" size="sm">
             <Link href={`${STORE_MANAGER_DASHBOARD_PATH}/team`}>Open Team hub</Link>
@@ -72,7 +75,7 @@ export function ManagerActorSetupBanner() {
       <p className="font-medium text-text-primary">{copy.title}</p>
       <p className="mt-1">{copy.dashboardHint}</p>
       <Link
-        href={`${STORE_MANAGER_DASHBOARD_PATH}/staff`}
+        href={portalProfileSectionPath("STORE_MANAGER", "staff")}
         className="mt-2 inline-block text-sm font-medium text-brand-gold hover:underline"
       >
         {copy.viewStaffRoster}

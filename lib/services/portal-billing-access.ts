@@ -1,10 +1,13 @@
 import type { BillingPaymentStatus } from "@prisma/client";
+import type { AppSession } from "@/types";
 import { prisma } from "@/lib/db/prisma";
-import { getBillingCycleSettings } from "@/lib/automation/billing-cycle-settings";
 import { getPlatformSettings } from "@/lib/services/platform-settings";
+import { resolveBillingAnchorForBusinessKey } from "@/lib/services/billing-anchor";
 import { businessGroupKey } from "@/lib/utils/group-stores-by-business";
 import {
+  applyPortalBillingAccessForRole,
   resolvePortalBillingAccess,
+  type PortalBillingAccessForRole,
   type PortalBillingAccessResult,
 } from "@/lib/utils/portal-billing-access";
 
@@ -41,6 +44,38 @@ async function resolveBusinessKeyForStore(storeId: string): Promise<{
   };
 }
 
+async function loadBillingAccessBase(
+  businessKey: string,
+  reference: Date,
+): Promise<PortalBillingAccessResult | null> {
+  const account = await prisma.billingBusinessAccount.findUnique({
+    where: { businessKey },
+    select: {
+      paymentStatus: true,
+      paidAt: true,
+      paidThroughPeriodEnd: true,
+      billingAnchorAt: true,
+    },
+  });
+
+  const platformSettings = await getPlatformSettings();
+  const billingAnchorAt = await resolveBillingAnchorForBusinessKey(
+    businessKey,
+    account?.billingAnchorAt,
+  );
+
+  return resolvePortalBillingAccess(
+    {
+      paymentStatus: account?.paymentStatus ?? "UNPAID",
+      paidAt: account?.paidAt ?? null,
+      paidThroughPeriodEnd: account?.paidThroughPeriodEnd ?? null,
+      billingAnchorAt,
+      restrictPortalOnOverdue: platformSettings.billing.restrictPortalOnOverdue,
+    },
+    reference,
+  );
+}
+
 export async function getPortalBillingAccessForStore(
   storeId: string,
   reference = new Date(),
@@ -57,18 +92,8 @@ export async function getPortalBillingAccessForStore(
     },
   });
 
-  const cycleSettings = await getBillingCycleSettings();
-  const platformSettings = await getPlatformSettings();
-
-  const access = resolvePortalBillingAccess(
-    {
-      paymentStatus: account?.paymentStatus ?? "UNPAID",
-      paidAt: account?.paidAt ?? null,
-      restrictPortalOnOverdue: platformSettings.billing.restrictPortalOnOverdue,
-    },
-    reference,
-    cycleSettings,
-  );
+  const access = await loadBillingAccessBase(business.businessKey, reference);
+  if (!access) return null;
 
   return {
     ...access,
@@ -92,18 +117,8 @@ export async function getPortalBillingAccessForBusinessKey(
     },
   });
 
-  const cycleSettings = await getBillingCycleSettings();
-  const platformSettings = await getPlatformSettings();
-
-  const access = resolvePortalBillingAccess(
-    {
-      paymentStatus: account?.paymentStatus ?? "UNPAID",
-      paidAt: account?.paidAt ?? null,
-      restrictPortalOnOverdue: platformSettings.billing.restrictPortalOnOverdue,
-    },
-    reference,
-    cycleSettings,
-  );
+  const access = await loadBillingAccessBase(businessKey, reference);
+  if (!access) return null;
 
   return {
     ...access,
@@ -111,5 +126,18 @@ export async function getPortalBillingAccessForBusinessKey(
     businessName: account?.businessName ?? null,
     paymentStatus: account?.paymentStatus ?? "UNPAID",
     paidAt: account?.paidAt?.toISOString() ?? null,
+  };
+}
+
+export async function getPortalBillingAccessForRole(
+  storeId: string,
+  role: AppSession["role"],
+  reference = new Date(),
+): Promise<(PortalBillingAccessForRole & PortalBillingAccessDto) | null> {
+  const access = await getPortalBillingAccessForStore(storeId, reference);
+  if (!access) return null;
+  return {
+    ...access,
+    ...applyPortalBillingAccessForRole(access, role),
   };
 }

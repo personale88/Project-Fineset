@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import type { AppSession } from "@/types";
 import { BILLING_RESTRICTED_CODE } from "@/lib/billing/constants";
 import { requireStaffContext } from "@/lib/auth/resolve-staff";
-import { getPortalBillingAccessForStore } from "@/lib/services/portal-billing-access";
+import { getPortalBillingAccessForRole } from "@/lib/services/portal-billing-access";
+import { formatDate } from "@/lib/utils/formatters";
 
 export { BILLING_RESTRICTED_CODE };
 
@@ -14,17 +15,6 @@ export function billingRestrictedEmptyList<T extends Record<string, unknown>>(
     ...extra,
     billingRestricted: true,
   });
-}
-
-/** Returns true when portal read access is blocked for non-admin sessions. */
-export async function isPortalDataReadBlocked(
-  session: AppSession,
-  storeId: string,
-): Promise<boolean> {
-  if (session.role === "MASTER_ADMIN") return false;
-
-  const access = await getPortalBillingAccessForStore(storeId);
-  return Boolean(access && !access.canReadData);
 }
 
 export async function resolveStoreIdForBillingCheck(
@@ -40,12 +30,10 @@ export async function resolveStoreIdForBillingCheck(
   return storeId?.trim() || null;
 }
 
-export async function isPortalDataReadBlockedForSession(
+async function resolveEffectiveStoreId(
   session: AppSession,
   storeId?: string | null,
-): Promise<boolean> {
-  if (session.role === "MASTER_ADMIN") return false;
-
+): Promise<string | null> {
   let effectiveStoreId = await resolveStoreIdForBillingCheck(session, storeId);
 
   if (session.role === "STAFF" && !effectiveStoreId) {
@@ -53,9 +41,29 @@ export async function isPortalDataReadBlockedForSession(
     effectiveStoreId = staff?.storeId ?? null;
   }
 
+  return effectiveStoreId;
+}
+
+/** Returns true when portal read access is blocked for the session role. */
+export async function isPortalDataReadBlockedForSession(
+  session: AppSession,
+  storeId?: string | null,
+): Promise<boolean> {
+  if (session.role === "MASTER_ADMIN") return false;
+
+  const effectiveStoreId = await resolveEffectiveStoreId(session, storeId);
   if (!effectiveStoreId) return false;
 
-  return isPortalDataReadBlocked(session, effectiveStoreId);
+  const access = await getPortalBillingAccessForRole(effectiveStoreId, session.role);
+  return Boolean(access?.billingRestricted);
+}
+
+/** @deprecated Use isPortalDataReadBlockedForSession */
+export async function isPortalDataReadBlocked(
+  session: AppSession,
+  storeId: string,
+): Promise<boolean> {
+  return isPortalDataReadBlockedForSession(session, storeId);
 }
 
 /** Block mutating operations when billing access is restricted (same rules as read). */
@@ -75,4 +83,8 @@ export function billingRestrictedMutationResponse(): NextResponse {
     },
     { status: 402 },
   );
+}
+
+export function formatBillingDeadlineFallback(reference = new Date()): string {
+  return formatDate(reference);
 }

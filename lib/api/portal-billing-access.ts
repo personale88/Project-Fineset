@@ -4,11 +4,18 @@ export interface PortalBillingAccessState {
   canReadData: boolean;
   isGracePeriod: boolean;
   billingRestricted: boolean;
+  metricsBlurred: boolean;
   paymentStatus: string;
   reason: string;
   paymentDeadline: string;
   paymentDeadlineFallback: string;
   billingCycleStart: string;
+  billingAnchorAt: string | null;
+  consecutiveUnpaidPeriods: number;
+  restrictionTier: string;
+  viewerRole: "STAFF" | "STORE_MANAGER" | "BUSINESS_OWNER" | "MASTER_ADMIN";
+  outstandingGrandTotal: number;
+  unpaidPeriodCount: number;
 }
 
 export async function fetchPortalBillingAccess(

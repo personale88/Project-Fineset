@@ -1,6 +1,8 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type BillingPaymentStatus } from "@prisma/client";
 import { randomUUID } from "crypto";
 import { hashCredential } from "../lib/auth/credentials";
+import { buildInvoiceNumber } from "../lib/emails/render-invoice-email";
+import { getActivationBillingPeriod } from "../lib/billing/activation-cycle";
 import { fieldSaleDenormFields, visitDenormFields } from "../lib/services/call-record-denorm";
 import { grantAnalyticsCredits } from "../lib/services/analytics-credits";
 import { prepareCustomerPii } from "../lib/services/pii";
@@ -145,6 +147,79 @@ function dayInPastMonth(monthsBack: number, day: number, hour = 11, minute = 0):
     0,
     0,
   );
+}
+
+type BillingInvoiceSeedEntry = {
+  monthsAgo: number;
+  day?: number;
+  grandTotal: number;
+};
+
+async function seedBillingAccountWithInvoices(params: {
+  businessKey: string;
+  businessName: string;
+  businessEmail: string;
+  paymentStatus: BillingPaymentStatus;
+  billingAnchorAt: Date;
+  paidAt?: Date | null;
+  paidThroughPeriodEnd?: Date | null;
+  invoices: BillingInvoiceSeedEntry[];
+  sentByEmail?: string;
+}): Promise<{ invoiceCount: number }> {
+  const account = await prisma.billingBusinessAccount.upsert({
+    where: { businessKey: params.businessKey },
+    create: {
+      businessKey: params.businessKey,
+      businessName: params.businessName,
+      businessEmail: params.businessEmail,
+      paymentStatus: params.paymentStatus,
+      paidAt: params.paidAt ?? null,
+      paidThroughPeriodEnd: params.paidThroughPeriodEnd ?? null,
+      billingAnchorAt: params.billingAnchorAt,
+    },
+    update: {
+      businessName: params.businessName,
+      businessEmail: params.businessEmail,
+      paymentStatus: params.paymentStatus,
+      paidAt: params.paidAt ?? null,
+      paidThroughPeriodEnd: params.paidThroughPeriodEnd ?? null,
+      billingAnchorAt: params.billingAnchorAt,
+    },
+  });
+
+  await prisma.billingInvoiceLog.deleteMany({ where: { accountId: account.id } });
+
+  const sentByEmail = params.sentByEmail ?? "admin@fineset.local";
+  const logs = params.invoices
+    .map((invoice) => {
+      const sentAt = dayInPastMonth(invoice.monthsAgo, invoice.day ?? 15, 10, 30);
+      return {
+        accountId: account.id,
+        invoiceNumber: buildInvoiceNumber(params.businessKey, sentAt),
+        sentTo: params.businessEmail,
+        grandTotal: invoice.grandTotal,
+        sentByEmail,
+        createdAt: sentAt,
+      };
+    })
+    .sort((left, right) => left.createdAt.getTime() - right.createdAt.getTime());
+
+  for (const log of logs) {
+    await prisma.billingInvoiceLog.create({ data: log });
+  }
+
+  const latest = logs.at(-1);
+  if (latest) {
+    await prisma.billingBusinessAccount.update({
+      where: { id: account.id },
+      data: {
+        lastInvoiceNumber: latest.invoiceNumber,
+        lastInvoiceSentAt: latest.createdAt,
+      },
+    });
+  }
+
+  return { invoiceCount: logs.length };
 }
 
 type AnalyticsVisitSeed = {
@@ -415,6 +490,9 @@ async function seedPortfolioAnalyticsData(context: {
 
 async function main(): Promise<void> {
   await prisma.authAuditLog.deleteMany();
+  await prisma.billingFollowUp.deleteMany();
+  await prisma.billingInvoiceLog.deleteMany();
+  await prisma.billingBusinessAccount.deleteMany();
   await prisma.analyticsCreditLedger.deleteMany();
   await prisma.analyticsCreditAccount.deleteMany();
   await prisma.appUser.deleteMany();
@@ -1351,6 +1429,86 @@ async function main(): Promise<void> {
     lastLoginAt: daysAgo(7),
   });
 
+  const billingAnchorAlpha = dayInPastMonth(4, 8);
+  const billingAnchorRoyal = dayInPastMonth(5, 21);
+  const royalPaidThrough = getActivationBillingPeriod(
+    billingAnchorRoyal,
+    dayInPastMonth(2, 21),
+  ).periodEnd;
+  const alphaPaidThrough = getActivationBillingPeriod(
+    billingAnchorAlpha,
+    dayInPastMonth(0, 12),
+  ).periodEnd;
+
+  await prisma.store.updateMany({
+    where: { businessOwnerEmail: "manager@store-alpha.local" },
+    data: { createdAt: billingAnchorAlpha },
+  });
+  await prisma.store.updateMany({
+    where: { businessOwnerEmail: "owner@royal-time.local" },
+    data: { createdAt: billingAnchorRoyal },
+  });
+  await prisma.store.updateMany({
+    where: { businessOwnerEmail: "bags@luxebags.local" },
+    data: { createdAt: dayInPastMonth(3, 3) },
+  });
+
+  const billingSeed = {
+    storeAlpha: await seedBillingAccountWithInvoices({
+      businessKey: "manager@store-alpha.local",
+      businessName: "Store Alpha Owner",
+      businessEmail: "manager@store-alpha.local",
+      paymentStatus: "PAID",
+      billingAnchorAt: billingAnchorAlpha,
+      paidAt: dayInPastMonth(0, 12),
+      paidThroughPeriodEnd: alphaPaidThrough,
+      sentByEmail: "admin@fineset.local",
+      invoices: [
+        { monthsAgo: 4, day: 8, grandTotal: 5_900 },
+        { monthsAgo: 3, day: 8, grandTotal: 5_900 },
+        { monthsAgo: 2, day: 8, grandTotal: 11_800 },
+        { monthsAgo: 1, day: 8, grandTotal: 11_800 },
+        { monthsAgo: 0, day: 8, grandTotal: 11_800 },
+      ],
+    }),
+    royalTime: await seedBillingAccountWithInvoices({
+      businessKey: "owner@royal-time.local",
+      businessName: "Rajesh Malhotra",
+      businessEmail: "owner@royal-time.local",
+      paymentStatus: "UNPAID",
+      billingAnchorAt: billingAnchorRoyal,
+      paidAt: null,
+      paidThroughPeriodEnd: royalPaidThrough,
+      sentByEmail: "admin@fineset.local",
+      invoices: [
+        { monthsAgo: 4, day: 21, grandTotal: 17_700 },
+        { monthsAgo: 3, day: 21, grandTotal: 17_700 },
+        { monthsAgo: 2, day: 21, grandTotal: 17_700 },
+        { monthsAgo: 1, day: 21, grandTotal: 17_700 },
+        { monthsAgo: 0, day: 21, grandTotal: 17_700 },
+      ],
+    }),
+    luxeBags: await seedBillingAccountWithInvoices({
+      businessKey: "bags@luxebags.local",
+      businessName: "Ananya Reddy",
+      businessEmail: "bags@luxebags.local",
+      paymentStatus: "PAID",
+      billingAnchorAt: dayInPastMonth(3, 3),
+      paidAt: dayInPastMonth(0, 5),
+      paidThroughPeriodEnd: getActivationBillingPeriod(
+        dayInPastMonth(3, 3),
+        dayInPastMonth(0, 5),
+      ).periodEnd,
+      sentByEmail: "admin@fineset.local",
+      invoices: [
+        { monthsAgo: 3, day: 3, grandTotal: 5_900 },
+        { monthsAgo: 2, day: 3, grandTotal: 5_900 },
+        { monthsAgo: 1, day: 3, grandTotal: 5_900 },
+        { monthsAgo: 0, day: 3, grandTotal: 5_900 },
+      ],
+    }),
+  };
+
   console.log("Seed complete:", {
     stores: 10,
     portfolioBusinesses: 7,
@@ -1369,6 +1527,12 @@ async function main(): Promise<void> {
       "Analytics: admin@fineset.local → Dashboard → Analytics. Try city/store filters and 'Last 30 days revenue by source'. Portfolio: 7 businesses with mixed payment statuses.",
     loginHint:
       "DEV_AUTH_BYPASS: sign in with email only (e.g. admin@fineset.local). Optional password: FineSet#1dev",
+    billingHint:
+      "Profile → Billing: manager@store-alpha.local (paid), owner@royal-time.local (multi-period overdue), bags@luxebags.local (paid).",
+    billingInvoiceLogs:
+      billingSeed.storeAlpha.invoiceCount +
+      billingSeed.royalTime.invoiceCount +
+      billingSeed.luxeBags.invoiceCount,
     sampleVisitId: visitAnita.id,
   });
 }

@@ -1,5 +1,6 @@
-import { StoreManagerActivityLog } from "@/components/store/StoreManagerActivityLog";
+import { redirect } from "next/navigation";
+import { portalProfileSectionPath } from "@/lib/utils/store-dashboard-url";
 
 export default function StoreManagerActivityPage() {
-  return <StoreManagerActivityLog />;
+  redirect(portalProfileSectionPath("STORE_MANAGER", "activity"));
 }

@@ -1,6 +1,10 @@
 import type { AdminStorePortfolioRow } from "@/types";
 import type { PlatformSettingsBilling } from "@/lib/platform/types";
 import { DEFAULT_PLATFORM_SETTINGS } from "@/lib/platform/default-settings";
+import {
+  activationProRateFactor,
+  getActivationBillingPeriod,
+} from "@/lib/billing/activation-cycle";
 
 export const GST_RATE = DEFAULT_PLATFORM_SETTINGS.billing.gstRatePercent / 100;
 
@@ -45,7 +49,20 @@ export interface StoreMonthlyCharge {
   baseAmount: number;
   gstAmount: number;
   totalAmount: number;
+  proRateFactor?: number;
 }
+
+export interface BusinessMonthlyBillingOptions {
+  billingAnchorAt?: Date | string | null;
+  reference?: Date;
+}
+
+type BillableStore = Pick<
+  AdminStorePortfolioRow,
+  "storeId" | "storeName" | "staffCount"
+> & {
+  createdAt?: string;
+};
 
 export interface BusinessMonthlyBilling {
   stores: StoreMonthlyCharge[];
@@ -88,9 +105,11 @@ export function getTierBaseMonthlyAmount(
 export function calculateStoreMonthlyCharge(
   store: Pick<AdminStorePortfolioRow, "storeId" | "storeName" | "staffCount">,
   config: BillingPricingConfig = DEFAULT_BILLING_PRICING_CONFIG,
+  proRateFactor = 1,
 ): StoreMonthlyCharge {
   const tier = resolveStoreBillingTier(store.staffCount, config);
-  const baseAmount = getTierBaseMonthlyAmount(tier, config);
+  const fullBase = getTierBaseMonthlyAmount(tier, config);
+  const baseAmount = Math.round(fullBase * proRateFactor);
   const gstAmount = Math.round(baseAmount * config.gstRate);
   const totalAmount = baseAmount + gstAmount;
 
@@ -103,14 +122,33 @@ export function calculateStoreMonthlyCharge(
     baseAmount,
     gstAmount,
     totalAmount,
+    proRateFactor: proRateFactor < 1 ? proRateFactor : undefined,
   };
 }
 
 export function calculateBusinessMonthlyBilling(
-  stores: Pick<AdminStorePortfolioRow, "storeId" | "storeName" | "staffCount">[],
+  stores: BillableStore[],
   config: BillingPricingConfig = DEFAULT_BILLING_PRICING_CONFIG,
+  options?: BusinessMonthlyBillingOptions,
 ): BusinessMonthlyBilling {
-  const lineItems = stores.map((store) => calculateStoreMonthlyCharge(store, config));
+  const reference = options?.reference ?? new Date();
+  const anchor = options?.billingAnchorAt ? new Date(options.billingAnchorAt) : null;
+  const period =
+    anchor && !Number.isNaN(anchor.getTime())
+      ? getActivationBillingPeriod(anchor, reference)
+      : null;
+
+  const lineItems = stores
+    .map((store) => {
+      const proRateFactor =
+        period && store.createdAt
+          ? activationProRateFactor(store.createdAt, period)
+          : 1;
+      if (proRateFactor <= 0) return null;
+      return calculateStoreMonthlyCharge(store, config, proRateFactor);
+    })
+    .filter((item): item is StoreMonthlyCharge => item != null);
+
   const subtotal = lineItems.reduce((sum, item) => sum + item.baseAmount, 0);
   const gstTotal = lineItems.reduce((sum, item) => sum + item.gstAmount, 0);
 

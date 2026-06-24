@@ -9,7 +9,7 @@ import { useOwnerDashboard } from "@/hooks/useOwnerDashboard";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
 import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
 import { buildTeamCallsHref } from "@/lib/utils/staff-calls-url";
-import { portalSectionPath } from "@/lib/utils/store-dashboard-url";
+import { portalProfileSectionPath, portalSectionPath } from "@/lib/utils/store-dashboard-url";
 import { QueryLoadState } from "@/components/shared/QueryLoadState";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -27,7 +27,7 @@ export function BusinessOwnerTeamActivity() {
           <CardDescription>{copy.subtitle}</CardDescription>
         </div>
         <Link
-          href={portalSectionPath("staff", "BUSINESS_OWNER")}
+          href={portalProfileSectionPath("BUSINESS_OWNER", "staff")}
           className="inline-flex items-center gap-1 text-sm font-medium text-brand-gold hover:underline"
         >
           {copy.viewStaff}

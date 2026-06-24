@@ -1,13 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { clearVisitDraft } from "@/components/forms/VisitForm/useVisitDraft";
+import { usePortalSignOut } from "@/hooks/usePortalSignOut";
 import {
   ADMIN_DASHBOARD_PATH,
   BUSINESS_OWNER_DASHBOARD_PATH,
@@ -30,6 +28,7 @@ interface PortalShellProps {
   showDesktopNav?: boolean;
   bottomNav?: React.ReactNode;
   signOutLabel: string;
+  showSignOut?: boolean;
   headerActions?: React.ReactNode;
   children: React.ReactNode;
 }
@@ -41,29 +40,12 @@ export function PortalShell({
   showDesktopNav = true,
   bottomNav,
   signOutLabel,
+  showSignOut = true,
   headerActions,
   children,
 }: PortalShellProps) {
   const pathname = usePathname();
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const [isSigningOut, setIsSigningOut] = useState(false);
-
-  async function handleSignOut() {
-    if (isSigningOut) return;
-
-    setIsSigningOut(true);
-
-    try {
-      clearVisitDraft();
-      queryClient.clear();
-      await fetch("/api/auth/signout", { method: "POST" });
-      router.replace("/");
-      router.refresh();
-    } catch {
-      setIsSigningOut(false);
-    }
-  }
+  const { signOut, isSigningOut } = usePortalSignOut();
 
   function isActive(href: string): boolean {
     if (href === STAFF_DASHBOARD_PATH) {
@@ -132,26 +114,30 @@ export function PortalShell({
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {headerActions}
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isSigningOut}
-              onClick={() => void handleSignOut()}
-              className="hidden gap-1.5 sm:inline-flex"
-            >
-              <LogOut className="h-4 w-4" aria-hidden />
-              {isSigningOut ? "Signing out…" : signOutLabel}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={isSigningOut}
-              onClick={() => void handleSignOut()}
-              className={portalHeaderIconButtonClass}
-              aria-label={isSigningOut ? "Signing out…" : signOutLabel}
-            >
-              <LogOut className="h-4 w-4" aria-hidden />
-            </Button>
+            {showSignOut ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isSigningOut}
+                  onClick={() => void signOut()}
+                  className="hidden gap-1.5 sm:inline-flex"
+                >
+                  <LogOut className="h-4 w-4" aria-hidden />
+                  {isSigningOut ? "Signing out…" : signOutLabel}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isSigningOut}
+                  onClick={() => void signOut()}
+                  className={portalHeaderIconButtonClass}
+                  aria-label={isSigningOut ? "Signing out…" : signOutLabel}
+                >
+                  <LogOut className="h-4 w-4" aria-hidden />
+                </Button>
+              </>
+            ) : null}
           </div>
         </div>
         {navItems.length > 0 && !bottomNav && (

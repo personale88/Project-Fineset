@@ -72,6 +72,7 @@ interface StaffManagementProps {
   backLabel?: string;
   readOnly?: boolean;
   showImport?: boolean;
+  embedded?: boolean;
 }
 
 export function StaffManagement({
@@ -84,6 +85,7 @@ export function StaffManagement({
   backLabel,
   readOnly = false,
   showImport = false,
+  embedded = false,
 }: StaffManagementProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -301,28 +303,79 @@ export function StaffManagement({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          {backHref ? (
-            <Link
-              href={backHref}
-              prefetch={false}
-              className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-text-secondary hover:text-brand-gold"
-            >
-              <ArrowLeft className="h-4 w-4" aria-hidden />
-              {backLabel ?? store.storeDetail.backToPortfolio}
-            </Link>
-          ) : null}
-          <h1 className="font-display text-2xl font-bold text-text-primary">
-            {store.staff.title}
-          </h1>
-          {readOnly ? (
-            <p className="mt-1 text-sm text-text-secondary">{store.staff.readOnlyHint}</p>
+    <div className={embedded ? "space-y-3" : "space-y-4"}>
+      {!embedded ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            {backHref ? (
+              <Link
+                href={backHref}
+                prefetch={false}
+                className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-text-secondary hover:text-brand-gold"
+              >
+                <ArrowLeft className="h-4 w-4" aria-hidden />
+                {backLabel ?? store.storeDetail.backToPortfolio}
+              </Link>
+            ) : null}
+            <h1 className="font-display text-2xl font-bold text-text-primary">
+              {store.staff.title}
+            </h1>
+            {readOnly ? (
+              <p className="mt-1 text-sm text-text-secondary">{store.staff.readOnlyHint}</p>
+            ) : null}
+          </div>
+          {!readOnly ? (
+            <div className="flex flex-wrap gap-2">
+              {showImport ? (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      void importStaffMutation
+                        .mutateAsync(file)
+                        .then((result) => {
+                          toast({
+                            title: store.staff.importResult
+                              .replace("{created}", String(result.createdCount))
+                              .replace("{failed}", String(result.failedCount)),
+                          });
+                        })
+                        .catch(() => {
+                          toast({ title: errors.generic });
+                        })
+                        .finally(() => {
+                          if (fileInputRef.current) {
+                            fileInputRef.current.value = "";
+                          }
+                        });
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-2"
+                    disabled={importStaffMutation.isPending}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="h-4 w-4" aria-hidden />
+                    {store.staff.importCsv}
+                  </Button>
+                </>
+              ) : null}
+              <Button type="button" className="gap-2" onClick={() => setModalOpen(true)}>
+                {store.staff.addStaff}
+              </Button>
+            </div>
           ) : null}
         </div>
-        {!readOnly ? (
-          <div className="flex flex-wrap gap-2">
+      ) : (
+        !readOnly ? (
+          <div className="flex flex-wrap justify-end gap-2">
             {showImport ? (
               <>
                 <input
@@ -342,27 +395,35 @@ export function StaffManagement({
                             .replace("{failed}", String(result.failedCount)),
                         });
                       })
-                      .catch(() => toast({ title: errors.generic }));
-                    event.currentTarget.value = "";
+                      .catch(() => {
+                        toast({ title: errors.generic });
+                      })
+                      .finally(() => {
+                        if (fileInputRef.current) {
+                          fileInputRef.current.value = "";
+                        }
+                      });
                   }}
                 />
                 <Button
                   type="button"
                   variant="outline"
+                  size="sm"
+                  className="gap-2"
                   disabled={importStaffMutation.isPending}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload className="mr-2 size-4" aria-hidden />
+                  <Upload className="h-4 w-4" aria-hidden />
                   {store.staff.importCsv}
                 </Button>
               </>
             ) : null}
-            <Button type="button" onClick={() => setModalOpen(true)}>
+            <Button type="button" size="sm" className="gap-2" onClick={() => setModalOpen(true)}>
               {store.staff.addStaff}
             </Button>
           </div>
-        ) : null}
-      </div>
+        ) : null
+      )}
 
       {isLoading ? (
         <div aria-live="polite" aria-busy="true">

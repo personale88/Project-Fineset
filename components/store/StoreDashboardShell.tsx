@@ -10,6 +10,8 @@ import { buildManagerDesktopNav } from "@/components/store/manager-desktop-nav";
 import { ManagerBottomNav } from "@/components/store/ManagerBottomNav";
 import { ManagerNotificationBell } from "@/components/store/ManagerNotificationBell";
 import { OwnerNotificationBell } from "@/components/store/OwnerNotificationBell";
+import { PortalProfileButton } from "@/components/store/PortalProfileButton";
+import { useStoreDashboard } from "@/components/store/StoreDashboardProvider";
 import { OwnerBottomNav } from "@/components/store/OwnerBottomNav";
 import { portalDashboardPath } from "@/lib/utils/store-dashboard-url";
 import { shouldHidePortalBottomNav } from "@/lib/utils/portal-bottom-nav";
@@ -18,7 +20,6 @@ interface StoreDashboardShellProps {
   title: string;
   signOutLabel: string;
   portalRole?: "STORE_MANAGER" | "BUSINESS_OWNER";
-  storeId?: string;
   children: ReactNode;
 }
 
@@ -26,10 +27,10 @@ export function StoreDashboardShell({
   title,
   signOutLabel,
   portalRole = "STORE_MANAGER",
-  storeId,
   children,
 }: StoreDashboardShellProps) {
   const pathname = usePathname();
+  const { storeId } = useStoreDashboard();
   const hideBottomNav = shouldHidePortalBottomNav(pathname);
   const homeHref = portalDashboardPath(portalRole);
   const navItems =
@@ -38,18 +39,29 @@ export function StoreDashboardShell({
       : [];
 
   return (
-    <BillingAccessProvider storeId={storeId}>
+    <BillingAccessProvider storeId={storeId ?? undefined}>
       <PortalShell
         title={title}
         homeHref={homeHref}
         navItems={navItems}
         showDesktopNav={portalRole === "STORE_MANAGER"}
         signOutLabel={signOutLabel}
+        showSignOut={false}
         headerActions={
           <>
             <StoreGlobalSearch />
-            {portalRole === "STORE_MANAGER" ? <ManagerNotificationBell /> : null}
-            {portalRole === "BUSINESS_OWNER" ? <OwnerNotificationBell /> : null}
+            {portalRole === "STORE_MANAGER" ? (
+              <>
+                <ManagerNotificationBell />
+                <PortalProfileButton portalRole="STORE_MANAGER" />
+              </>
+            ) : null}
+            {portalRole === "BUSINESS_OWNER" ? (
+              <>
+                <OwnerNotificationBell />
+                <PortalProfileButton portalRole="BUSINESS_OWNER" />
+              </>
+            ) : null}
           </>
         }
         bottomNav={

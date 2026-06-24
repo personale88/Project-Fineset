@@ -31,7 +31,6 @@ interface StoreDetailOverviewProps {
   storeId: string;
   store: StoreContent;
   portalRole?: "STORE_MANAGER" | "BUSINESS_OWNER";
-  showStaffNav?: boolean;
   initialOverviewBundle?: StoreOverviewBundle;
   initialOverviewParams?: GetAnalyticsParams;
 }
@@ -40,7 +39,6 @@ export function StoreDetailOverview({
   storeId,
   store: storeFromPage,
   portalRole = "BUSINESS_OWNER",
-  showStaffNav = true,
   initialOverviewBundle,
   initialOverviewParams,
 }: StoreDetailOverviewProps) {
@@ -174,26 +172,6 @@ export function StoreDetailOverview({
               {detail.viewCalls}
             </Link>
           </Button>
-          {showStaffNav ? (
-            <Button asChild size="sm" variant="outline">
-              <Link
-                href={portalSectionPath("staff", portalRole, storeId)}
-                prefetch={false}
-              >
-                {detail.viewStaff}
-              </Link>
-            </Button>
-          ) : null}
-          {portalRole === "BUSINESS_OWNER" ? (
-            <Button asChild size="sm" variant="outline">
-              <Link
-                href={portalSectionPath("audit", "BUSINESS_OWNER", storeId)}
-                prefetch={false}
-              >
-                {detail.viewAudit}
-              </Link>
-            </Button>
-          ) : null}
           <Button asChild size="sm" variant="outline">
             <Link
               href={portalSectionPath("field-sales", portalRole, storeId)}

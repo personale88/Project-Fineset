@@ -575,6 +575,9 @@ model BillingBusinessAccount {
   lastFollowUpAt    DateTime?
   nextFollowUpAt    DateTime?
   paidAt            DateTime?
+  billingAnchorAt   DateTime?
+  /** Consolidated payment clears all periods through this activation period end. */
+  paidThroughPeriodEnd DateTime?
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
@@ -586,13 +589,17 @@ model BillingBusinessAccount {
 }
 
 model BillingInvoiceLog {
-  id            String   @id @default(cuid())
-  accountId     String
-  invoiceNumber String
-  sentTo        String
-  grandTotal    Int
-  sentByEmail   String?
-  createdAt     DateTime @default(now())
+  id                String   @id @default(cuid())
+  accountId         String
+  invoiceNumber     String
+  sentTo            String
+  grandTotal        Int
+  sentByEmail       String?
+  periodStart       DateTime?
+  periodEnd         DateTime?
+  unpaidPeriodCount Int?
+  periodBreakdown   Json?
+  createdAt         DateTime @default(now())
 
   account BillingBusinessAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 

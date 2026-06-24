@@ -27,7 +27,6 @@ export default async function StoreManagerDetailDashboardPage({
       storeId={storeId}
       store={content.store}
       portalRole="STORE_MANAGER"
-      showStaffNav
       initialOverviewBundle={initial?.bundle}
       initialOverviewParams={initial?.params}
     />

@@ -108,15 +108,13 @@
       </div>
       <div class="body">
         <p>Hello {{ .OwnerName }},</p>
-        <p>
-          Please find your monthly {{ .PlatformName }} subscription invoice for
-          <strong>{{ .BusinessName }}</strong>.
-        </p>
+        {{ .InvoiceIntroHtml }}
         <p class="meta">
           Invoice date: {{ .InvoiceDate }}<br />
           Bill to: {{ .BusinessEmail }}<br />
           Renewal due: {{ .RenewalDue }} · Data access until: {{ .DataExpiry }}
         </p>
+        {{ .PeriodSummaryHtml }}
         <p class="note">All amounts in INR. Base price is exclusive of GST; GST @ 18% is shown separately.</p>
         <table>
           <thead>
@@ -143,7 +141,7 @@
               <td class="amount">—</td>
             </tr>
             <tr class="total-row grand-total">
-              <td colspan="2">Total due (monthly, incl. GST)</td>
+              <td colspan="2">{{ .TotalDueLabel }}</td>
               <td class="amount">—</td>
               <td class="amount">—</td>
               <td class="amount">{{ .GrandTotal }}</td>

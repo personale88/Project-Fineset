@@ -6,6 +6,7 @@ import { content } from "@/content/en";
 import { TeamActivityViews } from "@/components/store/TeamActivityViews";
 import { useManagerDashboard } from "@/hooks/useManagerDashboard";
 import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
+import { portalProfileSectionPath } from "@/lib/utils/store-dashboard-url";
 import { buildTeamCallsHref } from "@/lib/utils/staff-calls-url";
 import { buildTeamFollowUpsHref } from "@/lib/utils/follow-ups-url";
 import { getPortalErrorMessage } from "@/lib/utils/api-error-message";
@@ -29,7 +30,7 @@ export function StoreManagerTeamActivity({ storeId }: StoreManagerTeamActivityPr
           <CardDescription>{copy.subtitle}</CardDescription>
         </div>
         <Link
-          href={`${STORE_MANAGER_DASHBOARD_PATH}/staff`}
+          href={portalProfileSectionPath("STORE_MANAGER", "staff")}
           className="inline-flex items-center gap-1 text-sm font-medium text-brand-gold hover:underline"
         >
           {copy.viewStaff}

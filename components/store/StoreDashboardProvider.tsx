@@ -94,12 +94,16 @@ function MultiStoreDashboardProvider({
   const pathStoreId = parseStoreIdFromPath(pathname);
   const queryStoreId = searchParams.get("storeId");
   const [manualStoreId, setManualStoreId] = useState<string | null>(null);
-  const [persistedStoreId, setPersistedStoreId] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return window.localStorage.getItem(SELECTED_STORE_STORAGE_KEY);
-  });
+  const [persistedStoreId, setPersistedStoreId] = useState<string | null>(null);
   const [portfolioWorkQueueStoreId, setPortfolioWorkQueueStoreIdState] =
     useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = window.localStorage.getItem(SELECTED_STORE_STORAGE_KEY);
+    if (stored) {
+      setPersistedStoreId(stored);
+    }
+  }, []);
 
   const resolvedStoreId = useMemo(
     () =>

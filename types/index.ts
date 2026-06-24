@@ -217,6 +217,7 @@ export interface BusinessPortfolioRow {
   inactiveStoreCount: number;
   dataExpiryAt: string | null;
   renewalDueAt: string | null;
+  billingAnchorAt: string | null;
   ownerLastLoginAt: string | null;
   stores: AdminStorePortfolioRow[];
 }

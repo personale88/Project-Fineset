@@ -47,6 +47,6 @@ describe("renderInvoiceEmail", () => {
     expect(text).toContain("owner@royal-time.local");
     expect(text).toContain("Subtotal (excl. GST):");
     expect(text).toContain("GST (18%):");
-    expect(text).toContain("Total due (incl. GST):");
+    expect(text).toContain("Total due (monthly, incl. GST):");
   });
 });

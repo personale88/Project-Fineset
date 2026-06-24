@@ -22,10 +22,20 @@ export const content = {
   billing: {
     portal: {
       restrictedTitle: "Subscription payment overdue",
-      restrictedBody:
-        "Your monthly subscription payment was due on {deadline}. Renew to restore access to visits, calls, field sales history, and analytics.",
-      restrictedEntryHint:
-        "Your team can still log visits, calls, and field sales — only viewing past data and reports is restricted until payment is cleared.",
+      restrictedBodyOnePeriod:
+        "Your subscription payment was due on {deadline}. Renew to restore access to visits, calls, field sales history, and analytics.",
+      restrictedBodyMultiPeriod:
+        "{count} billing periods are unpaid ({amount} total). Pay the consolidated invoice to restore owner and manager access.",
+      restrictedEntryHintOnePeriod:
+        "Your team can still log visits, calls, and field sales during the first overdue period — only viewing past data and reports is restricted until payment is cleared.",
+      restrictedEntryHintMultiPeriod:
+        "After two or more overdue periods, staff can view data again while owner and manager reports stay restricted until the consolidated balance is paid.",
+      restrictedCriticalTitle: "Critical: subscription overdue",
+      restrictedCriticalBody:
+        "{count} billing periods unpaid ({amount} total). Pay from Profile → Billing to restore owner and manager reports.",
+      staffOverdueInfoTitle: "Business subscription overdue",
+      staffOverdueInfoBody:
+        "Your access is active. Please ask the store owner to pay the outstanding subscription from Profile → Billing.",
       deadlineFallback: "the payment deadline this month",
     },
   },
@@ -974,6 +984,205 @@ export const content = {
         staff: "Staff roster",
         auditLog: "Store activity",
         analytics: "Store analytics",
+        profile: "Account & billing",
+      },
+      profile: {
+        pageTitle: "Account",
+        headerLabel: "Profile",
+        roleBadge: "Business owner",
+        fallbackName: "Business owner",
+        subtitle: "Manage your stores, billing, preferences, and account settings.",
+        scope: {
+          panelTitle: "Profile sections",
+          account: "Account",
+          accountHint: "Login details and your stores",
+          staff: "Staff",
+          staffHint: "Roster and staff account management",
+          activity: "Activity log",
+          activityHint: "Correction requests, imports, and account changes",
+          billing: "Billing",
+          billingHint: "Subscription and payment status",
+          preferences: "Preferences",
+          preferencesHint: "Default store and portal defaults",
+          support: "Help & support",
+          supportHint: "Billing and product assistance",
+          signOut: "Sign out",
+          signOutHint: "End your session on this device",
+        },
+        account: {
+          title: "Account",
+          description: "Your login details and stores linked to this account.",
+          nameLabel: "Name",
+          emailLabel: "Email",
+          storeCountLabel: "Stores",
+          storeCount: "{count} store(s)",
+        },
+        staff: {
+          title: "Staff roster",
+          description: "Add, edit, and manage staff accounts for your stores.",
+        },
+        activity: {
+          title: "Store activity",
+          description: "Correction requests, imports, and staff changes for your stores.",
+        },
+        businesses: {
+          title: "Your stores",
+          description: "Businesses linked to your account.",
+          empty: "No stores are linked to your account yet.",
+          locationFallback: "Location not set",
+          selectedStore: "Default store",
+          useStore: "Set as default",
+          openStore: "Open analytics",
+        },
+        billing: {
+          title: "Billing & subscription",
+          description: "Current subscription charges and sent invoices.",
+          tabs: {
+            currentBilling: "Current billing",
+            invoiceHistory: "Invoice history",
+          },
+          currentBillingHint: "Outstanding subscription balance, payment status, and store breakdown.",
+          invoiceHistoryHint: "Consolidated invoices sent by FineSet for your subscription.",
+          loading: "Loading billing status…",
+          unavailable: "Billing details are unavailable right now.",
+          loadFailed: "Could not load billing details.",
+          loadFailedForbidden: "You don't have permission to view billing for this account.",
+          loadFailedNotFound: "No billing account was found for your stores.",
+          accessLoadFailed:
+            "Payment access status couldn't be loaded. Details below may be incomplete.",
+          retry: "Try again",
+          businessFallback: "Your business",
+          multiStoreAccountTitle: "Business account",
+          multiStoreSubtitle: "{count} stores on this subscription",
+          accountHint: "Subscription is managed at the business account level.",
+          invoiceDateLabel: "Invoice date",
+          dueDateLabel: "Due date",
+          deadlineFallback: "the payment deadline this month",
+          statusPaid: "Paid",
+          statusUnpaid: "Unpaid",
+          statusGrace: "Grace period",
+          statusPartial: "Partial payment",
+          statusDisputed: "Disputed",
+          statusOverdue: "Overdue",
+          statusUnknown: "Unknown",
+          pricingLabel: "Pricing tiers",
+          viewInvoice: "View invoice",
+          payNow: "Pay now",
+          payNowUnavailablePaid: "No outstanding balance for the current billing periods",
+          payNowUnavailableNoContact: "Contact support to complete payment",
+          payNowHint: "Opens a message to FineSet with your consolidated amount and invoice reference.",
+          outstandingTitle: "Total outstanding",
+          outstandingSinglePeriod: "1 billing period",
+          outstandingMultiPeriod: "{count} billing periods",
+          outstandingPeriodLabel: "Billing period",
+          outstandingPeriodDue: "Due {date}",
+          outstandingPeriodOverdue: "Overdue",
+          outstandingPeriodCurrent: "Current",
+          restrictedBillingNotice:
+            "Reports are restricted until the outstanding balance is paid. Use Pay now below or open Profile → Billing.",
+          invoiceHistoryTitle: "Invoice history",
+          noInvoices: "No invoices have been sent yet.",
+          invoicePreviewLoading: "Loading invoice…",
+          invoicePreviewFailed: "Could not load invoice preview.",
+          invoiceNotFound: "That invoice could not be found.",
+          invoiceHistoricalDisclaimer:
+            "Sent on {date}. Consolidated invoice total at send time was {amount}.",
+          invoiceConsolidatedPeriods: "{count} billing periods",
+          gracePeriodNotice:
+            "You're in the grace period for the current billing period. Pay before {deadline} to keep full access.",
+          expiredNotice:
+            "Your data access period has ended. Contact FineSet support to renew your subscription.",
+          partialPaymentNotice:
+            "A partial payment was recorded. Contact support to settle the remaining balance.",
+          disputedNotice:
+            "This account has an open billing dispute. Contact support to resolve it.",
+          noBillableStores: "No active stores are linked to your subscription yet.",
+          noBusinessEmail: "No billing email on file. Contact support to receive invoices by email.",
+          zeroCharge: "No monthly charge — pricing applies once staff are added to your stores.",
+          datesNotSet: "Not set",
+          renewHint:
+            "To renew or update payment, contact FineSet support. Your team can keep logging activity while billing is being resolved.",
+        },
+        preferences: {
+          title: "Preferences",
+          description: "Defaults used across store-scoped pages.",
+          defaultStoreLabel: "Default store",
+          defaultStoreHint:
+            "Calls, follow-ups, visits, and other store tools open with this store selected.",
+          singleStoreHint: "Your account is linked to one store.",
+        },
+        support: {
+          title: "Help & support",
+          description: "Billing, access, and product questions.",
+          intro:
+            "Need help with billing, portal access, staff setup, or how FineSet works? Reach the FineSet team using the options below.",
+          responseTime: "We typically respond within one business day (Mon–Sat, IST).",
+          contactTitle: "Contact FineSet",
+          contactHint: "Include your account email and store name so we can help faster.",
+          contactEmailTitle: "Email support",
+          contactEmailHint: "Write to {email} for billing, access, or product questions.",
+          contactEmailAction: "Send email",
+          contactPhoneTitle: "Phone support",
+          contactPhoneHint: "Call {phone} for billing, access, or product questions during business hours.",
+          contactPhoneAction: "Call us",
+          contactWhatsAppTitle: "WhatsApp",
+          contactWhatsAppHint: "Message us for quick billing or access help during business hours.",
+          contactWhatsAppAction: "Open WhatsApp",
+          contactUnavailable:
+            "Support contact details are not configured yet. Ask your FineSet administrator to set support email or phone in platform settings.",
+          emailSubject: "{platform} support request",
+          emailBody:
+            "Hi {platform} team,\n\nI need help with my account.\n\nName: {name}\nEmail: {email}\nRole: {role}\n\nDescribe your question here:\n",
+          whatsappMessage:
+            "Hi {platform} team, I need help with my account.\nName: {name}\nEmail: {email}",
+          billingShortcutTitle: "Billing & payments",
+          billingShortcutBody:
+            "View outstanding balance, invoice history, and pay your consolidated subscription invoice.",
+          billingShortcutAction: "Open billing",
+          managerBillingTitle: "Billing is managed by your business owner",
+          managerBillingBody:
+            "Subscription payments and invoices are handled at the business account level. Ask your business owner to open Profile → Billing, or contact FineSet support if access looks wrong.",
+          faqTitle: "Common questions",
+          faqHint: "Quick answers for the issues we see most often.",
+          faqs: [
+            {
+              question: "How do I pay my subscription?",
+              answer:
+                "Open Profile → Billing → Pay now. That opens WhatsApp or email with your consolidated outstanding amount and invoice reference. You can also reply to any invoice email from FineSet.",
+            },
+            {
+              question: "Why are my analytics or reports blurred?",
+              answer:
+                "Reports can be restricted when subscription payment is overdue. Open Profile → Billing to see the outstanding balance and due dates. After payment is recorded, owner and manager access is restored.",
+            },
+            {
+              question: "How do I add staff or link a manager login?",
+              answer:
+                "Open Profile → Staff, add or edit staff records, and ensure each person’s login email matches their staff profile. Managers need a staff record on the store to use My work for personal calls and visits.",
+            },
+            {
+              question: "Can I add another store to my account?",
+              answer:
+                "Contact FineSet support with the store name, city, and owner email. New locations are pro-rated onto your existing business billing cycle.",
+            },
+            {
+              question: "Where can I find past invoices?",
+              answer:
+                "Open Profile → Billing → Invoice history. Each entry shows the consolidated total sent at that time. Tap View invoice for a preview.",
+            },
+            {
+              question: "Something looks wrong with my data or access",
+              answer:
+                "Note the page, store, and approximate time, then email or WhatsApp support. For correction requests and imports, check Profile → Activity log for recent account events.",
+            },
+          ],
+        },
+        signOut: {
+          title: "Sign out",
+          description: "End your session on this device.",
+          action: "Sign out",
+          pending: "Signing out…",
+        },
       },
     },
     managerShell: {
@@ -996,6 +1205,204 @@ export const content = {
         team: "Team",
         analytics: "Analytics",
         log: "Log",
+      },
+      profile: {
+        pageTitle: "Account",
+        headerLabel: "Profile",
+        roleBadge: "Store manager",
+        fallbackName: "Store manager",
+        subtitle: "Manage your store access, billing, preferences, and account settings.",
+        scope: {
+          panelTitle: "Profile sections",
+          account: "Account",
+          accountHint: "Login details and your assigned store",
+          staff: "Staff",
+          staffHint: "View your store roster",
+          activity: "Activity log",
+          activityHint: "Correction requests, imports, and account changes",
+          billing: "Billing",
+          billingHint: "Subscription and payment status",
+          preferences: "Preferences",
+          preferencesHint: "Portal defaults for your store",
+          support: "Help & support",
+          supportHint: "Billing and product assistance",
+          signOut: "Sign out",
+          signOutHint: "End your session on this device",
+        },
+        account: {
+          title: "Account",
+          description: "Your login details and the store linked to your manager account.",
+          nameLabel: "Name",
+          emailLabel: "Email",
+          storeCountLabel: "Store",
+          storeCount: "{count} store(s)",
+        },
+        staff: {
+          title: "Staff roster",
+          description: "View-only roster — contact the business owner to manage staff.",
+        },
+        activity: {
+          title: "Store activity",
+          description: "Recent operational events for your store.",
+        },
+        businesses: {
+          title: "Your store",
+          description: "The store your manager account is assigned to.",
+          empty: "No store is linked to your account yet.",
+          locationFallback: "Location not set",
+          selectedStore: "Default store",
+          useStore: "Set as default",
+          openStore: "Open analytics",
+        },
+        billing: {
+          title: "Billing & subscription",
+          description: "Current subscription charges and sent invoices.",
+          tabs: {
+            currentBilling: "Current billing",
+            invoiceHistory: "Invoice history",
+          },
+          currentBillingHint: "Outstanding subscription balance, payment status, and store breakdown.",
+          invoiceHistoryHint: "Consolidated invoices sent by FineSet for your subscription.",
+          loading: "Loading billing status…",
+          unavailable: "Billing details are unavailable right now.",
+          loadFailed: "Could not load billing details.",
+          loadFailedForbidden: "You don't have permission to view billing for this account.",
+          loadFailedNotFound: "No billing account was found for your stores.",
+          accessLoadFailed:
+            "Payment access status couldn't be loaded. Details below may be incomplete.",
+          retry: "Try again",
+          businessFallback: "Your business",
+          multiStoreAccountTitle: "Business account",
+          multiStoreSubtitle: "{count} stores on this subscription",
+          accountHint: "Subscription is managed at the business account level.",
+          invoiceDateLabel: "Invoice date",
+          dueDateLabel: "Due date",
+          deadlineFallback: "the payment deadline this month",
+          statusPaid: "Paid",
+          statusUnpaid: "Unpaid",
+          statusGrace: "Grace period",
+          statusPartial: "Partial payment",
+          statusDisputed: "Disputed",
+          statusOverdue: "Overdue",
+          statusUnknown: "Unknown",
+          pricingLabel: "Pricing tiers",
+          viewInvoice: "View invoice",
+          payNow: "Pay now",
+          payNowUnavailablePaid: "No outstanding balance for the current billing periods",
+          payNowUnavailableNoContact: "Contact support to complete payment",
+          payNowHint: "Opens a message to FineSet with your consolidated amount and invoice reference.",
+          outstandingTitle: "Total outstanding",
+          outstandingSinglePeriod: "1 billing period",
+          outstandingMultiPeriod: "{count} billing periods",
+          outstandingPeriodLabel: "Billing period",
+          outstandingPeriodDue: "Due {date}",
+          outstandingPeriodOverdue: "Overdue",
+          outstandingPeriodCurrent: "Current",
+          restrictedBillingNotice:
+            "Reports are restricted until the outstanding balance is paid. Use Pay now below or open Profile → Billing.",
+          invoiceHistoryTitle: "Invoice history",
+          noInvoices: "No invoices have been sent yet.",
+          invoicePreviewLoading: "Loading invoice…",
+          invoicePreviewFailed: "Could not load invoice preview.",
+          invoiceNotFound: "That invoice could not be found.",
+          invoiceHistoricalDisclaimer:
+            "Sent on {date}. Consolidated invoice total at send time was {amount}.",
+          invoiceConsolidatedPeriods: "{count} billing periods",
+          gracePeriodNotice:
+            "You're in the grace period for the current billing period. Pay before {deadline} to keep full access.",
+          expiredNotice:
+            "Your data access period has ended. Contact FineSet support to renew your subscription.",
+          partialPaymentNotice:
+            "A partial payment was recorded. Contact support to settle the remaining balance.",
+          disputedNotice:
+            "This account has an open billing dispute. Contact support to resolve it.",
+          noBillableStores: "No active stores are linked to your subscription yet.",
+          noBusinessEmail: "No billing email on file. Contact support to receive invoices by email.",
+          zeroCharge: "No monthly charge — pricing applies once staff are added to your stores.",
+          datesNotSet: "Not set",
+          renewHint:
+            "To renew or update payment, contact FineSet support or your business owner.",
+        },
+        preferences: {
+          title: "Preferences",
+          description: "Defaults used across store-scoped pages.",
+          defaultStoreLabel: "Default store",
+          defaultStoreHint:
+            "Team tools, calls, and follow-ups open scoped to your assigned store.",
+          singleStoreHint: "Your account is linked to one store.",
+        },
+        support: {
+          title: "Help & support",
+          description: "Billing, access, and product questions.",
+          intro:
+            "Need help using the store portal, linking your staff profile, or understanding access restrictions? Use the contact options below or ask your business owner for account changes.",
+          responseTime: "FineSet support typically responds within one business day (Mon–Sat, IST).",
+          contactTitle: "Contact FineSet",
+          contactHint: "Include your login email and store name when you reach out.",
+          contactEmailTitle: "Email support",
+          contactEmailHint: "Write to {email} for product help or access issues.",
+          contactEmailAction: "Send email",
+          contactPhoneTitle: "Phone support",
+          contactPhoneHint: "Call {phone} for billing, access, or product questions during business hours.",
+          contactPhoneAction: "Call us",
+          contactWhatsAppTitle: "WhatsApp",
+          contactWhatsAppHint: "Message FineSet for billing or portal access questions.",
+          contactWhatsAppAction: "Open WhatsApp",
+          contactUnavailable:
+            "Support contact details are not configured yet. Ask your business owner or FineSet administrator for assistance.",
+          emailSubject: "{platform} support request",
+          emailBody:
+            "Hi {platform} team,\n\nI need help with my manager account.\n\nName: {name}\nEmail: {email}\nRole: {role}\n\nDescribe your question here:\n",
+          whatsappMessage:
+            "Hi {platform} team, I need help with my store manager account.\nName: {name}\nEmail: {email}",
+          billingShortcutTitle: "Billing & payments",
+          billingShortcutBody:
+            "View outstanding balance, invoice history, and pay your consolidated subscription invoice.",
+          billingShortcutAction: "Open billing",
+          managerBillingTitle: "Billing is managed by your business owner",
+          managerBillingBody:
+            "If reports are blurred or tools look restricted, the business subscription may be overdue. Ask your business owner to review Profile → Billing or contact FineSet support.",
+          faqTitle: "Common questions",
+          faqHint: "Quick answers for store managers.",
+          faqs: [
+            {
+              question: "Why can't I see team analytics or reports?",
+              answer:
+                "Store reports may be restricted when the business subscription is overdue. Ask your business owner to check Profile → Billing. Staff access may remain active even when manager views are restricted.",
+            },
+            {
+              question: "How do I log my own calls and visits?",
+              answer:
+                "Your manager login must be linked to a staff record on this store. Ask your business owner to confirm your staff profile exists and uses the same email as your login, then sign out and back in.",
+            },
+            {
+              question: "Who adds or removes staff?",
+              answer:
+                "Only the business owner can manage the staff roster and imports. Open Profile → Staff to view the roster, then ask your owner for changes.",
+            },
+            {
+              question: "Where do correction requests and imports show up?",
+              answer:
+                "Open Profile → Activity log for store-level events such as imports, correction requests, and account changes.",
+            },
+            {
+              question: "Who handles subscription payments?",
+              answer:
+                "The business owner manages billing for all stores on the account. Managers can view billing status in Profile → Billing but cannot change payment records.",
+            },
+            {
+              question: "How do I switch which store I'm working in?",
+              answer:
+                "If your owner linked multiple stores, use the store selector on dashboard pages or set a default under Profile → Preferences.",
+            },
+          ],
+        },
+        signOut: {
+          title: "Sign out",
+          description: "End your session on this device.",
+          action: "Sign out",
+          pending: "Signing out…",
+        },
       },
       onboarding: {
         step1Title: "Welcome, store manager",
@@ -1438,6 +1845,35 @@ export const content = {
       storeManager: "Store manager",
       storeManagerPhone: "Store manager phone",
       notAvailable: "—",
+      sortLabel: "Sort by",
+      sortOptions: {
+        nameAsc: "Store name (A–Z)",
+        nameDesc: "Store name (Z–A)",
+        revenueDesc: "Revenue (highest)",
+        revenueAsc: "Revenue (lowest)",
+        visitsDesc: "Visits (most)",
+        visitsAsc: "Visits (fewest)",
+        conversionDesc: "Conversion (highest)",
+        conversionAsc: "Conversion (lowest)",
+        avgTicketDesc: "Avg transaction (highest)",
+        avgTicketAsc: "Avg transaction (lowest)",
+        schemesDesc: "Schemes enrolled (most)",
+        schemesAsc: "Schemes enrolled (fewest)",
+        fieldSalesDesc: "Field sales (most)",
+        fieldSalesAsc: "Field sales (fewest)",
+        userCallsDesc: "User calls (most)",
+        userCallsAsc: "User calls (fewest)",
+        staffDesc: "Staff (most)",
+        staffAsc: "Staff (fewest)",
+        cityAsc: "City (A–Z)",
+        cityDesc: "City (Z–A)",
+        activeFirst: "Active stores first",
+        inactiveFirst: "Inactive stores first",
+        revenueDeltaDesc: "Revenue change (highest)",
+        revenueDeltaAsc: "Revenue change (lowest)",
+        visitsDeltaDesc: "Visit change (highest)",
+        visitsDeltaAsc: "Visit change (lowest)",
+      },
     },
     storeDetail: {
       backToPortfolio: "All stores",
