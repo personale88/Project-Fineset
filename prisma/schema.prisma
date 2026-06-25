@@ -570,6 +570,11 @@ enum BillingPaymentSubmissionStatus {
   NOT_RECEIVED
 }
 
+enum BillingPaymentSubmissionKind {
+  SUBSCRIPTION
+  ANALYTICS_CREDITS
+}
+
 model BillingBusinessAccount {
   id                String               @id @default(cuid())
   businessKey       String               @unique
@@ -630,6 +635,7 @@ model BillingFollowUp {
 
 model BillingPaymentSubmission {
   id               String                         @id @default(cuid())
+  kind             BillingPaymentSubmissionKind   @default(SUBSCRIPTION)
   businessKey      String
   businessName     String
   businessEmail    String?
@@ -638,6 +644,9 @@ model BillingPaymentSubmission {
   upiVpa           String?
   submittedByEmail String?
   submittedByName  String?
+  appUserId        String?
+  packId           String?
+  creditAmount     Int?
   status           BillingPaymentSubmissionStatus @default(PENDING)
   reviewedAt       DateTime?
   reviewedByEmail  String?
@@ -646,6 +655,7 @@ model BillingPaymentSubmission {
 
   @@index([status, createdAt(sort: Desc)])
   @@index([businessKey, createdAt(sort: Desc)])
+  @@index([kind, status, createdAt(sort: Desc)])
 }
 
 enum AnalyticsCreditLedgerType {

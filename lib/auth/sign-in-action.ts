@@ -73,6 +73,11 @@ export async function signInAction(
   try {
     session = appSessionFromProfile(profile, normalizedEmail);
   } catch (error) {
+    const { captureServerError } = await import("@/lib/monitoring/capture-error");
+    captureServerError(error, {
+      tags: { layer: "auth", route: "sign-in" },
+      extra: { email: normalizedEmail },
+    });
     console.error("[auth.sign-in] profile misconfigured", normalizedEmail, error);
     void logAuthEvent({
       event: "LOGIN_FAILED",

@@ -22,6 +22,9 @@ const envSchema = z.object({
   SMTP_GREETING_TIMEOUT_MS: optionalEnv(z.string().optional()),
   UPSTASH_REDIS_REST_URL: optionalEnv(z.string().url().optional()),
   UPSTASH_REDIS_REST_TOKEN: optionalEnv(z.string().min(1).optional()),
+  SENTRY_DSN: optionalEnv(z.string().url().optional()),
+  SENTRY_ENVIRONMENT: optionalEnv(z.string().min(1).optional()),
+  SENTRY_RELEASE: optionalEnv(z.string().min(1).optional()),
   MASTER_ADMIN_EMAIL: optionalEnv(z.string().email().optional()),
   MASTER_ADMIN_PASSWORD: optionalEnv(z.string().min(8).optional()),
   MASTER_ADMIN_NAME: optionalEnv(z.string().min(1).optional()),
@@ -87,10 +90,17 @@ export function validateEnv(): void {
       recommended.push("UPSTASH_REDIS_REST_TOKEN");
     }
     if (!hasEnv("NEXT_PUBLIC_APP_URL")) recommended.push("NEXT_PUBLIC_APP_URL");
+    if (!hasEnv("SENTRY_DSN")) recommended.push("SENTRY_DSN");
 
     if (recommended.length > 0) {
       console.warn(
-        `[env] Optional production variables not set (app will run with reduced functionality): ${recommended.join(", ")}`,
+        `[env] Recommended production variables not set (app runs with reduced functionality): ${recommended.join(", ")}`,
+      );
+    }
+
+    if (!hasEnv("UPSTASH_REDIS_REST_URL") || !hasEnv("UPSTASH_REDIS_REST_TOKEN")) {
+      console.warn(
+        "[env] Upstash Redis is required for production rate limiting and cross-instance SSE sync.",
       );
     }
   }

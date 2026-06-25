@@ -103,7 +103,7 @@ export function StorePortfolio({
                 <ArrowUpDown className="h-4 w-4" aria-hidden />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="max-h-80 w-56 overflow-y-auto">
+            <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>{store.portfolio.sortLabel}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {STORE_PORTFOLIO_SORT_KEYS.map((key) => (

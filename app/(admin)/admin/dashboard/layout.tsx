@@ -1,6 +1,5 @@
 import { content } from "@/content/en";
 import { AdminPortalExtras } from "@/components/admin/AdminPortalExtras";
-import { AdminPortalHeaderActions } from "@/components/admin/AdminPortalHeaderActions";
 import { PortalShell } from "@/components/layout/PortalShell";
 import { RealtimeSyncProvider } from "@/components/layout/RealtimeSyncProvider";
 import { RoleOnboardingModalGate } from "@/components/onboarding/RoleOnboardingModalGate";
@@ -53,14 +52,6 @@ export default async function AdminLayout({
     <PortalShell
       title={content.admin.shell.title}
       signOutLabel={content.common.signOut}
-      headerActions={
-        <AdminPortalHeaderActions
-          search={content.admin.search}
-          store={content.store}
-          visitFields={content.visitForm.fields}
-          productLabels={content.admin.categories}
-        />
-      }
     >
       <RealtimeSyncProvider>
         <AdminPortalProvider role={adminSession.role} permissions={adminSession.permissions}>

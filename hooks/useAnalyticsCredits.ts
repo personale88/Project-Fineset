@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchAnalyticsCredits,
+  fetchAnalyticsCreditRechargePreview,
   grantAnalyticsCredits,
-  rechargeAnalyticsCredits,
+  submitAnalyticsCreditRecharge,
   type AnalyticsCreditsSnapshot,
 } from "@/lib/api/analytics-credits";
 import { LIVE_QUERY_OPTIONS } from "@/lib/sync/constants";
@@ -21,10 +22,19 @@ export function useRechargeAnalyticsCredits() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (packId: string) => rechargeAnalyticsCredits(packId),
-    onSuccess: (snapshot: AnalyticsCreditsSnapshot) => {
-      queryClient.setQueryData(ANALYTICS_CREDITS_QUERY_KEY, snapshot);
+    mutationFn: (packId: string) => submitAnalyticsCreditRecharge(packId),
+    onSuccess: (result) => {
+      queryClient.setQueryData(ANALYTICS_CREDITS_QUERY_KEY, result.snapshot);
     },
+  });
+}
+
+export function useAnalyticsCreditRechargePreview(packId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: [...ANALYTICS_CREDITS_QUERY_KEY, "recharge-preview", packId],
+    queryFn: () => fetchAnalyticsCreditRechargePreview(packId!),
+    enabled: enabled && Boolean(packId),
+    staleTime: 0,
   });
 }
 

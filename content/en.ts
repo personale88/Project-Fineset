@@ -648,6 +648,9 @@ export const content = {
         anniversary: "Anniversaries this month",
       },
       emptySection: "Nothing in this category.",
+      sectionPreviewHint: "Showing {shown} of {total} in this category.",
+      sectionEmptyPreview: "Open the full list to review all {total} items in this category.",
+      sectionViewList: "Open full list",
     },
     period: {
       yesterday: "Yesterday",
@@ -1106,9 +1109,11 @@ export const content = {
           payNowDialogFailedMessage: "Do you want to try again or close?",
           payNowDialogTryAgain: "Try again",
           payNowDialogClose: "Close",
+          payNowDialogDoItLater: "I'll do it later",
           payNowDialogCompletedTitle: "Payment submitted",
           payNowDialogCompletedMessage:
             "Thanks — we have noted your payment. Access will update once the FineSet team verifies it.",
+          payNowDialogFooterTitle: "Important note",
           payNowDialogFooter:
             "Payment confirmation may take a few minutes. Contact support if your access is not restored after paying.",
           outstandingTitle: "Total outstanding",
@@ -1373,9 +1378,11 @@ export const content = {
           payNowDialogFailedMessage: "Do you want to try again or close?",
           payNowDialogTryAgain: "Try again",
           payNowDialogClose: "Close",
+          payNowDialogDoItLater: "I'll do it later",
           payNowDialogCompletedTitle: "Payment submitted",
           payNowDialogCompletedMessage:
             "Thanks — we have noted your payment. Access will update once the FineSet team verifies it.",
+          payNowDialogFooterTitle: "Important note",
           payNowDialogFooter:
             "Payment confirmation may take a few minutes. Contact support if your access is not restored after paying.",
           outstandingTitle: "Total outstanding",
@@ -1513,17 +1520,21 @@ export const content = {
           "Open Team for store calls, follow-ups, visits, staff roster, and correction requests.",
       },
       actorSetup: {
-        title: "RSO profile not linked",
-        subtitle: "Your manager account is not linked to a staff record in this store.",
-        body: "Personal work — calls, visits, field sales, and your work queue — needs a staff profile on this store.",
-        hint: "You can still use Team for store calls, follow-ups, visits, and correction requests.",
-        viewStaffRoster: "View staff roster",
-        dashboardHint: "Link your account to a staff record to unlock your personal work queue and logging.",
-        stepsTitle: "What to ask your business owner",
+        title: "Link your RSO profile to unlock personal work",
+        subtitle:
+          "Your manager login is active, but it is not linked to a staff record in this store yet.",
+        body: "Team tools (store calls, follow-ups, visits, corrections) work today. Personal work — My work, logging visits, field sales, and your call queue — needs a staff profile linked to this login.",
+        hint: "After your business owner links your account, sign out and back in to refresh access.",
+        viewStaffRoster: "Open staff roster",
+        openTeamHub: "Open Team hub",
+        contactOwner: "What your business owner should do",
+        dashboardHint:
+          "Link your login to a staff record to unlock My work, visit logging, and your personal call queue.",
+        stepsTitle: "Ask your business owner to:",
         steps: [
-          "Open Staff roster and confirm your manager staff record exists.",
-          "Link your login email to that staff record.",
-          "Sign out and back in, then return to My work.",
+          "Open Staff roster and confirm your manager staff record exists (or create one).",
+          "Link this login email to that staff record on the roster.",
+          "Ask you to sign out and sign back in, then open My work again.",
         ],
       },
       activityLog: {
@@ -2366,19 +2377,6 @@ export const content = {
       viewAsStore: "View as store",
       starting: "Switching…",
     },
-    search: {
-      title: "Search customers",
-      description: "Find customers within a store portfolio. Select a store, then search by name or phone.",
-      button: "Search",
-      placeholder: "Name or phone…",
-      storeLabel: "Store",
-      storePlaceholder: "Select store",
-      selectStoreFirst: "Select a store to search within.",
-      minChars: "Type at least 2 characters.",
-      searching: "Searching…",
-      empty: "No customers match.",
-      error: "Search failed. Try again.",
-    },
     analytics: {
       title: "AI Analytics",
       subtitle:
@@ -2410,13 +2408,41 @@ export const content = {
         manageCredits: "Manage credits",
         emptyBanner: "You are out of AI credits. Recharge to run new analyses.",
         packsTitle: "Choose a pack",
-        rechargePack: "Recharge pack",
-        recharging: "Adding credits…",
-        rechargeSuccess: "Credits added to your balance.",
+        rechargePack: "Pay with UPI",
+        recharging: "Submitting payment…",
+        rechargeSuccess: "Payment submitted for review.",
         paymentNotConfigured:
-          "Credit recharge is not available in production until a payment provider is configured. Contact FineSet support to top up.",
-        devPaymentNote:
-          "Local/dev recharge is instant with no payment gateway. Production will connect to your billing provider.",
+          "Add your billing UPI ID under Admin → Settings → Billing UPI ID, or set BILLING_UPI_VPA in your server environment. Credit recharges use the same manual UPI flow as plan billing.",
+        manualPaymentNote:
+          "Scan the QR code with any UPI app, pay the pack amount, then tap Payment completed. Credits are added after an admin confirms the payment in Billing → Payments.",
+        pendingRechargeTitle: "Payment pending review",
+        pendingRechargeBody:
+          "Your {amount} UPI payment ({ref}) is awaiting confirmation. Credits will be added once an admin marks it received.",
+        payNowDialogTitle: "Pay with UPI",
+        payNowDialogAmountLabel: "Pack price",
+        payNowDialogAmountHint: "Pay this exact amount via UPI",
+        payNowDialogScanHint: "Scan with any UPI app",
+        payNowDialogPayee: "Pay to {name}",
+        payNowDialogReference: "Reference: {ref}",
+        payNowDialogTimer: "Complete payment within {time}",
+        payNowDialogExpired:
+          "This QR session has expired. Close and choose a pack again to refresh.",
+        payNowDialogCopyUpi: "Copy UPI ID",
+        payNowDialogPaymentCompleted: "Payment completed",
+        payNowDialogPaymentFailed: "Payment failed",
+        payNowSubmitting: "Submitting…",
+        payNowSubmitFailed: "Could not submit payment confirmation. Try again.",
+        payNowDialogFailedTitle: "Payment not completed",
+        payNowDialogFailedMessage: "Do you want to try again or close?",
+        payNowDialogTryAgain: "Try again",
+        payNowDialogClose: "Close",
+        payNowDialogDoItLater: "I'll do it later",
+        payNowDialogCompletedTitle: "Payment submitted",
+        payNowDialogCompletedMessage:
+          "Thanks — your payment is pending review. Credits will be added once an admin confirms it in Billing → Payments.",
+        payNowDialogFooterTitle: "Important note",
+        payNowDialogFooter:
+          "Only tap Payment completed after the UPI transfer succeeds in your banking app.",
         howItWorksTitle: "How credits work",
         howItWorks: [
           "Each analysis uses 1 or more credits based on Gemini token usage.",
@@ -2674,7 +2700,7 @@ export const content = {
       },
       payments: {
         subtitle:
-          "Review UPI payment confirmations submitted from business owner billing pages.",
+          "Review UPI payment confirmations submitted from business billing pages and AI credit recharges.",
         pendingCount: "{count} pending review",
         filterPending: "Pending",
         filterAll: "All submissions",
@@ -2699,6 +2725,9 @@ export const content = {
         paymentNotReceived: "Not received",
         reviewing: "Updating…",
         receivedSuccess: "Payment confirmed and service activated",
+        receivedSuccessCredits: "Payment confirmed and credits added",
+        kindSubscription: "Subscription",
+        kindAnalyticsCredits: "AI credits",
         notReceivedSuccess: "Payment marked as not received",
         notReceivedToastEmailSent: "Email sent",
         notReceivedToastEmailNotSent: "Email not sent",
@@ -2712,7 +2741,7 @@ export const content = {
         reviewedAt: "Reviewed {date} by {email}",
         confirmReceivedTitle: "Confirm payment received",
         confirmReceivedDescription:
-          "Only confirm if the UPI payment is in your account. This will mark the invoice as paid and activate the business service.",
+          "Only confirm if the UPI payment is in your account. Subscription payments activate service; AI credit payments add credits to the admin account.",
         confirmReceivedBusiness: "Business",
         confirmReceivedAction: "Activate service",
         confirmReceivedCancel: "Cancel",

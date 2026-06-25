@@ -11,8 +11,13 @@ import {
   getPortalBillingDetails,
   PortalBillingDetailsError,
 } from "@/lib/services/portal-billing-details";
-import type { BillingPaymentSubmissionStatus } from "@prisma/client";
+import type { BillingPaymentSubmissionStatus, BillingPaymentSubmissionKind } from "@prisma/client";
 import type { PaymentNotReceivedNotificationResult } from "@/lib/services/payment-not-received-notifications";
+import { rechargeAnalyticsCredits } from "@/lib/services/analytics-credits";
+import {
+  appUserIdFromAnalyticsCreditBusinessKey,
+  isAnalyticsCreditBusinessKey,
+} from "@/lib/services/analytics-credit-payment-submissions";
 
 export class BillingPaymentSubmissionError extends Error {
   constructor(
@@ -26,6 +31,7 @@ export class BillingPaymentSubmissionError extends Error {
 
 export interface BillingPaymentSubmissionDto {
   id: string;
+  kind: BillingPaymentSubmissionKind;
   businessKey: string;
   businessName: string;
   businessEmail: string | null;
@@ -34,14 +40,26 @@ export interface BillingPaymentSubmissionDto {
   upiVpa: string | null;
   submittedByEmail: string | null;
   submittedByName: string | null;
+  appUserId: string | null;
+  packId: string | null;
+  creditAmount: number | null;
   status: BillingPaymentSubmissionStatus;
   reviewedAt: string | null;
   reviewedByEmail: string | null;
   createdAt: string;
 }
 
-function mapSubmission(row: {
+function inferSubmissionKind(
+  businessKey: string,
+  kind: BillingPaymentSubmissionKind | null | undefined,
+): BillingPaymentSubmissionKind {
+  if (kind) return kind;
+  return isAnalyticsCreditBusinessKey(businessKey) ? "ANALYTICS_CREDITS" : "SUBSCRIPTION";
+}
+
+export function mapBillingPaymentSubmission(row: {
   id: string;
+  kind?: BillingPaymentSubmissionKind | null;
   businessKey: string;
   businessName: string;
   businessEmail: string | null;
@@ -50,6 +68,9 @@ function mapSubmission(row: {
   upiVpa: string | null;
   submittedByEmail: string | null;
   submittedByName: string | null;
+  appUserId: string | null;
+  packId: string | null;
+  creditAmount: number | null;
   status: BillingPaymentSubmissionStatus;
   reviewedAt: Date | null;
   reviewedByEmail: string | null;
@@ -57,6 +78,7 @@ function mapSubmission(row: {
 }): BillingPaymentSubmissionDto {
   return {
     id: row.id,
+    kind: inferSubmissionKind(row.businessKey, row.kind),
     businessKey: row.businessKey,
     businessName: row.businessName,
     businessEmail: row.businessEmail,
@@ -65,6 +87,9 @@ function mapSubmission(row: {
     upiVpa: row.upiVpa,
     submittedByEmail: row.submittedByEmail,
     submittedByName: row.submittedByName,
+    appUserId: row.appUserId,
+    packId: row.packId,
+    creditAmount: row.creditAmount,
     status: row.status,
     reviewedAt: row.reviewedAt?.toISOString() ?? null,
     reviewedByEmail: row.reviewedByEmail,
@@ -82,6 +107,7 @@ function buildSubmissionCreateData(
   amountInr: number,
 ) {
   return {
+    kind: "SUBSCRIPTION" as const,
     businessKey: details.businessKey,
     businessName: details.businessName || details.businessKey,
     businessEmail: details.businessEmail,
@@ -101,7 +127,7 @@ async function refreshPendingSubmission(
     where: { id: submissionId },
     data,
   });
-  return mapSubmission(updated);
+  return mapBillingPaymentSubmission(updated);
 }
 
 async function findPendingSubmissionForBusiness(businessKey: string) {
@@ -156,7 +182,7 @@ export async function createBillingPaymentSubmissionFromPortal(
     const submission = await prisma.billingPaymentSubmission.create({
       data: createData,
     });
-    return mapSubmission(submission);
+    return mapBillingPaymentSubmission(submission);
   } catch (error) {
     if (!isUniqueConstraintError(error)) {
       throw error;
@@ -183,7 +209,80 @@ export async function listBillingPaymentSubmissions(params?: {
     take: limit,
   });
 
-  return rows.map(mapSubmission);
+  return rows.map(mapBillingPaymentSubmission);
+}
+
+async function reviewAnalyticsCreditPaymentSubmission(params: {
+  existing: {
+    id: string;
+    businessKey: string;
+    appUserId: string | null;
+    packId: string | null;
+  };
+  status: Extract<BillingPaymentSubmissionStatus, "RECEIVED" | "NOT_RECEIVED">;
+  reviewedByEmail: string;
+  now: Date;
+}): Promise<{
+  submission: BillingPaymentSubmissionDto;
+  notifications?: PaymentNotReceivedNotificationResult;
+}> {
+  const { existing, status, reviewedByEmail, now } = params;
+
+  if (status === "RECEIVED") {
+    const appUserId =
+      existing.appUserId ?? appUserIdFromAnalyticsCreditBusinessKey(existing.businessKey);
+    const packId = existing.packId;
+
+    if (!appUserId || !packId) {
+      throw new BillingPaymentSubmissionError("Invalid credit recharge submission.", 400);
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const reviewResult = await tx.billingPaymentSubmission.updateMany({
+        where: { id: existing.id, status: "PENDING" },
+        data: {
+          status: "RECEIVED",
+          reviewedAt: now,
+          reviewedByEmail,
+        },
+      });
+
+      if (reviewResult.count === 0) {
+        await assertPendingSubmissionReviewable(existing.id);
+      }
+
+      return tx.billingPaymentSubmission.findUniqueOrThrow({
+        where: { id: existing.id },
+      });
+    });
+
+    await rechargeAnalyticsCredits({
+      appUserId,
+      packId,
+      externalPaymentId: existing.id,
+    });
+
+    return { submission: mapBillingPaymentSubmission(updated) };
+  }
+
+  const reviewResult = await prisma.billingPaymentSubmission.updateMany({
+    where: { id: existing.id, status: "PENDING" },
+    data: {
+      status: "NOT_RECEIVED",
+      reviewedAt: now,
+      reviewedByEmail,
+    },
+  });
+
+  if (reviewResult.count === 0) {
+    await assertPendingSubmissionReviewable(existing.id);
+  }
+
+  const updated = await prisma.billingPaymentSubmission.findUniqueOrThrow({
+    where: { id: existing.id },
+  });
+
+  return { submission: mapBillingPaymentSubmission(updated) };
 }
 
 export async function reviewBillingPaymentSubmission(params: {
@@ -207,6 +306,18 @@ export async function reviewBillingPaymentSubmission(params: {
   }
 
   const now = new Date();
+
+  if (
+    existing.kind === "ANALYTICS_CREDITS" ||
+    isAnalyticsCreditBusinessKey(existing.businessKey)
+  ) {
+    return reviewAnalyticsCreditPaymentSubmission({
+      existing,
+      status: params.status,
+      reviewedByEmail: params.reviewedByEmail,
+      now,
+    });
+  }
 
   if (params.status === "RECEIVED") {
     const invoiceLabel = existing.invoiceNumber?.trim() || "—";
@@ -262,7 +373,7 @@ export async function reviewBillingPaymentSubmission(params: {
       forceImmediateActivation: true,
     });
 
-    return { submission: mapSubmission(updated) };
+    return { submission: mapBillingPaymentSubmission(updated) };
   }
 
   const reviewResult = await prisma.billingPaymentSubmission.updateMany({
@@ -295,7 +406,7 @@ export async function reviewBillingPaymentSubmission(params: {
     reviewedByEmail: params.reviewedByEmail,
   });
 
-  return { submission: mapSubmission(updated), notifications };
+  return { submission: mapBillingPaymentSubmission(updated), notifications };
 }
 
 export async function countPendingBillingPaymentSubmissions(): Promise<number> {

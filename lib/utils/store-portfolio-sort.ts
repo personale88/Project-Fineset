@@ -30,33 +30,12 @@ export type StorePortfolioSortKey =
 
 export const DEFAULT_STORE_PORTFOLIO_SORT: StorePortfolioSortKey = "nameAsc";
 
+/** Sort options shown in the Your Stores dropdown (keep to 4 max). */
 export const STORE_PORTFOLIO_SORT_KEYS: StorePortfolioSortKey[] = [
   "nameAsc",
-  "nameDesc",
   "revenueDesc",
-  "revenueAsc",
   "visitsDesc",
-  "visitsAsc",
   "conversionDesc",
-  "conversionAsc",
-  "avgTicketDesc",
-  "avgTicketAsc",
-  "schemesDesc",
-  "schemesAsc",
-  "fieldSalesDesc",
-  "fieldSalesAsc",
-  "userCallsDesc",
-  "userCallsAsc",
-  "staffDesc",
-  "staffAsc",
-  "cityAsc",
-  "cityDesc",
-  "activeFirst",
-  "inactiveFirst",
-  "revenueDeltaDesc",
-  "revenueDeltaAsc",
-  "visitsDeltaDesc",
-  "visitsDeltaAsc",
 ];
 
 function compareName(a: StorePerformanceRow, b: StorePerformanceRow): number {

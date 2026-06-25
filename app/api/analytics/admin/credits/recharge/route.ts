@@ -6,12 +6,13 @@ import {
   requireRole,
   unauthorized,
 } from "@/lib/auth/session";
-import { isAnalyticsAskError } from "@/lib/analytics/ask-errors";
-import { getAnalyticsCreditPack } from "@/lib/analytics/credit-units";
 import { checkWriteRateLimit, getRequestIdentifier } from "@/lib/rate-limit";
-import { isPaymentError, PaymentNotConfiguredError } from "@/lib/payments/errors";
-import { getPaymentProvider } from "@/lib/payments/get-payment-provider";
-import { rechargeAnalyticsCredits } from "@/lib/services/analytics-credits";
+import {
+  AnalyticsCreditPaymentSubmissionError,
+  buildAnalyticsCreditPayNow,
+  createAnalyticsCreditPaymentSubmission,
+} from "@/lib/services/analytics-credit-payment-submissions";
+import { getAnalyticsCreditsSnapshot } from "@/lib/services/analytics-credits";
 
 const bodySchema = z.object({
   packId: z.enum(["starter", "growth", "portfolio"]),
@@ -40,50 +41,36 @@ export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) return badRequest(parsed.error.flatten());
 
-  const pack = getAnalyticsCreditPack(parsed.data.packId);
-  if (!pack) {
-    return badRequest({ message: "Unknown recharge pack." });
+  try {
+    const submission = await createAnalyticsCreditPaymentSubmission(
+      session,
+      parsed.data.packId,
+    );
+    const snapshot = await getAnalyticsCreditsSnapshot(session.userId);
+    return NextResponse.json({ submission, snapshot });
+  } catch (error) {
+    if (error instanceof AnalyticsCreditPaymentSubmissionError) {
+      return NextResponse.json({ message: error.message }, { status: error.status });
+    }
+    throw error;
+  }
+}
+
+export async function GET(req: Request) {
+  const session = await getServerSession();
+  if (!requireRole(session, ["MASTER_ADMIN"])) return unauthorized();
+
+  const packId = new URL(req.url).searchParams.get("packId")?.trim();
+  if (!packId) {
+    return badRequest({ message: "packId is required." });
   }
 
   try {
-    const provider = getPaymentProvider();
-    const checkout = await provider.completeCreditRecharge({
-      appUserId: session.userId,
-      packId: pack.id,
-      packLabel: pack.label,
-      amountInr: pack.priceInr,
-      credits: pack.credits,
-    });
-
-    const snapshot = await rechargeAnalyticsCredits({
-      appUserId: session.userId,
-      packId: parsed.data.packId,
-      externalPaymentId: checkout.externalPaymentId,
-    });
-
-    return NextResponse.json({
-      ...snapshot,
-      checkoutUrl: checkout.checkoutUrl ?? null,
-      paymentProvider: provider.kind,
-    });
+    const preview = await buildAnalyticsCreditPayNow(packId);
+    return NextResponse.json(preview);
   } catch (error) {
-    if (error instanceof PaymentNotConfiguredError) {
-      return NextResponse.json(
-        { code: error.code, message: error.message },
-        { status: 503 },
-      );
-    }
-    if (isPaymentError(error)) {
-      return NextResponse.json(
-        { code: error.code, message: error.message },
-        { status: 402 },
-      );
-    }
-    if (isAnalyticsAskError(error)) {
-      return NextResponse.json(
-        { code: error.code, message: error.message },
-        { status: error.statusCode },
-      );
+    if (error instanceof AnalyticsCreditPaymentSubmissionError) {
+      return NextResponse.json({ message: error.message }, { status: error.status });
     }
     throw error;
   }

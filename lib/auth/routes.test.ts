@@ -72,6 +72,12 @@ describe("portal routes", () => {
     expect(getProtectedApiRouteForPath("/api/audit")?.roles).toContain("MASTER_ADMIN");
     expect(getProtectedApiRouteForPath("/api/audit")?.roles).toContain("PLATFORM_ADMIN");
     expect(getProtectedApiRouteForPath("/api/audit")?.roles).toContain("BUSINESS_OWNER");
-    expect(getProtectedApiRouteForPath("/api/customers")).toBeUndefined();
+    expect(getProtectedApiRouteForPath("/api/billing/payment-submissions")?.roles).toContain(
+      "BUSINESS_OWNER",
+    );
+    expect(getProtectedApiRouteForPath("/api/customers")?.roles).toContain("STAFF");
+    expect(getProtectedApiRouteForPath("/api/import/execute")?.roles).toContain(
+      "STORE_MANAGER",
+    );
   });
 });

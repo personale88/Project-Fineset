@@ -1,10 +1,12 @@
 import { getServerSession, requireRole, unauthorized } from "@/lib/auth/session";
+import { captureServerError } from "@/lib/monitoring/capture-error";
 import { checkSseRateLimit, getRequestIdentifier } from "@/lib/rate-limit";
 import { syncBroadcaster } from "@/lib/sync/broadcaster";
 import {
   SSE_HEARTBEAT_MS,
   SSE_SERVER_MAX_CONNECTION_MS,
 } from "@/lib/sync/constants";
+import { getLatestRemoteSyncEvent } from "@/lib/sync/redis-sync-bridge";
 import { resolveSyncScope } from "@/lib/sync/scope";
 import { computeSyncVersionLight } from "@/lib/sync/version";
 
@@ -61,9 +63,19 @@ export async function GET(req: Request) {
 
         const heartbeat = setInterval(() => {
           if (closed) return;
-          void computeSyncVersionLight(session)
-            .then((current) => {
+          void Promise.all([
+            computeSyncVersionLight(session),
+            getLatestRemoteSyncEvent(scope),
+          ])
+            .then(([current, remote]) => {
               if (closed) return;
+
+              if (remote && remote.version !== lastSentVersion) {
+                lastSentVersion = remote.version;
+                send(remote);
+                return;
+              }
+
               if (current.version !== lastSentVersion) {
                 lastSentVersion = current.version;
                 send(current);
@@ -96,6 +108,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
+    captureServerError(error, { tags: { layer: "api", route: "sync.events" } });
     console.error("[api.sync.events] failed", {
       elapsedMs: Date.now() - startedAt,
       error,

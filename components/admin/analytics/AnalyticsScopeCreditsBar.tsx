@@ -17,6 +17,7 @@ interface AnalyticsScopeCreditsBarProps {
   balanceCredits?: number;
   lowBalanceThreshold?: number;
   isLoading?: boolean;
+  isFetching?: boolean;
   isError?: boolean;
   onRetry?: () => void;
   onRecharge: () => void;
@@ -94,11 +95,13 @@ export function AnalyticsScopeCreditsBar({
   balanceCredits,
   lowBalanceThreshold = 5,
   isLoading,
+  isFetching,
   isError,
   onRetry,
   onRecharge,
 }: AnalyticsScopeCreditsBarProps) {
-  const state = resolveCreditsChipState(isLoading, isError, balanceCredits, lowBalanceThreshold);
+  const showLoading = Boolean(isLoading || isFetching);
+  const state = resolveCreditsChipState(showLoading, isError, balanceCredits, lowBalanceThreshold);
   const tone = chipToneClasses(state);
 
   const balanceLabel =
@@ -139,7 +142,7 @@ export function AnalyticsScopeCreditsBar({
         ) : state === "error" ? (
           <button
             type="button"
-            onClick={onRetry}
+            onClick={() => onRetry?.()}
             aria-label={ariaLabel}
             className={cn(
               "inline-flex h-7 max-w-[9.5rem] items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-[11px] font-medium shadow-sm transition-colors lg:h-8 lg:max-w-full lg:gap-2 lg:px-3 lg:text-xs",

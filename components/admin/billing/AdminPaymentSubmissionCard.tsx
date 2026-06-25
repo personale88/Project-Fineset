@@ -33,6 +33,13 @@ function statusColor(status: BillingPaymentSubmissionDto["status"]): string {
   }
 }
 
+function kindLabel(
+  kind: BillingPaymentSubmissionDto["kind"],
+  copy: PaymentsCopy,
+): string {
+  return kind === "ANALYTICS_CREDITS" ? copy.kindAnalyticsCredits : copy.kindSubscription;
+}
+
 interface AdminPaymentSubmissionCardProps {
   submission: BillingPaymentSubmissionDto;
   copy: PaymentsCopy;
@@ -73,6 +80,9 @@ export function AdminPaymentSubmissionCard({
               ·
             </span>
             <span className="truncate text-text-secondary">{invoice}</span>
+            <span className="rounded-full bg-surface-secondary px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-text-muted">
+              {kindLabel(submission.kind, copy)}
+            </span>
           </div>
           <p className="mt-1 truncate text-xs text-text-muted">{detailParts.join(" · ")}</p>
           {!isPending && submission.reviewedAt ? (

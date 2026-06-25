@@ -87,7 +87,13 @@ export function AdminPaymentSubmissionsPanel({ copy }: AdminPaymentSubmissionsPa
       try {
         const result = await reviewMutation.mutateAsync({ id, status });
         if (status === "RECEIVED") {
-          toast({ title: paymentsCopy.receivedSuccess });
+          const submission = result.submission;
+          toast({
+            title:
+              submission.kind === "ANALYTICS_CREDITS"
+                ? paymentsCopy.receivedSuccessCredits
+                : paymentsCopy.receivedSuccess,
+          });
         } else {
           toast({
             title: paymentsCopy.notReceivedSuccess,
@@ -98,7 +104,7 @@ export function AdminPaymentSubmissionsPanel({ copy }: AdminPaymentSubmissionsPa
           });
         }
       } catch (error) {
-        let message = paymentsCopy.reviewFailed;
+        let message: string = paymentsCopy.reviewFailed;
         if (error instanceof ApiError) {
           const bodyMessage = error.body.message?.trim();
           if (bodyMessage) message = bodyMessage;

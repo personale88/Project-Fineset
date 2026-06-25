@@ -2,41 +2,52 @@
 
 import { useState } from "react";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { PortalPayNowDto } from "@/lib/services/portal-billing-details";
-import { submitPortalPaymentSubmission, PortalBillingApiError } from "@/lib/api/portal-billing-details";
-import type { ProfileCopy } from "@/components/store/profile/profile-scope";
 import { UpiPayNowDialogActions } from "@/components/shared/UpiPayNowDialogActions";
-import { UpiPayNowPaymentContent } from "@/components/shared/UpiPayNowPaymentContent";
+import { UpiPayNowPaymentContent, UPI_PAY_NOW_QR_SIZE } from "@/components/shared/UpiPayNowPaymentContent";
 import { usePaymentCountdown } from "@/hooks/usePaymentCountdown";
+import type { Content } from "@/content/en";
+import { ApiError } from "@/types";
 
-interface PortalPayNowDialogProps {
+type CreditsCopy = Content["admin"]["analytics"]["credits"];
+
+interface AnalyticsCreditPayNowDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  copy: ProfileCopy["billing"];
-  payNow: PortalPayNowDto;
+  copy: CreditsCopy;
+  payNow: PortalPayNowDto | null;
+  isLoading: boolean;
+  loadError: string | null;
+  isSubmitting: boolean;
+  onSubmitPayment: () => Promise<void>;
 }
 
-export function PortalPayNowDialog({
+export function AnalyticsCreditPayNowDialog({
   open,
   onOpenChange,
   copy,
   payNow,
-}: PortalPayNowDialogProps) {
+  isLoading,
+  loadError,
+  isSubmitting,
+  onSubmitPayment,
+}: AnalyticsCreditPayNowDialogProps) {
   const [completed, setCompleted] = useState(false);
   const [failedPrompt, setFailedPrompt] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [paymentSession, setPaymentSession] = useState(0);
-  const countdownActive = open && !completed && !failedPrompt;
+  const countdownActive = open && !completed && !failedPrompt && Boolean(payNow?.available);
   const secondsLeft = usePaymentCountdown(
     countdownActive,
-    payNow.timerSeconds,
+    payNow?.timerSeconds ?? 0,
     paymentSession,
   );
   const expired = secondsLeft <= 0;
@@ -46,14 +57,13 @@ export function PortalPayNowDialog({
       setCompleted(false);
       setFailedPrompt(false);
       setPaymentSession(0);
-      setSubmitting(false);
       setSubmitError(null);
     }
     onOpenChange(nextOpen);
   }
 
   async function copyUpiId() {
-    if (!payNow.upiVpa) return;
+    if (!payNow?.upiVpa) return;
     try {
       await navigator.clipboard.writeText(payNow.upiVpa);
     } catch {
@@ -66,20 +76,17 @@ export function PortalPayNowDialog({
   }
 
   async function handlePaymentCompleted() {
-    setSubmitting(true);
     setSubmitError(null);
     try {
-      await submitPortalPaymentSubmission();
+      await onSubmitPayment();
       setCompleted(true);
       setFailedPrompt(false);
     } catch (error) {
       const message =
-        error instanceof PortalBillingApiError
-          ? error.message
+        error instanceof ApiError && error.body.message?.trim()
+          ? error.body.message.trim()
           : copy.payNowSubmitFailed;
       setSubmitError(message);
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -91,6 +98,9 @@ export function PortalPayNowDialog({
     setFailedPrompt(false);
     setPaymentSession((session) => session + 1);
   }
+
+  const unavailable = !isLoading && (!payNow || !payNow.available);
+  const showFooter = !isLoading && !loadError && !unavailable && Boolean(payNow);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -110,7 +120,21 @@ export function PortalPayNowDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {completed ? (
+        {isLoading ? (
+          <div className="space-y-3 px-4 py-4 sm:px-5">
+            <Skeleton className="mx-auto h-7 w-28" />
+            <Skeleton className="mx-auto" style={{ width: UPI_PAY_NOW_QR_SIZE, height: UPI_PAY_NOW_QR_SIZE }} />
+          </div>
+        ) : loadError || unavailable ? (
+          <div className="space-y-3 px-4 py-5 text-center sm:px-5">
+            <p className="text-sm text-status-error">
+              {loadError ?? copy.paymentNotConfigured}
+            </p>
+            <Button type="button" variant="outline" size="sm" onClick={handleClose}>
+              {copy.payNowDialogClose}
+            </Button>
+          </div>
+        ) : completed ? (
           <div className="space-y-3 px-4 py-5 text-center sm:px-5">
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-status-success/10 text-status-success">
               <CheckCircle2 className="h-7 w-7" aria-hidden />
@@ -124,7 +148,7 @@ export function PortalPayNowDialog({
             </div>
             <p className="text-sm text-text-secondary">{copy.payNowDialogFailedMessage}</p>
           </div>
-        ) : (
+        ) : payNow ? (
           <UpiPayNowPaymentContent
             copy={copy}
             payNow={payNow}
@@ -132,19 +156,21 @@ export function PortalPayNowDialog({
             secondsLeft={secondsLeft}
             onCopyUpi={() => void copyUpiId()}
           />
-        )}
+        ) : null}
 
-        <UpiPayNowDialogActions
-          copy={copy}
-          completed={completed}
-          failedPrompt={failedPrompt}
-          submitting={submitting}
-          submitError={submitError}
-          onClose={handleClose}
-          onTryAgain={handleTryAgain}
-          onPaymentFailed={handlePaymentFailed}
-          onPaymentCompleted={() => void handlePaymentCompleted()}
-        />
+        {showFooter ? (
+          <UpiPayNowDialogActions
+            copy={copy}
+            completed={completed}
+            failedPrompt={failedPrompt}
+            submitting={isSubmitting}
+            submitError={submitError}
+            onClose={handleClose}
+            onTryAgain={handleTryAgain}
+            onPaymentFailed={handlePaymentFailed}
+            onPaymentCompleted={() => void handlePaymentCompleted()}
+          />
+        ) : null}
       </DialogContent>
     </Dialog>
   );

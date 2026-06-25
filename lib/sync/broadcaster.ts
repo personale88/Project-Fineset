@@ -1,3 +1,4 @@
+import { publishSyncEventToRedis } from "@/lib/sync/redis-sync-bridge";
 import type { SyncEntity, SyncVersionPayload } from "@/lib/sync/version";
 
 export type SyncListener = (payload: SyncVersionPayload) => void;
@@ -9,8 +10,8 @@ interface SyncEvent {
 }
 
 /**
- * In-memory pub/sub for SSE sync events.
- * For multi-instance deployments, replace with Redis pub/sub (UPSTASH_REDIS_*).
+ * In-memory pub/sub for SSE sync events on the current instance.
+ * Cross-instance fan-out uses Upstash Redis keys (see redis-sync-bridge.ts).
  */
 class SyncBroadcaster {
   private listeners = new Map<string, Set<SyncListener>>();
@@ -46,13 +47,25 @@ class SyncBroadcaster {
 
 export const syncBroadcaster = new SyncBroadcaster();
 
+function buildSyncPayload(
+  scope: string,
+  entities: SyncEntity[],
+  timestamp: number,
+): SyncVersionPayload {
+  return {
+    version: `${scope}:${timestamp}:${entities.slice().sort().join(",")}`,
+    scope,
+    entities,
+    lastChangedAt: new Date(timestamp).toISOString(),
+  };
+}
+
 export function broadcastSyncEvent(
   storeId: string | null,
   entities: SyncEntity[],
 ): void {
-  syncBroadcaster.broadcast({
-    scope: storeId ?? "all",
-    entities,
-    timestamp: Date.now(),
-  });
+  const scope = storeId ?? "all";
+  const timestamp = Date.now();
+  syncBroadcaster.broadcast({ scope, entities, timestamp });
+  void publishSyncEventToRedis(buildSyncPayload(scope, entities, timestamp));
 }

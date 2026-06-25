@@ -1,5 +1,7 @@
 # FineSet — Complete Project Documentation
 
+> **Updated 2026:** Authentication is **local session-based** (bcrypt + httpOnly cookies), not Supabase Auth. See [ARCHITECTURE_GUIDE.md](../ARCHITECTURE_GUIDE.md), [SECURITY.md](./SECURITY.md), and [PRODUCTION_AUTH_MIGRATION.md](./PRODUCTION_AUTH_MIGRATION.md). Sections below that mention Supabase describe the legacy stack.
+
 **Document type:** Technical project documentation  
 **Audience:** You, your team, and senior backend engineers  
 **Format:** Each section explains **what we did**, **why we did it**, and **how it works** with a simple example.

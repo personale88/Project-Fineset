@@ -83,7 +83,7 @@ export function AnalyticsAskPanel({
   const scrollDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const queryClient = useQueryClient();
-  const { data: credits, isLoading: creditsLoading, isError: creditsError, refetch: refetchCredits } =
+  const { data: credits, isLoading: creditsLoading, isFetching: creditsFetching, isError: creditsError, refetch: refetchCredits } =
     useAnalyticsCredits();
 
   const {
@@ -371,6 +371,7 @@ export function AnalyticsAskPanel({
                 balanceCredits={balanceCredits}
                 lowBalanceThreshold={credits?.lowBalanceThreshold}
                 isLoading={creditsLoading}
+                isFetching={creditsFetching}
                 isError={creditsError}
                 onRetry={() => void refetchCredits()}
                 onRecharge={() => setRechargeOpen(true)}

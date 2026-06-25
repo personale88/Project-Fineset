@@ -135,6 +135,8 @@ interface WorkQueueAccordionSectionProps {
   displayCount: number;
   isOpen: boolean;
   onToggle: () => void;
+  previewHint?: string;
+  emptyPreview?: ReactNode;
   children: React.ReactNode;
 }
 
@@ -145,6 +147,8 @@ function WorkQueueAccordionSection({
   displayCount,
   isOpen,
   onToggle,
+  previewHint,
+  emptyPreview,
   children,
 }: WorkQueueAccordionSectionProps) {
   const sectionId = useId();
@@ -208,11 +212,51 @@ function WorkQueueAccordionSection({
           aria-labelledby={triggerId}
           className="space-y-3 border-t border-border bg-surface-secondary/20 px-4 py-3 sm:px-5"
         >
-          {children}
+          {previewHint ? (
+            <p className="text-xs text-text-muted">{previewHint}</p>
+          ) : null}
+          {items.length > 0 ? children : emptyPreview}
         </div>
       ) : null}
     </div>
   );
+}
+
+function buildWorkQueueCategoryHref(
+  reason: StaffWorkQueueReason,
+  followUpsPath: string,
+  callsPath: string,
+): string {
+  switch (reason) {
+    case "overdue_task":
+      return buildFollowUpsHref(followUpsPath, "overdue");
+    case "due_today_task":
+      return buildFollowUpsHref(followUpsPath, "due_today");
+    case "mismatched_assignment":
+      return buildFollowUpsHref(followUpsPath, "open");
+    case "not_answered":
+      return `${callsPath}?${buildStaffCallsSearchParams({
+        ...defaultStaffCallsParams(),
+        queue: "NOT_ANSWERED",
+      })}`;
+    case "follow_up_call":
+      return `${callsPath}?${buildStaffCallsSearchParams({
+        ...defaultStaffCallsParams(),
+        queue: "FOLLOW_UP",
+      })}`;
+    case "birthday":
+      return `${callsPath}?${buildStaffCallsSearchParams({
+        ...defaultStaffCallsParams(),
+        birthday: "THIS_MONTH",
+      })}`;
+    case "anniversary":
+      return `${callsPath}?${buildStaffCallsSearchParams({
+        ...defaultStaffCallsParams(),
+        anniversary: "THIS_MONTH",
+      })}`;
+    default:
+      return callsPath;
+  }
 }
 
 function WorkQueueItemContext({
@@ -333,6 +377,9 @@ export function StaffWorkQueue({
     call: callsCopy.call,
     noPhone: callsCopy.noPhone,
   };
+
+  const resolvedFollowUpsPath = followUpsPath ?? `${portalBasePath}/follow-ups`;
+  const resolvedCallsPath = callsPath ?? `${portalBasePath}/calls`;
 
   const groupedSections = useMemo(() => {
     const groups = new Map<StaffWorkQueueReason, StaffWorkQueueItem[]>();
@@ -523,8 +570,40 @@ export function StaffWorkQueue({
                     .replace("{total}", String(data.total))}
                 </p>
               ) : null}
-              <div className="overflow-hidden">
-                {groupedSections.map((section) => (
+              <div>
+                {groupedSections.map((section) => {
+                  const previewCount = section.items.length;
+                  const hasPartialPreview =
+                    previewCount > 0 && previewCount < section.displayCount;
+                  const previewHint = hasPartialPreview
+                    ? copy.sectionPreviewHint
+                        .replace("{shown}", String(previewCount))
+                        .replace("{total}", String(section.displayCount))
+                    : undefined;
+                  const emptyPreview =
+                    previewCount === 0 ? (
+                      <div className="space-y-3">
+                        <p className="text-sm text-text-muted">
+                          {copy.sectionEmptyPreview.replace(
+                            "{total}",
+                            String(section.displayCount),
+                          )}
+                        </p>
+                        <Button asChild variant="outline" size="sm">
+                          <Link
+                            href={buildWorkQueueCategoryHref(
+                              section.reason,
+                              resolvedFollowUpsPath,
+                              resolvedCallsPath,
+                            )}
+                          >
+                            {copy.sectionViewList}
+                          </Link>
+                        </Button>
+                      </div>
+                    ) : undefined;
+
+                  return (
                   <WorkQueueAccordionSection
                     key={section.reason}
                     reason={section.reason}
@@ -533,10 +612,13 @@ export function StaffWorkQueue({
                     displayCount={section.displayCount}
                     isOpen={openSections.has(section.reason)}
                     onToggle={() => toggleSection(section.reason)}
+                    previewHint={previewHint}
+                    emptyPreview={emptyPreview}
                   >
                     {section.items.map((item) => renderQueueItem(item))}
                   </WorkQueueAccordionSection>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}
@@ -555,7 +637,7 @@ export function StaffWorkQueue({
           <Button asChild variant="outline" size="sm">
             <Link
               href={buildFollowUpsHref(
-                followUpsPath ?? `${portalBasePath}/follow-ups`,
+                resolvedFollowUpsPath,
                 "due_today",
               )}
             >
@@ -564,7 +646,7 @@ export function StaffWorkQueue({
           </Button>
           <Button asChild variant="outline" size="sm">
             <Link
-              href={`${callsPath ?? `${portalBasePath}/calls`}?${buildStaffCallsSearchParams({
+              href={`${resolvedCallsPath}?${buildStaffCallsSearchParams({
                 ...defaultStaffCallsParams(),
                 queue: "NOT_ANSWERED",
               })}`}

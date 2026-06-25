@@ -103,8 +103,42 @@ function buildWorkQueueResponse(
       return true;
     });
 
+  const byReason = new Map<StaffWorkQueueReason, StaffWorkQueueItem[]>();
+  for (const reason of REASON_ORDER) {
+    byReason.set(reason, []);
+  }
+  for (const item of merged) {
+    byReason.get(item.reason)?.push(item);
+  }
+
+  const previewSeen = new Set<string>();
+  const preview: StaffWorkQueueItem[] = [];
+
+  function addPreviewItem(item: StaffWorkQueueItem): boolean {
+    const key = dedupeKey(item);
+    if (previewSeen.has(key)) return false;
+    previewSeen.add(key);
+    preview.push(item);
+    return true;
+  }
+
+  // Reserve at least one preview item per non-empty category so accordions are not empty.
+  for (const reason of REASON_ORDER) {
+    if (preview.length >= limit) break;
+    const bucket = byReason.get(reason) ?? [];
+    if (bucket.length === 0) continue;
+    addPreviewItem(bucket[0]!);
+  }
+
+  for (const item of merged) {
+    if (preview.length >= limit) break;
+    addPreviewItem(item);
+  }
+
+  preview.sort((a, b) => a.priority - b.priority);
+
   return {
-    items: merged.slice(0, limit),
+    items: preview,
     total: merged.length,
     categoryTotals: countByReason(merged),
     storeSummaries: countByStore(merged),
@@ -308,6 +342,7 @@ async function collectStoreWorkQueueItems(params: {
   return items;
 }
 
+export { buildWorkQueueResponse };
 export async function listStaffWorkQueue(params: {
   staffId: string;
   storeId: string;

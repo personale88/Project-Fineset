@@ -33,6 +33,11 @@ jobs:
           SKIP_ENV_VALIDATION: true
           ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
+      - run: npm run test:coverage:gate
+        env:
+          SKIP_ENV_VALIDATION: true
+          ENCRYPTION_KEY: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
       - run: npm run build
         env:
           SKIP_ENV_VALIDATION: true
@@ -79,6 +84,7 @@ jobs:
           DIRECT_URL: postgresql://fineset:fineset@localhost:5432/fineset_test?schema=public
 
       - run: npm run test:integration
+        # Critical paths: auth-flows, auth-security, store-scoping, billing-payment-submissions
         # performance-services + performance-api self-seed via tests/fixtures/perf-seed.ts
         env:
           SKIP_ENV_VALIDATION: true

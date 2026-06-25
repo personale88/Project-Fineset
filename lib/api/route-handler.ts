@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import type { z } from "zod";
 import type { AppSession } from "@/types";
+import { captureServerError } from "@/lib/monitoring/capture-error";
 import {
   badRequest,
   forbidden,
@@ -82,6 +83,7 @@ export function handleRouteError(error: unknown): NextResponse {
   }
 
   console.error("[api]", error);
+  captureServerError(error, { tags: { layer: "api" } });
   const detail =
     error instanceof Error ? error.message.slice(0, 300) : "Unknown error";
   return NextResponse.json(

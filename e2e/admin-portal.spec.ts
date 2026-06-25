@@ -27,10 +27,4 @@ test.describe("Admin portal", () => {
     await expect(page.getByRole("heading", { name: "Accounts", level: 1 })).toBeVisible();
     await expect(page.getByRole("tab", { name: /client accounts/i })).toBeVisible();
   });
-
-  test("global search opens from header", async ({ page }) => {
-    await page.goto("/admin/dashboard");
-    await page.getByRole("button", { name: /search/i }).click();
-    await expect(page.getByRole("heading", { name: /search customers/i })).toBeVisible();
-  });
 });

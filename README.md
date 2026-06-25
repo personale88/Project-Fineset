@@ -36,7 +36,10 @@ Fill in:
 
 Optional:
 
-- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` — rate limiting
+- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` — rate limiting and cross-instance SSE sync
+- `SENTRY_DSN` — server error monitoring (API, auth, billing failures)
+
+Pre-commit hooks run `npm run lint` and `npm run typecheck` via Husky (installed on `npm install`).
 
 ### 3. Set up database
 

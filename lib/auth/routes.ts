@@ -27,6 +27,18 @@ export const PROTECTED_API_ROUTES: ReadonlyArray<{
   { prefix: "/api/admin", roles: ["MASTER_ADMIN", "PLATFORM_ADMIN"] },
   { prefix: "/api/stores", roles: ["MASTER_ADMIN", "PLATFORM_ADMIN"] },
   { prefix: "/api/audit", roles: ["BUSINESS_OWNER", "MASTER_ADMIN", "PLATFORM_ADMIN"] },
+  {
+    prefix: "/api/billing",
+    roles: ["STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN", "PLATFORM_ADMIN"],
+  },
+  {
+    prefix: "/api/customers",
+    roles: ["STAFF", "STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN", "PLATFORM_ADMIN"],
+  },
+  {
+    prefix: "/api/import",
+    roles: ["STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN", "PLATFORM_ADMIN"],
+  },
 ];
 
 export function getProtectedApiRouteForPath(pathname: string) {

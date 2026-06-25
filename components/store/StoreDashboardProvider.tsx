@@ -100,9 +100,11 @@ function MultiStoreDashboardProvider({
 
   useEffect(() => {
     const stored = window.localStorage.getItem(SELECTED_STORE_STORAGE_KEY);
-    if (stored) {
-      setPersistedStoreId(stored);
-    }
+    queueMicrotask(() => {
+      if (stored) {
+        setPersistedStoreId(stored);
+      }
+    });
   }, []);
 
   const resolvedStoreId = useMemo(

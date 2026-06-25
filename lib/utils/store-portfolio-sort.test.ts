@@ -43,7 +43,15 @@ describe("sortStorePerformanceRows", () => {
       visits: 2,
       city: "Hyderabad",
       isActive: false,
-      deltas: { revenue: 50, visits: 10 },
+      deltas: {
+        revenue: 50,
+        visits: 10,
+        conversionRate: 0,
+        fieldSales: 0,
+        userCalls: 0,
+        avgTicketSize: 0,
+        schemesEnrolled: 0,
+      },
     }),
     makeRow({
       storeId: "c",
@@ -51,7 +59,15 @@ describe("sortStorePerformanceRows", () => {
       revenue: 2000,
       visits: 8,
       city: "Bangalore",
-      deltas: { revenue: 100, visits: -5 },
+      deltas: {
+        revenue: 100,
+        visits: -5,
+        conversionRate: 0,
+        fieldSales: 0,
+        userCalls: 0,
+        avgTicketSize: 0,
+        schemesEnrolled: 0,
+      },
     }),
   ];
 

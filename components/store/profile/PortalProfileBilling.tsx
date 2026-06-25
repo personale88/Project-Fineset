@@ -270,7 +270,7 @@ export function PortalProfileBilling({ copy }: PortalProfileBillingProps) {
         setInvoiceLoading(false);
       }
     },
-    [copy, details?.invoiceLogs],
+    [copy, details],
   );
 
   const handleViewInvoice = useCallback(

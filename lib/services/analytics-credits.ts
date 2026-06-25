@@ -5,6 +5,8 @@ import {
   getAnalyticsCreditPack,
 } from "@/lib/analytics/credit-units";
 import { getPlatformSettings } from "@/lib/services/platform-settings";
+import { getPendingAnalyticsCreditSubmission, isAnalyticsCreditUpiConfigured } from "@/lib/services/analytics-credit-payment-submissions";
+import type { BillingPaymentSubmissionDto } from "@/lib/services/billing-payment-submissions";
 import { prisma } from "@/lib/db/prisma";
 import type { AnalyticsCreditLedgerType } from "@prisma/client";
 
@@ -24,6 +26,8 @@ export interface AnalyticsCreditsSnapshot {
   lowBalanceThreshold: number;
   packs: typeof ANALYTICS_CREDIT_PACKS;
   recentLedger: AnalyticsCreditLedgerEntry[];
+  upiPaymentAvailable: boolean;
+  pendingRechargeSubmission: BillingPaymentSubmissionDto | null;
 }
 
 async function getAnalyticsCreditPolicy() {
@@ -48,6 +52,14 @@ export async function getAnalyticsCreditsSnapshot(
 ): Promise<AnalyticsCreditsSnapshot> {
   const account = await getOrCreateAnalyticsCreditAccount(appUserId);
   const policy = await getAnalyticsCreditPolicy();
+  const settings = await getPlatformSettings();
+  const upiPaymentAvailable = isAnalyticsCreditUpiConfigured(settings.general.paymentUpiVpa);
+  let pendingRechargeSubmission = null;
+  try {
+    pendingRechargeSubmission = await getPendingAnalyticsCreditSubmission(appUserId);
+  } catch (error) {
+    console.warn("[analytics-credits] pending recharge lookup failed:", error);
+  }
   const ledger = await prisma.analyticsCreditLedger.findMany({
     where: { accountId: account.id },
     orderBy: { createdAt: "desc" },
@@ -68,6 +80,8 @@ export async function getAnalyticsCreditsSnapshot(
       description: entry.description,
       createdAt: entry.createdAt.toISOString(),
     })),
+    upiPaymentAvailable,
+    pendingRechargeSubmission,
   };
 }
 

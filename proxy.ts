@@ -81,6 +81,9 @@ export const config = {
   matcher: [
     "/api/admin/:path*",
     "/api/stores/:path*",
+    "/api/billing/:path*",
+    "/api/customers/:path*",
+    "/api/import/:path*",
     "/api/audit/:path*",
     "/api/sync/:path*",
     "/api/analytics/:path*",

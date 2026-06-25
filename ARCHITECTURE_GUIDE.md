@@ -401,17 +401,17 @@ All strings in `content/en.ts` — components receive `copy` props. **Why:** fut
 ### 9.1 Implemented (current state)
 
 - [x] Three portals with RBAC middleware
-- [x] Supabase auth + invite + bootstrap scripts
+- [x] Local session auth (bcrypt + httpOnly cookie) + invite + bootstrap scripts
 - [x] Visit logging (full form, schemes, follow-ups)
 - [x] Field sales logging
 - [x] Customer upsert + encrypted PII
 - [x] Follow-up queue + staff call logging
 - [x] Store/admin analytics APIs and dashboards
 - [x] Staff performance / RSO metrics
-- [x] SSE live sync (single-instance broadcaster)
-- [x] Rate limiting (when Upstash configured)
-- [x] Prisma migrations + seed + integration tests
-- [x] Playwright E2E smoke paths
+- [x] SSE live sync (in-memory + Redis cross-instance when Upstash configured)
+- [x] Rate limiting (production default when Upstash configured)
+- [x] Sentry-compatible error monitoring (`SENTRY_DSN`)
+- [x] Playwright E2E: smoke, auth roles, admin billing, store manager, business owner
 - [x] **Admin portal (MASTER_ADMIN):** portfolio overview, store CRUD, user invites, billing ops, analytics + credits, audit log (paginated), security settings, store impersonation, global customer search, store drill-down breadcrumbs
 - [x] Payment provider abstraction (`PAYMENT_PROVIDER=none|noop`) for analytics credit recharge
 
@@ -419,11 +419,11 @@ All strings in `content/en.ts` — components receive `copy` props. **Why:** fut
 
 | Topic | Current state | Typical next step |
 |-------|---------------|-------------------|
-| SSE broadcaster | In-memory, single Node process | Redis pub/sub across Vercel instances |
-| Row-level security | App-layer checks in services | Optional Supabase RLS as defense-in-depth |
+| SSE broadcaster | In-memory + Redis version keys | Sub-second push via Upstash Realtime (optional) |
+| Row-level security | App-layer checks in services | Optional Postgres RLS — see `docs/SECURITY.md` |
 | Background jobs | None (sync in request) | Queue for heavy exports, email digests |
 | Audit/compliance | `AuthAuditLog`, `PhoneRevealLog` | Retention policy, SIEM export |
-| Multi-region | Documented in README (align Vercel + Supabase region) | Measure with `auth:latency`, `region-check` API |
+| Multi-region | Documented in README | Measure with `auth:latency` |
 | Reporting | In-app analytics | Warehouse / BI read replica |
 | Mobile | Responsive web | Native app would still hit same `/api/*` |
 
@@ -434,24 +434,24 @@ All strings in `content/en.ts` — components receive `copy` props. **Why:** fut
 | Step | Command | Why |
 |------|---------|-----|
 | Install deps | `npm install` | Lock toolchain; `postinstall` runs `prisma generate` |
-| Env | `cp .env.example .env.local` | Secrets + DB URL + Supabase keys + `ENCRYPTION_KEY` |
+| Env | `cp .env.example .env.local` | Secrets + DB URL + `AUTH_SECRET` + `ENCRYPTION_KEY` |
 | Migrate | `npm run db:migrate:dev` (local) / `npm run db:migrate` (deploy) | Apply SQL migrations; use `db:migrate:dev` with `.env.local` |
 | Seed | `npm run db:seed` | Demo data for UI/dev |
-| Bootstrap admin | `npm run auth:bootstrap` | Creates MASTER_ADMIN in Supabase + `AppUser` |
+| Bootstrap admin | `npm run auth:bootstrap` | Creates MASTER_ADMIN `AppUser` |
 | Dev users | `npm run auth:bootstrap-dev` | Links seed staff/manager to logins |
 | Run | `npm run dev` | Next dev server on port 3000 |
 
-**Supabase dashboard:** Add redirect URL `http://localhost:3000/auth/callback` (and production URL on Vercel).
+**Auth:** Invite and reset links use `NEXT_PUBLIC_APP_URL` as the base.
 
 ---
 
 ## 11. Deployment (production)
 
 - **Hosting:** Vercel (Next.js).
-- **DB:** Supabase Postgres (pooler URL in `DATABASE_URL`).
-- **Auth:** Supabase project (same region as Vercel when possible).
-- **Required env:** `DATABASE_URL`, `DIRECT_URL`, `NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`, `ENCRYPTION_KEY`, `NEXT_PUBLIC_APP_URL`.
-- **Recommended:** `UPSTASH_REDIS_*` for rate limits.
+- **DB:** PostgreSQL (pooler URL in `DATABASE_URL`, direct URL in `DIRECT_URL` for migrations).
+- **Auth:** Local session cookies signed with `AUTH_SECRET`.
+- **Required env:** `DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `ENCRYPTION_KEY`, `NEXT_PUBLIC_APP_URL`, `SMTP_*`.
+- **Recommended:** `UPSTASH_REDIS_*` (rate limits + cross-instance SSE), `SENTRY_DSN` (error monitoring).
 
 ---
 
@@ -467,7 +467,7 @@ Every query filters by `storeId` from `AppSession`. Store managers cannot pass a
 
 ### “Where is the source of truth for roles?”
 
-`AppUser.role` in Postgres. Supabase `app_metadata` is a **cache** for fast session checks; synced on login via `syncAuthMetadataForSession`.
+`AppUser.role` in Postgres. Session cookies carry a signed token; `getAppSession()` loads role and store from `AppUser` on each request.
 
 ### “What happens if JWT metadata and Prisma disagree?”
 
@@ -487,7 +487,7 @@ Connection pooler already configured. Next steps: read replicas for analytics, R
 
 ## 13. One-page “explain in 2 minutes” script
 
-> FineSet is a multi-store jewelry retail SaaS with three Next.js portals. Supabase handles passwords and sessions; our Postgres database holds stores, staff, encrypted customers, visits, field sales, and follow-ups. All business logic lives in `lib/services` and is called from both server-rendered pages and `/api` routes so we never duplicate rules. Staff log visits on the floor; managers and admins see analytics and call queues. When data changes, we broadcast on SSE so other open dashboards refresh via React Query. We encrypt PII at the application layer and hash phones for deduplication. Auth is invite-based for new users; roles and store assignment live in `AppUser`, not in Supabase alone.
+> FineSet is a multi-store jewelry retail SaaS with four Next.js portals. Local session auth (bcrypt + httpOnly cookies) handles passwords; PostgreSQL holds stores, staff, encrypted customers, visits, field sales, and follow-ups. All business logic lives in `lib/services` and is called from both server-rendered pages and `/api` routes so we never duplicate rules. Staff log visits on the floor; managers and admins see analytics and call queues. When data changes, we broadcast on SSE (with Redis cross-instance sync when configured) so open dashboards refresh via React Query. We encrypt PII at the application layer and hash phones for deduplication. Auth is invite-based for new users; roles and store assignment live in `AppUser`.
 
 ---
 
