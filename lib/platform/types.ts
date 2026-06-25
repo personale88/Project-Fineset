@@ -2,6 +2,7 @@ export interface PlatformSettingsGeneral {
   platformName: string;
   supportEmail: string;
   supportPhone: string;
+  paymentUpiVpa: string;
   defaultTimezone: string;
 }
 
@@ -9,9 +10,12 @@ export interface PlatformSettingsBilling {
   gstRatePercent: number;
   tier1MaxStaff: number;
   tier2MaxStaff: number;
+  tier3MaxStaff: number;
+  tier4MaxStaff: number;
   tier1MonthlyPrice: number;
   tier2MonthlyPrice: number;
   tier3MonthlyPrice: number;
+  tier4MonthlyPrice: number;
   restrictPortalOnOverdue: boolean;
 }
 
@@ -43,6 +47,7 @@ export interface PlatformSettings {
 
 export interface PlatformIntegrationStatus {
   smtp: { configured: boolean; host: string | null };
+  whatsapp: { configured: boolean; mode: "api" | "deep_links" };
   redis: { configured: boolean };
   gemini: { configured: boolean };
   paymentProvider: { provider: string; configured: boolean };

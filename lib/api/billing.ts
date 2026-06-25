@@ -4,6 +4,7 @@ import type {
   BillingAccountSummaryDto,
   BillingFollowUpDto,
 } from "@/lib/services/billing-accounts";
+import type { BillingPaymentSubmissionDto } from "@/lib/services/billing-payment-submissions";
 import type {
   BillingFollowUpChannel,
   BillingFollowUpOutcome,
@@ -86,4 +87,42 @@ export async function updateBillingAccount(input: {
     method: "PATCH",
     body: JSON.stringify(input),
   });
+}
+
+export type { BillingPaymentSubmissionDto };
+
+export interface BillingPaymentSubmissionsResponse {
+  data: BillingPaymentSubmissionDto[];
+  pendingCount: number;
+}
+
+export async function fetchBillingPaymentSubmissions(params?: {
+  status?: "PENDING" | "RECEIVED" | "NOT_RECEIVED" | "ALL";
+}): Promise<BillingPaymentSubmissionsResponse> {
+  const query = params?.status ? buildQueryString({ status: params.status }) : "";
+  return apiFetch<BillingPaymentSubmissionsResponse>(
+    `/api/admin/billing/payment-submissions${query}`,
+  );
+}
+
+export interface BillingPaymentSubmissionReviewResult {
+  submission: BillingPaymentSubmissionDto;
+  notifications?: {
+    emailSent: boolean;
+    whatsAppSent: boolean;
+    whatsAppQueued: boolean;
+  };
+}
+
+export async function reviewBillingPaymentSubmission(input: {
+  id: string;
+  status: "RECEIVED" | "NOT_RECEIVED";
+}): Promise<BillingPaymentSubmissionReviewResult> {
+  return apiFetch<BillingPaymentSubmissionReviewResult>(
+    `/api/admin/billing/payment-submissions/${encodeURIComponent(input.id)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ status: input.status }),
+    },
+  );
 }

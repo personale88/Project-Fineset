@@ -58,14 +58,6 @@ export async function isPortalDataReadBlockedForSession(
   return Boolean(access?.billingRestricted);
 }
 
-/** @deprecated Use isPortalDataReadBlockedForSession */
-export async function isPortalDataReadBlocked(
-  session: AppSession,
-  storeId: string,
-): Promise<boolean> {
-  return isPortalDataReadBlockedForSession(session, storeId);
-}
-
 /** Block mutating operations when billing access is restricted (same rules as read). */
 export async function isPortalDataWriteBlockedForSession(
   session: AppSession,

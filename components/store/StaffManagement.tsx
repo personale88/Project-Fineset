@@ -454,9 +454,6 @@ export function StaffManagement({
                 <th className="px-4 py-3 font-medium text-text-secondary">
                   {store.staff.columns.createdAt}
                 </th>
-                <th className="px-4 py-3 font-medium text-text-secondary">
-                  {store.staff.columns.visits}
-                </th>
                 {readOnly ? (
                   <>
                     <th className="px-4 py-3 font-medium text-text-secondary">
@@ -486,7 +483,6 @@ export function StaffManagement({
                     <td className="px-4 py-3">{member.phone ?? "—"}</td>
                     <td className="px-4 py-3">{member.email ?? "—"}</td>
                     <td className="px-4 py-3">{formatDate(member.createdAt)}</td>
-                    <td className="px-4 py-3">{member.monthlyVisits}</td>
                     {readOnly ? (
                       <>
                         <td className="px-4 py-3 font-numeric tabular-nums">

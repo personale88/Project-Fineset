@@ -1,4 +1,8 @@
 import { withAuthQuery } from "@/lib/api/route-handler";
+import {
+  buildDevBillingAccessPatch,
+  isDevBillingPendingMockEnabled,
+} from "@/lib/billing/dev-billing-pending-mock";
 import type { AppSession } from "@/types";
 import { buildOutstandingBillingForBusinessKey } from "@/lib/services/billing-accounts";
 import { resolvePortalStoreIdForSession } from "@/lib/auth/resolve-manager-store-id";
@@ -42,25 +46,38 @@ export const GET = withAuthQuery(
 
     const outstanding = await buildOutstandingBillingForBusinessKey(access.businessKey);
 
+    const mockPatch =
+      isDevBillingPendingMockEnabled() &&
+      access.paymentStatus !== "PAID" &&
+      access.reason !== "PAID" &&
+      access.reason !== "WAIVED" &&
+      (outstanding?.grandTotal ?? 0) > 0
+        ? buildDevBillingAccessPatch(
+            outstanding!.grandTotal,
+            access.isGracePeriod || access.reason === "WITHIN_DUE_WINDOW",
+          )
+        : null;
+
     return NextResponse.json({
       storeId,
       businessName: access.businessName,
-      canReadData: access.canReadData,
-      isGracePeriod: access.isGracePeriod,
-      paymentStatus: access.paymentStatus,
-      paidAt: access.paidAt,
-      reason: access.reason,
+      canReadData: mockPatch?.canReadData ?? access.canReadData,
+      isGracePeriod: mockPatch?.isGracePeriod ?? access.isGracePeriod,
+      paymentStatus: mockPatch?.paymentStatus ?? access.paymentStatus,
+      paidAt: mockPatch ? null : access.paidAt,
+      reason: mockPatch?.reason ?? access.reason,
       paymentDeadline: access.paymentDeadline.toISOString(),
       paymentDeadlineFallback: access.paymentDeadline.toISOString(),
       billingCycleStart: access.billingCycleStart.toISOString(),
       billingAnchorAt: access.billingAnchorAt?.toISOString() ?? null,
-      consecutiveUnpaidPeriods: access.consecutiveUnpaidPeriods,
-      restrictionTier: access.restrictionTier,
-      billingRestricted: access.billingRestricted,
-      metricsBlurred: access.metricsBlurred,
+      consecutiveUnpaidPeriods:
+        mockPatch?.consecutiveUnpaidPeriods ?? access.consecutiveUnpaidPeriods,
+      restrictionTier: mockPatch?.restrictionTier ?? access.restrictionTier,
+      billingRestricted: mockPatch?.billingRestricted ?? access.billingRestricted,
+      metricsBlurred: mockPatch?.metricsBlurred ?? access.metricsBlurred,
       viewerRole: session.role as AppSession["role"],
-      outstandingGrandTotal: outstanding?.grandTotal ?? 0,
-      unpaidPeriodCount: outstanding?.unpaidPeriodCount ?? 0,
+      outstandingGrandTotal: mockPatch?.outstandingGrandTotal ?? outstanding?.grandTotal ?? 0,
+      unpaidPeriodCount: mockPatch?.unpaidPeriodCount ?? outstanding?.unpaidPeriodCount ?? 0,
     });
   },
 );

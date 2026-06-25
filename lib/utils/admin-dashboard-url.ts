@@ -12,7 +12,7 @@ export function adminStoreDetailHref(storeId: string, period?: string): string {
 }
 
 export function adminSectionPath(
-  section: "visits" | "calls" | "field-sales" | "staff",
+  section: "visits" | "calls" | "field-sales",
   storeId: string,
 ): string {
   return appendStoreQuery(`${ADMIN_DASHBOARD_PATH}/${section}`, storeId);

@@ -24,9 +24,6 @@ export function staffCallUsesActionQueueScope(params: StaffCallScopeParams): boo
   return params.queue === "NOT_ANSWERED" || params.queue === "FOLLOW_UP";
 }
 
-/** @deprecated Use staffCallUsesActionQueueScope */
-export const staffCallUsesYearQueueScope = staffCallUsesActionQueueScope;
-
 export function buildStaffCallActivityDateRange(params: StaffCallScopeParams): {
   start: Date;
   end: Date;

@@ -15,7 +15,7 @@ import {
   requireStaffContext,
 } from "@/lib/auth/resolve-staff";
 import { createFieldSale, listFieldSales } from "@/lib/services/field-sales";
-import { isPortalDataReadBlocked } from "@/lib/auth/billing-access-guard";
+import { isPortalDataReadBlockedForSession } from "@/lib/auth/billing-access-guard";
 import {
   createFieldSaleSchema,
   getFieldSalesQuerySchema,
@@ -60,7 +60,7 @@ export async function GET(req: Request) {
     }
 
     if (storeId) {
-      const blocked = await isPortalDataReadBlocked(session, storeId);
+      const blocked = await isPortalDataReadBlockedForSession(session, storeId);
       if (blocked) {
         return NextResponse.json({
           data: [],

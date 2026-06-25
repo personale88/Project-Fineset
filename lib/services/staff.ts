@@ -113,7 +113,6 @@ export async function listStaff(storeId: string) {
       isActive: member.isActive,
       visitCount,
       canDelete: !hasActivity,
-      monthlyVisits: visitCount,
       monthlyRevenue: revenueByStaff.get(member.id) ?? 0,
       conversionRate,
       openFollowUps: followUpCountByStaff.get(member.id) ?? 0,

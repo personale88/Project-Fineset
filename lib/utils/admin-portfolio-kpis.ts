@@ -21,7 +21,6 @@ export interface AdminPortfolioKpis {
   totalStores: number;
   activeStores: number;
   inactiveStores: number;
-  activeStoreRate: number;
   totalStaff: number;
   mrr: number;
   atRiskMrr: number;
@@ -133,8 +132,6 @@ export function computeAdminPortfolioKpis(
   }
 
   const totalBusinesses = businesses.length;
-  const activeStoreRate =
-    totalStores > 0 ? Math.round((activeStores / totalStores) * 100) : 0;
   const avgRevenuePerBusiness =
     totalBusinesses > 0 ? Math.round(mrr / totalBusinesses) : 0;
 
@@ -143,7 +140,6 @@ export function computeAdminPortfolioKpis(
     totalStores,
     activeStores,
     inactiveStores,
-    activeStoreRate,
     totalStaff,
     mrr,
     atRiskMrr,

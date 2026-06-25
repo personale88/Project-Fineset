@@ -99,7 +99,7 @@ export async function getManagerStaffActivity(
         staffName: member.name,
         role: member.role,
         isActive: member.isActive,
-        monthlyVisits: metrics?.visits ?? member.monthlyVisits,
+        monthlyVisits: metrics?.visits ?? member.visitCount,
         conversionRate: metrics?.conversionRate ?? member.conversionRate,
         openFollowUps: metrics?.openFollowUps ?? member.openFollowUps,
         pendingWork: digest.total,

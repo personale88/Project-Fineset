@@ -3,12 +3,9 @@
 import Link from "next/link";
 import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Eye, MapPin, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, MapPin } from "lucide-react";
 import { useStoreOverviewBundle } from "@/hooks/useStoreOverviewBundle";
 import { useAdminImpersonation } from "@/hooks/useAdminImpersonation";
-import { useStoreDetail } from "@/hooks/useStores";
-import { StoreEditDialog } from "@/components/admin/StoreEditDialog";
-import { StoreDeleteDialog } from "@/components/admin/StoreDeleteDialog";
 import { StoreBusinessOverviewSection } from "@/components/store/StoreBusinessOverview";
 import { StoreCallsOverviewSection } from "@/components/store/StoreCallsOverview";
 import { StoreFieldSalesOverviewSection } from "@/components/store/StoreFieldSalesOverview";
@@ -52,11 +49,7 @@ export function AdminStoreDetail({
   const searchParams = useSearchParams();
   const detail = admin.storeDetail;
   const logDashboardBase = ADMIN_DASHBOARD_PATH;
-  const [editOpen, setEditOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
   const impersonation = useAdminImpersonation();
-
-  const { data: storeRecord } = useStoreDetail(storeId);
 
   const [period, setPeriodState] = useState<PeriodValue>(() => {
     const fromUrl = searchParams.get("period");
@@ -126,6 +119,7 @@ export function AdminStoreDetail({
 
   return (
     <div className="min-w-0 space-y-6">
+      <BackLink label={detail.backToPortfolio} />
       <AdminStoreBreadcrumbs admin={admin} storeId={storeId} section="overview" />
 
       <div className="space-y-3">
@@ -154,20 +148,6 @@ export function AdminStoreDetail({
                 {impersonation.isPending
                   ? admin.impersonation.starting
                   : admin.impersonation.viewAsStore}
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => setEditOpen(true)}>
-                <Pencil className="mr-1.5 h-4 w-4" aria-hidden />
-                {admin.accounts.actions.edit}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="text-status-error hover:text-status-error"
-                onClick={() => setDeleteOpen(true)}
-              >
-                <Trash2 className="mr-1.5 h-4 w-4" aria-hidden />
-                {admin.accounts.actions.delete}
               </Button>
             </div>
             <PeriodSwitcher
@@ -205,11 +185,6 @@ export function AdminStoreDetail({
           <Button asChild size="sm" variant="outline">
             <Link href={adminSectionPath("field-sales", storeId)} prefetch={false}>
               {detail.viewFieldSales}
-            </Link>
-          </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href={adminSectionPath("staff", storeId)} prefetch={false}>
-              {detail.viewStaff}
             </Link>
           </Button>
         </nav>
@@ -258,23 +233,6 @@ export function AdminStoreDetail({
         initialParams={bundleHydrated ? analyticsParams : undefined}
       />
 
-      <StoreEditDialog
-        storeId={storeId}
-        open={editOpen}
-        onOpenChange={setEditOpen}
-        admin={admin}
-        onUpdated={() => router.refresh()}
-      />
-
-      <StoreDeleteDialog
-        storeId={storeId}
-        storeName={storeMeta?.name ?? detail.titleFallback}
-        purgeAt={storeRecord?.purgeAt}
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        admin={admin}
-        redirectAfterDelete="/admin/dashboard/accounts"
-      />
     </div>
   );
 }

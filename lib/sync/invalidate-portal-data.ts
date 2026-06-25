@@ -52,7 +52,7 @@ const ENTITY_QUERY_KEYS: Record<SyncEntity, string[][]> = {
     ["store-activity"],
     ["import-history"],
   ],
-  stores: [["stores"], ["analytics"], ["store", "my-stores"], ["portfolio-alerts"]],
+  stores: [["stores"], ["analytics"], ["store", "my-stores"]],
 };
 
 export async function invalidateEntity(

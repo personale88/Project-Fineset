@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { getActivationBillingPeriod } from "@/lib/billing/activation-cycle";
-import { calculateOutstandingBilling } from "@/lib/billing/outstanding-billing";
+import {
+  calculateOutstandingBilling,
+  consolidateOutstandingBilling,
+} from "@/lib/billing/outstanding-billing";
 import { DEFAULT_BILLING_PRICING_CONFIG } from "@/lib/utils/store-billing-pricing";
 
 const ANCHOR = new Date("2026-01-15T00:00:00.000Z");
@@ -42,5 +45,11 @@ describe("calculateOutstandingBilling", () => {
     });
     expect(outstanding.unpaidPeriodCount).toBeGreaterThan(1);
     expect(outstanding.grandTotal).toBeGreaterThan(outstanding.periods[0]!.billing.grandTotal);
+
+    const consolidated = consolidateOutstandingBilling(outstanding);
+    const storeIds = consolidated.stores.map((store) => store.storeId);
+    expect(new Set(storeIds).size).toBe(storeIds.length);
+    expect(consolidated.subtotal).toBe(outstanding.subtotal);
+    expect(consolidated.grandTotal).toBe(outstanding.grandTotal);
   });
 });

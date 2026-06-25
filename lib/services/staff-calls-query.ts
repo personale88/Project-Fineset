@@ -317,5 +317,4 @@ export {
   matchesStaffCallActivityPeriod,
   staffCallUsesActionQueueScope,
   staffCallUsesOccasionOnlyScope,
-  staffCallUsesYearQueueScope,
 } from "@/lib/services/staff-calls-scope";

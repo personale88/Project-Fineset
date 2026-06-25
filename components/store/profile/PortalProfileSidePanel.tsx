@@ -203,14 +203,21 @@ export function PortalProfileSidePanel({
 export function ProfileResultsHeader({
   title,
   description,
+  action,
 }: {
   title: string;
   description: string;
+  action?: React.ReactNode;
 }) {
   return (
     <div className="border-b border-border px-4 py-4 sm:px-5">
-      <h2 className="font-display text-lg font-semibold text-text-primary">{title}</h2>
-      <p className="mt-1 text-sm text-text-secondary">{description}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="font-display text-lg font-semibold text-text-primary">{title}</h2>
+          <p className="mt-1 text-sm text-text-secondary">{description}</p>
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
     </div>
   );
 }

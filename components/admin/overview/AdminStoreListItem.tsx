@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowRight, MapPin, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { StoreEditDialog } from "@/components/admin/StoreEditDialog";
+import { StoreDeleteDialog } from "@/components/admin/StoreDeleteDialog";
 import { getStoreCategoryLabel } from "@/lib/utils/store-category";
 import { useStoreCategoryChoices } from "@/hooks/useStoreCategoryChoices";
 import { formatDate } from "@/lib/utils/formatters";
@@ -13,6 +14,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { Content } from "@/content/en";
@@ -44,6 +46,7 @@ export function AdminStoreListItem({
   admin: AdminContent;
 }) {
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const { data: categoryChoices = [] } = useStoreCategoryChoices();
   const categoryLabelMap = useMemo(
     () => new Map(categoryChoices.map((choice) => [choice.name, choice.label])),
@@ -103,6 +106,14 @@ export function AdminStoreListItem({
                 <Pencil className="mr-2 h-4 w-4" aria-hidden />
                 {admin.accounts.actions.edit}
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-status-error focus:text-status-error"
+                onSelect={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" aria-hidden />
+                {admin.accounts.actions.delete}
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           <Link
@@ -120,6 +131,15 @@ export function AdminStoreListItem({
         storeId={store.storeId}
         open={editOpen}
         onOpenChange={setEditOpen}
+        admin={admin}
+      />
+
+      <StoreDeleteDialog
+        storeId={store.storeId}
+        storeName={store.storeName}
+        purgeAt={store.purgeAt}
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
         admin={admin}
       />
 

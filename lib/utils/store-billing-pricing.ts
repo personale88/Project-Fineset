@@ -8,15 +8,25 @@ import {
 
 export const GST_RATE = DEFAULT_PLATFORM_SETTINGS.billing.gstRatePercent / 100;
 
-export type StoreBillingTier = "TIER_1" | "TIER_2" | "TIER_3";
+export type StoreBillingTier = "TIER_1" | "TIER_2" | "TIER_3" | "TIER_4";
+
+export const BILLING_PLAN_NAMES: Record<StoreBillingTier, string> = {
+  TIER_1: "Lite",
+  TIER_2: "Plus",
+  TIER_3: "Pro",
+  TIER_4: "Max",
+};
 
 export interface BillingPricingConfig {
   gstRate: number;
   tier1MaxStaff: number;
   tier2MaxStaff: number;
+  tier3MaxStaff: number;
+  tier4MaxStaff: number;
   tier1MonthlyPrice: number;
   tier2MonthlyPrice: number;
   tier3MonthlyPrice: number;
+  tier4MonthlyPrice: number;
 }
 
 export function billingPricingFromSettings(
@@ -26,9 +36,12 @@ export function billingPricingFromSettings(
     gstRate: billing.gstRatePercent / 100,
     tier1MaxStaff: billing.tier1MaxStaff,
     tier2MaxStaff: billing.tier2MaxStaff,
+    tier3MaxStaff: billing.tier3MaxStaff,
+    tier4MaxStaff: billing.tier4MaxStaff,
     tier1MonthlyPrice: billing.tier1MonthlyPrice,
     tier2MonthlyPrice: billing.tier2MonthlyPrice,
     tier3MonthlyPrice: billing.tier3MonthlyPrice,
+    tier4MonthlyPrice: billing.tier4MonthlyPrice,
   };
 }
 
@@ -38,7 +51,10 @@ const TIER_BASE_MONTHLY: Record<StoreBillingTier, keyof BillingPricingConfig> = 
   TIER_1: "tier1MonthlyPrice",
   TIER_2: "tier2MonthlyPrice",
   TIER_3: "tier3MonthlyPrice",
+  TIER_4: "tier4MonthlyPrice",
 };
+
+const BILLING_TIERS: StoreBillingTier[] = ["TIER_1", "TIER_2", "TIER_3", "TIER_4"];
 
 export interface StoreMonthlyCharge {
   storeId: string;
@@ -71,6 +87,22 @@ export interface BusinessMonthlyBilling {
   grandTotal: number;
 }
 
+export function staffRangeForTier(
+  tier: StoreBillingTier,
+  config: BillingPricingConfig = DEFAULT_BILLING_PRICING_CONFIG,
+): string {
+  switch (tier) {
+    case "TIER_1":
+      return `1–${config.tier1MaxStaff} staff`;
+    case "TIER_2":
+      return `${config.tier1MaxStaff + 1}–${config.tier2MaxStaff} staff`;
+    case "TIER_3":
+      return `${config.tier2MaxStaff + 1}–${config.tier3MaxStaff} staff`;
+    case "TIER_4":
+      return `${config.tier3MaxStaff + 1}–${config.tier4MaxStaff} staff`;
+  }
+}
+
 export function resolveStoreBillingTier(
   staffCount: number,
   config: BillingPricingConfig = DEFAULT_BILLING_PRICING_CONFIG,
@@ -78,21 +110,15 @@ export function resolveStoreBillingTier(
   const count = Math.max(0, Math.floor(staffCount));
   if (count <= config.tier1MaxStaff) return "TIER_1";
   if (count <= config.tier2MaxStaff) return "TIER_2";
-  return "TIER_3";
+  if (count <= config.tier3MaxStaff) return "TIER_3";
+  return "TIER_4";
 }
 
 export function formatBillingTierLabel(
   tier: StoreBillingTier,
   config: BillingPricingConfig = DEFAULT_BILLING_PRICING_CONFIG,
 ): string {
-  switch (tier) {
-    case "TIER_1":
-      return `1–${config.tier1MaxStaff} employees`;
-    case "TIER_2":
-      return `${config.tier1MaxStaff + 1}–${config.tier2MaxStaff} employees`;
-    case "TIER_3":
-      return `${config.tier2MaxStaff + 1}+ employees`;
-  }
+  return `${BILLING_PLAN_NAMES[tier]} · ${staffRangeForTier(tier, config)}`;
 }
 
 export function getTierBaseMonthlyAmount(
@@ -160,6 +186,22 @@ export function calculateBusinessMonthlyBilling(
   };
 }
 
+export interface PortalPricingTierRow {
+  label: string;
+  staffRange: string;
+  monthlyPriceExclGst: number;
+}
+
+export function buildPortalPricingTiers(
+  config: BillingPricingConfig = DEFAULT_BILLING_PRICING_CONFIG,
+): PortalPricingTierRow[] {
+  return BILLING_TIERS.map((tier) => ({
+    label: BILLING_PLAN_NAMES[tier],
+    staffRange: staffRangeForTier(tier, config),
+    monthlyPriceExclGst: getTierBaseMonthlyAmount(tier, config),
+  }));
+}
+
 export function formatPricingTiersSummary(
   config: BillingPricingConfig = DEFAULT_BILLING_PRICING_CONFIG,
   gstRatePercent = Math.round(config.gstRate * 100),
@@ -167,5 +209,11 @@ export function formatPricingTiersSummary(
   const fmt = (amount: number) =>
     amount.toLocaleString("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 
-  return `${fmt(config.tier1MonthlyPrice)} (1–${config.tier1MaxStaff} staff) · ${fmt(config.tier2MonthlyPrice)} (${config.tier1MaxStaff + 1}–${config.tier2MaxStaff}) · ${fmt(config.tier3MonthlyPrice)} (${config.tier2MaxStaff + 1}+) per store/mo excl. GST + ${gstRatePercent}% GST`;
+  const segments = BILLING_TIERS.map((tier) => {
+    const price = fmt(getTierBaseMonthlyAmount(tier, config));
+    const range = staffRangeForTier(tier, config).replace(/ staff$/, "");
+    return `${BILLING_PLAN_NAMES[tier]} ${price} (${range})`;
+  });
+
+  return `${segments.join(" · ")} per store/mo excl. GST + ${gstRatePercent}% GST`;
 }

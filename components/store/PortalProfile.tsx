@@ -3,9 +3,11 @@
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, Building2, LogOut, Settings2, Store } from "lucide-react";
+import { ArrowLeft, Building2, LogOut, Store } from "lucide-react";
 import { content } from "@/content/en";
 import { PortalProfileBilling } from "@/components/store/profile/PortalProfileBilling";
+import { PortalBillingTariffButton } from "@/components/store/profile/PortalBillingTariffButton";
+import { PortalProfilePreferences } from "@/components/store/profile/PortalProfilePreferences";
 import {
   PortalProfileSupport,
   type PortalSupportContact,
@@ -26,7 +28,6 @@ import { StaffManagement } from "@/components/store/StaffManagement";
 import { useStoreDashboard } from "@/components/store/StoreDashboardProvider";
 import { usePortalSignOut } from "@/hooks/usePortalSignOut";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { portalDashboardPath, storeDetailPathForRole } from "@/lib/utils/store-dashboard-url";
 import type { getStaff } from "@/lib/api/staff";
 import type { ManagerStoreOption } from "@/types";
@@ -148,7 +149,15 @@ export function PortalProfile({
           role="tabpanel"
           aria-label={title}
         >
-          <ProfileResultsHeader title={title} description={description} />
+          <ProfileResultsHeader
+            title={title}
+            description={description}
+            action={
+              scope === "billing" ? (
+                <PortalBillingTariffButton copy={copy.billing} />
+              ) : undefined
+            }
+          />
 
           <div className="px-4 py-4 sm:px-5">
             {scope === "account" ? (
@@ -181,54 +190,30 @@ export function PortalProfile({
                     <p className="text-sm text-text-muted">{copy.businesses.empty}</p>
                   ) : (
                     <ul className="space-y-2">
-                      {displayStores.map((store) => {
-                        const isSelected = store.id === storeId;
-                        return (
-                          <li key={store.id}>
-                            <div
-                              className={cn(
-                                "flex flex-wrap items-center justify-between gap-3 rounded-input border px-3 py-3",
-                                isSelected
-                                  ? "border-brand-gold/40 bg-brand-gold/[0.04]"
-                                  : "border-border bg-surface-secondary/30",
-                              )}
-                            >
-                              <div className="min-w-0">
-                                <p className="flex items-center gap-2 text-sm font-medium text-text-primary">
-                                  <Store
-                                    className="h-4 w-4 shrink-0 text-brand-gold"
-                                    aria-hidden
-                                  />
-                                  {store.name}
-                                </p>
-                                <p className="mt-0.5 text-xs text-text-muted">
-                                  {[store.city, store.state].filter(Boolean).join(", ") ||
-                                    copy.businesses.locationFallback}
-                                </p>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
-                                {showStorePicker ? (
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant={isSelected ? "default" : "outline"}
-                                    onClick={() => setStoreId(store.id)}
-                                  >
-                                    {isSelected
-                                      ? copy.businesses.selectedStore
-                                      : copy.businesses.useStore}
-                                  </Button>
-                                ) : null}
-                                <Button asChild size="sm" variant="outline">
-                                  <Link href={storeDetailPathForRole(store.id, portalRole)}>
-                                    {copy.businesses.openStore}
-                                  </Link>
-                                </Button>
-                              </div>
+                      {displayStores.map((store) => (
+                        <li key={store.id}>
+                          <div className="flex flex-wrap items-center justify-between gap-3 rounded-input border border-border bg-surface-secondary/30 px-3 py-3">
+                            <div className="min-w-0">
+                              <p className="flex items-center gap-2 text-sm font-medium text-text-primary">
+                                <Store
+                                  className="h-4 w-4 shrink-0 text-brand-gold"
+                                  aria-hidden
+                                />
+                                {store.name}
+                              </p>
+                              <p className="mt-0.5 text-xs text-text-muted">
+                                {[store.city, store.state].filter(Boolean).join(", ") ||
+                                  copy.businesses.locationFallback}
+                              </p>
                             </div>
-                          </li>
-                        );
-                      })}
+                            <Button asChild size="sm" variant="outline">
+                              <Link href={storeDetailPathForRole(store.id, portalRole)}>
+                                {copy.businesses.openStore}
+                              </Link>
+                            </Button>
+                          </div>
+                        </li>
+                      ))}
                     </ul>
                   )}
                 </div>
@@ -279,34 +264,11 @@ export function PortalProfile({
             {scope === "billing" ? <PortalProfileBilling copy={copy.billing} /> : null}
 
             {scope === "preferences" ? (
-              isOwner && hasMultipleStores ? (
-                <div className="space-y-2">
-                  <p className="text-sm font-medium text-text-primary">
-                    {copy.preferences.defaultStoreLabel}
-                  </p>
-                  <p className="text-xs text-text-muted">{copy.preferences.defaultStoreHint}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {stores.map((store) => (
-                      <button
-                        key={store.id}
-                        type="button"
-                        aria-pressed={store.id === storeId}
-                        onClick={() => setStoreId(store.id)}
-                        className={cn(
-                          "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
-                          store.id === storeId
-                            ? "border-brand-gold bg-brand-gold/10 text-text-primary"
-                            : "border-border text-text-muted hover:border-brand-gold/30",
-                        )}
-                      >
-                        {store.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-text-muted">{copy.preferences.singleStoreHint}</p>
-              )
+              <PortalProfilePreferences
+                copy={copy.preferences}
+                portalRole={portalRole}
+                assignedStore={assignedStore}
+              />
             ) : null}
 
             {scope === "support" ? (

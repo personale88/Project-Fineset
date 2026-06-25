@@ -386,7 +386,9 @@ Each dashboard layout:
 1. `requirePortalSession("STAFF" | "STORE_MANAGER" | "MASTER_ADMIN")` — server-side guard.
 2. Renders `PortalShell` (nav, sign out) + `RealtimeSyncProvider` (SSE).
 
-**Admin portal routes:** `/admin/dashboard` (portfolio), `/analytics`, `/stores`, `/users`, `/billing`, `/audit`, `/security`, plus store drill-down at `/stores/[storeId]` and scoped logs (`/visits`, `/calls`, `/field-sales`, `/staff` with `?storeId=`). Header includes global customer search (store-scoped). Impersonation is gated by `ALLOW_ADMIN_IMPERSONATION` and audited.
+**Admin portal routes:** `/admin/dashboard` (portfolio overview), `/analytics`, `/accounts` (stores + internal team), `/billing`, `/automation`, `/settings`, plus store drill-down at `/stores/[storeId]` and scoped logs (`/visits`, `/calls`, `/field-sales` with `?storeId=`). Header includes global customer search (store-scoped). Impersonation is gated by `ALLOW_ADMIN_IMPERSONATION` and audited.
+
+**Store portal staff management:** `/business-owner/dashboard/staff` and `/store-manager/dashboard/staff` redirect to the profile **Staff** section (`/profile?section=staff`). Staff roster and account management live in profile, not a standalone dashboard page.
 
 ### 8.4 UI copy
 

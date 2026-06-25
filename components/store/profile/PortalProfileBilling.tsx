@@ -11,7 +11,6 @@ import {
   Users,
 } from "lucide-react";
 import { content } from "@/content/en";
-import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { useBillingAccessContext } from "@/components/billing/BillingAccessProvider";
 import { usePortalBillingDetails } from "@/hooks/usePortalBillingDetails";
 import {
@@ -31,6 +30,7 @@ import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils/formatte
 import type { ProfileCopy } from "@/components/store/profile/profile-scope";
 import type { AdminPortfolioPaymentStatus } from "@/lib/utils/admin-portfolio-filters";
 import type { PortalBillingAccessSnapshot } from "@/lib/services/portal-billing-details";
+import { PortalPayNowDialog } from "@/components/store/profile/PortalPayNowDialog";
 
 type BillingTab = "current" | "history";
 
@@ -238,6 +238,7 @@ export function PortalProfileBilling({ copy }: PortalProfileBillingProps) {
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceError, setInvoiceError] = useState<string | null>(null);
   const [activeInvoiceLogId, setActiveInvoiceLogId] = useState<string | undefined>();
+  const [payNowOpen, setPayNowOpen] = useState(false);
 
   const loadInvoicePreview = useCallback(
     async (invoiceLogId?: string) => {
@@ -503,14 +504,6 @@ export function PortalProfileBilling({ copy }: PortalProfileBillingProps) {
             />
           </div>
 
-          <div className="rounded-input border border-border bg-surface-secondary/30 px-3 py-3">
-            <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-              {copy.pricingLabel}
-            </p>
-            <p className="mt-1 text-sm text-text-secondary">{details.pricingTiersSummary}</p>
-            <p className="mt-1 text-xs text-text-muted">{adminBilling.monthlyDueHint}</p>
-          </div>
-
           {hasBillableStores ? (
             <>
               <div className="flex flex-wrap items-center gap-2 text-sm text-text-secondary">
@@ -597,20 +590,14 @@ export function PortalProfileBilling({ copy }: PortalProfileBillingProps) {
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
             <p className="text-sm text-text-muted">{copy.renewHint}</p>
             <div className="flex flex-wrap items-center gap-2">
-              {details.payNow.available && details.payNow.href ? (
+              {details.payNow.available ? (
                 <Button
                   type="button"
                   size="sm"
                   className="gap-2"
-                  onClick={() => {
-                    window.open(details.payNow.href!, "_blank", "noopener,noreferrer");
-                  }}
+                  onClick={() => setPayNowOpen(true)}
                 >
-                  {details.payNow.action === "whatsapp" ? (
-                    <WhatsAppIcon className="h-4 w-4" />
-                  ) : (
-                    <CreditCard className="h-4 w-4" aria-hidden />
-                  )}
+                  <CreditCard className="h-4 w-4" aria-hidden />
                   {copy.payNow}
                 </Button>
               ) : details.payNow.unavailableReason === "ALREADY_PAID" ? (
@@ -618,7 +605,7 @@ export function PortalProfileBilling({ copy }: PortalProfileBillingProps) {
                   <CreditCard className="h-4 w-4" aria-hidden />
                   {copy.payNowUnavailablePaid}
                 </Button>
-              ) : details.payNow.unavailableReason === "NO_CONTACT" &&
+              ) : details.payNow.unavailableReason === "NO_UPI" &&
                 details.payNow.amountInr > 0 ? (
                 <Button type="button" size="sm" variant="outline" disabled className="gap-2">
                   <CreditCard className="h-4 w-4" aria-hidden />
@@ -697,7 +684,7 @@ export function PortalProfileBilling({ copy }: PortalProfileBillingProps) {
               {invoiceNumber ? `${copy.viewInvoice} — ${invoiceNumber}` : copy.viewInvoice}
             </DialogTitle>
           </DialogHeader>
-          <div className="max-h-[calc(90vh-4rem)] overflow-y-auto bg-[#f5f1ea] p-4">
+          <div className="max-h-[calc(90vh-4rem)] overflow-y-auto bg-brand-ivory p-4 sm:p-6">
             {invoiceLoading ? (
               <p className="text-sm text-text-secondary">{copy.invoicePreviewLoading}</p>
             ) : invoiceError ? (
@@ -720,7 +707,7 @@ export function PortalProfileBilling({ copy }: PortalProfileBillingProps) {
                   </p>
                 ) : null}
                 <div
-                  className="mx-auto max-w-[560px] overflow-hidden rounded-xl"
+                  className="mx-auto max-w-[600px] overflow-hidden rounded-2xl shadow-lg"
                   dangerouslySetInnerHTML={{ __html: invoiceHtml }}
                 />
               </div>
@@ -728,6 +715,15 @@ export function PortalProfileBilling({ copy }: PortalProfileBillingProps) {
           </div>
         </DialogContent>
       </Dialog>
+
+      {details ? (
+        <PortalPayNowDialog
+          open={payNowOpen}
+          onOpenChange={setPayNowOpen}
+          copy={copy}
+          payNow={details.payNow}
+        />
+      ) : null}
     </div>
   );
 }

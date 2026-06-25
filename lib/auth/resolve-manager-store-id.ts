@@ -92,11 +92,3 @@ export async function resolveAnalyticsStoreId(
 
   return resolveStorePortalStoreId(session, requestedStoreId);
 }
-
-/** @deprecated Use resolveStorePortalStoreId */
-export async function resolveStoreManagerAnalyticsStoreId(
-  session: StorePortalSession,
-  requestedStoreId?: string,
-): Promise<string | NextResponse> {
-  return resolveStorePortalStoreId(session, requestedStoreId);
-}

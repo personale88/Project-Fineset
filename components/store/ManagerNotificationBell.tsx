@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Bell, Clock, Home, Users } from "lucide-react";
+import { Clock, Home, Users } from "lucide-react";
 import { content } from "@/content/en";
 import { useManagerActor } from "@/components/store/ManagerActorProvider";
 import { useStaffDigest } from "@/hooks/useStaffWorkQueue";
@@ -10,8 +10,7 @@ import { useMaxSm } from "@/hooks/useMaxSm";
 import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { portalProfileSectionPath } from "@/lib/utils/store-dashboard-url";
 import { buildFollowUpsHref } from "@/lib/utils/follow-ups-url";
-import { Button } from "@/components/ui/button";
-import { portalHeaderActionButtonClass } from "@/components/layout/portal-header-button";
+import { NotificationTrigger } from "@/components/shared/NotificationTrigger";
 import { PortalBottomSheet } from "@/components/shared/PortalBottomSheet";
 import {
   PortalBottomSheetLinkList,
@@ -25,35 +24,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-function NotificationTrigger({
-  count,
-  title,
-  onClick,
-}: {
-  count: number;
-  title: string;
-  onClick?: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      className={portalHeaderActionButtonClass}
-      aria-label={title}
-      onClick={onClick}
-    >
-      <Bell className="h-4 w-4" aria-hidden />
-      <span className="hidden sm:inline">{title}</span>
-      {count > 0 ? (
-        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-status-warning px-1 text-[10px] font-bold text-white">
-          {count > 9 ? "9+" : count}
-        </span>
-      ) : null}
-    </Button>
-  );
-}
 
 export function ManagerNotificationBell() {
   const copy = content.store.managerShell.notifications;

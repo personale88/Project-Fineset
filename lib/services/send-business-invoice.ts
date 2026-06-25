@@ -7,7 +7,6 @@ import {
   outstandingPeriodBreakdownJson,
 } from "@/lib/billing/outstanding-billing";
 import {
-  buildInvoiceNumber,
   renderInvoiceEmailHtml,
   renderInvoiceEmailText,
 } from "@/lib/emails/render-invoice-email";
@@ -16,6 +15,7 @@ import { isSmtpConfigured } from "@/lib/email/env";
 import { sendMail } from "@/lib/email/send-mail";
 import {
   buildOutstandingBillingForBusinessKey,
+  allocateInvoiceNumber,
   logBillingInvoice,
 } from "@/lib/services/billing-accounts";
 import { resolveBillingAnchorForBusinessKey } from "@/lib/services/billing-anchor";
@@ -74,7 +74,7 @@ export async function sendBusinessInvoice(
   }
 
   const reference = new Date();
-  const invoiceNumber = buildInvoiceNumber(businessKey, reference);
+  const invoiceNumber = await allocateInvoiceNumber(reference);
   const invoiceDate = formatDate(reference);
   const cycleSettings = await getBillingCycleSettings();
   const portfolioStatus = getBusinessPaymentStatus(

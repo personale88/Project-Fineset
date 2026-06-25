@@ -8,10 +8,11 @@ import {
   consolidateOutstandingBilling,
   type BusinessOutstandingBilling,
 } from "@/lib/billing/outstanding-billing";
+import { applyDevBillingPendingMock } from "@/lib/billing/dev-billing-pending-mock";
 import { settlementFromAccount } from "@/lib/billing/period-settlement";
 import { resolveBillingAnchorForBusinessKey } from "@/lib/services/billing-anchor";
 import {
-  buildInvoiceNumber,
+  generateProvisionalInvoiceRef,
   renderInvoiceEmailHtml,
   type InvoiceEmailContent,
 } from "@/lib/emails/render-invoice-email";
@@ -39,11 +40,17 @@ import {
   getBillingPaymentStatusLabel,
 } from "@/lib/utils/billing-status-labels";
 import { groupStoresByBusiness } from "@/lib/utils/group-stores-by-business";
-import { buildWhatsAppUrl } from "@/lib/utils/whatsapp-link";
-import { formatCurrency, formatDate } from "@/lib/utils/formatters";
+import {
+  buildUpiPaymentUri,
+  PORTAL_PAY_NOW_TIMER_SECONDS,
+  resolvePaymentUpiVpa,
+} from "@/lib/utils/upi-payment";
+import { formatDate } from "@/lib/utils/formatters";
 import {
   calculateBusinessMonthlyBilling,
+  buildPortalPricingTiers,
   formatPricingTiersSummary,
+  type PortalPricingTierRow,
   type BusinessMonthlyBilling,
 } from "@/lib/utils/store-billing-pricing";
 import {
@@ -163,19 +170,24 @@ export interface PortalBillingAccessSnapshot {
   restrictionTier: PortalBillingRestrictionTier;
 }
 
-export type PortalPayNowAction = "whatsapp" | "email";
+export type PortalPayNowAction = "upi";
+
 export type PortalPayNowUnavailableReason =
   | "ALREADY_PAID"
   | "WAIVED"
   | "NO_CHARGE"
   | "NO_STORES"
-  | "NO_CONTACT";
+  | "NO_UPI";
 
 export interface PortalPayNowDto {
   available: boolean;
   amountInr: number;
   action: PortalPayNowAction | null;
   href: string | null;
+  upiVpa: string | null;
+  upiPayeeName: string | null;
+  invoiceRef: string | null;
+  timerSeconds: number;
   unavailableReason: PortalPayNowUnavailableReason | null;
 }
 
@@ -197,6 +209,7 @@ export interface PortalBillingDetailsDto {
   monthlyBilling: BusinessMonthlyBilling;
   outstandingBilling: BusinessOutstandingBilling;
   pricingTiersSummary: string;
+  pricingTiers: PortalPricingTierRow[];
   gstRatePercent: number;
   storeCount: number;
   totalStaff: number;
@@ -286,32 +299,6 @@ function buildPortalAccessSnapshot(params: {
   };
 }
 
-function buildPortalPayNowMessage(params: {
-  branding: PlatformBranding;
-  business: BusinessPortfolioRow;
-  outstandingBilling: BusinessOutstandingBilling;
-  invoiceRef: string;
-}): string {
-  const { branding, business, outstandingBilling, invoiceRef } = params;
-  const amountLabel = formatCurrency(outstandingBilling.grandTotal);
-  const periodLabel =
-    outstandingBilling.unpaidPeriodCount > 1
-      ? `${outstandingBilling.unpaidPeriodCount} billing periods`
-      : "current billing period";
-
-  return [
-    `Hi ${branding.platformName} team,`,
-    "",
-    `I would like to pay my subscription for ${business.businessName}.`,
-    `Outstanding balance: ${amountLabel} (incl. GST) for ${periodLabel}`,
-    `Invoice / reference: ${invoiceRef}`,
-    business.businessEmail ? `Account email: ${business.businessEmail}` : null,
-    "",
-    "Please share payment details or confirm receipt.",
-  ]
-    .filter((line): line is string => line != null)
-    .join("\n");
-}
 
 function resolvePortalInvoiceDate(
   lastInvoiceSentAt: string | null,
@@ -337,9 +324,16 @@ function buildPortalPayNow(params: {
   account: BillingAccountDetailDto;
   access: PortalBillingAccessSnapshot;
   branding: PlatformBranding;
+  paymentUpiVpa: string | null;
 }): PortalPayNowDto {
-  const { business, outstandingBilling, account, access, branding } = params;
+  const { business, outstandingBilling, account, access, branding, paymentUpiVpa } = params;
   const amountInr = outstandingBilling.grandTotal;
+  const emptyPayNow = {
+    upiVpa: null as string | null,
+    upiPayeeName: null as string | null,
+    invoiceRef: null as string | null,
+    timerSeconds: PORTAL_PAY_NOW_TIMER_SECONDS,
+  };
 
   if (business.storeCount === 0) {
     return {
@@ -347,6 +341,7 @@ function buildPortalPayNow(params: {
       amountInr,
       action: null,
       href: null,
+      ...emptyPayNow,
       unavailableReason: "NO_STORES",
     };
   }
@@ -357,6 +352,7 @@ function buildPortalPayNow(params: {
       amountInr,
       action: null,
       href: null,
+      ...emptyPayNow,
       unavailableReason: "NO_CHARGE",
     };
   }
@@ -367,6 +363,7 @@ function buildPortalPayNow(params: {
       amountInr,
       action: null,
       href: null,
+      ...emptyPayNow,
       unavailableReason: "WAIVED",
     };
   }
@@ -380,54 +377,44 @@ function buildPortalPayNow(params: {
       amountInr,
       action: null,
       href: null,
+      ...emptyPayNow,
       unavailableReason: "ALREADY_PAID",
     };
   }
 
   const invoiceRef =
-    account.lastInvoiceNumber ?? buildInvoiceNumber(business.businessKey);
-  const message = buildPortalPayNowMessage({
-    branding,
-    business,
-    outstandingBilling,
-    invoiceRef,
-  });
+    account.lastInvoiceNumber ?? generateProvisionalInvoiceRef(new Date());
 
-  const phone = branding.supportPhone?.trim();
-  if (phone) {
-    const whatsappUrl = buildWhatsAppUrl(phone, message);
-    if (whatsappUrl) {
-      return {
-        available: true,
-        amountInr,
-        action: "whatsapp",
-        href: whatsappUrl,
-        unavailableReason: null,
-      };
-    }
-  }
-
-  const email = branding.supportEmail?.trim();
-  if (email) {
-    const subject = encodeURIComponent(
-      `${branding.platformName} subscription payment — ${business.businessName}`,
-    );
-    const body = encodeURIComponent(message);
+  if (!paymentUpiVpa) {
     return {
-      available: true,
+      available: false,
       amountInr,
-      action: "email",
-      href: `mailto:${email}?subject=${subject}&body=${body}`,
-      unavailableReason: null,
+      action: null,
+      href: null,
+      ...emptyPayNow,
+      invoiceRef,
+      unavailableReason: "NO_UPI",
     };
   }
 
-  return {
-    available: false,
+  const upiPayeeName = branding.platformName.trim() || "FineSet";
+  const href = buildUpiPaymentUri({
+    vpa: paymentUpiVpa,
+    payeeName: upiPayeeName,
     amountInr,
-    action: null,
-    href: null,
-    unavailableReason: "NO_CONTACT",
+    transactionNote: invoiceRef,
+  });
+
+  return {
+    available: true,
+    amountInr,
+    action: "upi",
+    href,
+    upiVpa: paymentUpiVpa,
+    upiPayeeName,
+    invoiceRef,
+    timerSeconds: PORTAL_PAY_NOW_TIMER_SECONDS,
+    unavailableReason: null,
   };
 }
 
@@ -491,45 +478,51 @@ export async function getPortalBillingDetails(
     reference,
   });
   const branding = brandingFromSettings(platformSettings);
+  const paymentUpiVpa = resolvePaymentUpiVpa(platformSettings.general.paymentUpiVpa);
   const payNow = buildPortalPayNow({
     business,
     outstandingBilling,
     account,
     access,
     branding,
+    paymentUpiVpa,
   });
 
-  return {
-    businessKey: business.businessKey,
-    businessName: business.businessName || business.businessKey,
-    businessEmail: business.businessEmail,
-    ownerName: business.ownerName,
-    paymentStatus: account.paymentStatus,
-    portfolioPaymentStatus,
-    portfolioPaymentStatusLabel: paymentStatusCopy,
-    renewalDueAt: currentPeriod?.dueDate.toISOString() ?? business.renewalDueAt,
-    dataExpiryAt: currentPeriod?.periodEnd.toISOString() ?? business.dataExpiryAt,
-    invoiceDate: resolvePortalInvoiceDate(
-      account.lastInvoiceSentAt,
-      billingAnchorAt,
-      reference,
-    ),
-    paidAt: account.paidAt,
-    lastInvoiceNumber: account.lastInvoiceNumber,
-    lastInvoiceSentAt: account.lastInvoiceSentAt,
-    invoiceLogs: account.invoiceLogs,
-    monthlyBilling,
-    outstandingBilling,
-    pricingTiersSummary: formatPricingTiersSummary(
-      pricingConfig,
-      Math.round(pricingConfig.gstRate * 100),
-    ),
-    gstRatePercent: Math.round(pricingConfig.gstRate * 100),
-    storeCount: business.storeCount,
-    totalStaff: business.stores.reduce((sum, store) => sum + store.staffCount, 0),
-    access,
-    payNow,
-  };
+  return applyDevBillingPendingMock(
+    {
+      businessKey: business.businessKey,
+      businessName: business.businessName || business.businessKey,
+      businessEmail: business.businessEmail,
+      ownerName: business.ownerName,
+      paymentStatus: account.paymentStatus,
+      portfolioPaymentStatus,
+      portfolioPaymentStatusLabel: paymentStatusCopy,
+      renewalDueAt: currentPeriod?.dueDate.toISOString() ?? business.renewalDueAt,
+      dataExpiryAt: currentPeriod?.periodEnd.toISOString() ?? business.dataExpiryAt,
+      invoiceDate: resolvePortalInvoiceDate(
+        account.lastInvoiceSentAt,
+        billingAnchorAt,
+        reference,
+      ),
+      paidAt: account.paidAt,
+      lastInvoiceNumber: account.lastInvoiceNumber,
+      lastInvoiceSentAt: account.lastInvoiceSentAt,
+      invoiceLogs: account.invoiceLogs,
+      monthlyBilling,
+      outstandingBilling,
+      pricingTiersSummary: formatPricingTiersSummary(
+        pricingConfig,
+        Math.round(pricingConfig.gstRate * 100),
+      ),
+      pricingTiers: buildPortalPricingTiers(pricingConfig),
+      gstRatePercent: Math.round(pricingConfig.gstRate * 100),
+      storeCount: business.storeCount,
+      totalStaff: business.stores.reduce((sum, store) => sum + store.staffCount, 0),
+      access,
+      payNow,
+    },
+    reference,
+  );
 }
 
 export async function buildPortalInvoicePreviewHtml(
@@ -598,7 +591,7 @@ export async function buildPortalInvoicePreviewHtml(
   const invoiceNumber =
     historicalLog?.invoiceNumber ??
     account.lastInvoiceNumber ??
-    buildInvoiceNumber(business.businessKey);
+    generateProvisionalInvoiceRef(reference);
   const invoiceDate = historicalLog
     ? formatDate(historicalLog.createdAt)
     : formatDate(reference);
@@ -627,6 +620,7 @@ export async function buildPortalInvoicePreviewHtml(
       outstandingBilling.unpaidPeriodCount > 0 ? outstandingBilling : undefined,
     platformName: branding.platformName,
     supportEmail: branding.supportEmail,
+    showContactFooter: false,
   };
 
   return {

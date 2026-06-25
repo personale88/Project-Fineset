@@ -123,12 +123,6 @@ export async function listAdminStoreCategories(): Promise<StoreCategoryChoice[]>
   return buildCategoryCatalog({ includeHidden: true });
 }
 
-/** @deprecated Use listStoreCategoryChoices — returns labels for legacy callers. */
-export async function listStoreCategoryOptionLabels(): Promise<string[]> {
-  const choices = await listStoreCategoryChoices();
-  return choices.map((choice) => choice.label);
-}
-
 export async function createStoreCategoryOption(name: string): Promise<StoreCategoryChoice> {
   const normalized = normalizeCategoryName(name);
   if (!normalized) {

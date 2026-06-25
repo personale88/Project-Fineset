@@ -564,6 +564,12 @@ enum BillingFollowUpOutcome {
   OTHER
 }
 
+enum BillingPaymentSubmissionStatus {
+  PENDING
+  RECEIVED
+  NOT_RECEIVED
+}
+
 model BillingBusinessAccount {
   id                String               @id @default(cuid())
   businessKey       String               @unique
@@ -620,6 +626,26 @@ model BillingFollowUp {
   account BillingBusinessAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId, createdAt(sort: Desc)])
+}
+
+model BillingPaymentSubmission {
+  id               String                         @id @default(cuid())
+  businessKey      String
+  businessName     String
+  businessEmail    String?
+  invoiceNumber    String?
+  amountInr        Int
+  upiVpa           String?
+  submittedByEmail String?
+  submittedByName  String?
+  status           BillingPaymentSubmissionStatus @default(PENDING)
+  reviewedAt       DateTime?
+  reviewedByEmail  String?
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([businessKey, createdAt(sort: Desc)])
 }
 
 enum AnalyticsCreditLedgerType {

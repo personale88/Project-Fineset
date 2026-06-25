@@ -5,7 +5,7 @@ import {
   requireRole,
   unauthorized,
 } from "@/lib/auth/session";
-import { hasExistingStoreManagerLogin } from "@/lib/services/manager-stores";
+import { hasExistingBusinessOwnerLogin } from "@/lib/services/manager-stores";
 import { z } from "zod";
 
 const querySchema = z.object({
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ hasExistingLogin: false });
     }
 
-    const hasExistingLogin = await hasExistingStoreManagerLogin(parsed.data.email);
+    const hasExistingLogin = await hasExistingBusinessOwnerLogin(parsed.data.email);
     return NextResponse.json({ hasExistingLogin });
   } catch (error) {
     return handleRouteError(error);

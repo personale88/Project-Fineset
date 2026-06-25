@@ -13,8 +13,7 @@ export type AdminStoreSection =
   | "overview"
   | "visits"
   | "calls"
-  | "field-sales"
-  | "staff";
+  | "field-sales";
 
 interface AdminStoreBreadcrumbsProps {
   admin: AdminContent;
@@ -30,7 +29,6 @@ const SECTION_LABEL_KEY: Record<
   visits: "viewVisits",
   calls: "viewCalls",
   "field-sales": "viewFieldSales",
-  staff: "viewStaff",
 };
 
 export function AdminStoreBreadcrumbs({

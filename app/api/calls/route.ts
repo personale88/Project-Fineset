@@ -6,7 +6,7 @@ import {
   unauthorized,
 } from "@/lib/auth/session";
 import { handleRouteError } from "@/lib/api/route-handler";
-import { isPortalDataReadBlocked } from "@/lib/auth/billing-access-guard";
+import { isPortalDataReadBlockedForSession } from "@/lib/auth/billing-access-guard";
 import { resolveStorePortalStoreId } from "@/lib/auth/resolve-manager-store-id";
 import { listPortalCalls } from "@/lib/services/portal-calls";
 import { portalCallsQuerySchema } from "@/lib/validations/portal-calls.schema";
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
     }
 
     if (storeId) {
-      const blocked = await isPortalDataReadBlocked(session, storeId);
+      const blocked = await isPortalDataReadBlockedForSession(session, storeId);
       if (blocked) {
         return NextResponse.json({
           data: [],

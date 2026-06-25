@@ -19,7 +19,6 @@ interface StaffListItem {
   isActive: boolean;
   visitCount: number;
   canDelete: boolean;
-  monthlyVisits: number;
   monthlyRevenue: number;
   conversionRate: number;
   openFollowUps: number;

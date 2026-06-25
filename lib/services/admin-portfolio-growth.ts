@@ -1,24 +1,16 @@
 import { prisma } from "@/lib/db/prisma";
 import { storeNotDeletedWhere } from "@/lib/db/store-scope";
-import { ACTIVATION_WINDOW_DAYS } from "@/lib/utils/admin-portfolio-expansion-kpis";
 import { getPeriodRange, getPreviousPeriodRange } from "@/lib/utils/analytics";
 import { groupStoresByBusiness } from "@/lib/utils/group-stores-by-business";
 import { getAdminPortfolioStoreRows } from "@/lib/services/stores";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const ACTIVATION_WINDOW_DAYS = 14;
 
 export interface AdminPortfolioGrowthMetrics {
   activeStores30d: number;
   activeStoreUsageRate: number;
-  platformGmv30d: number;
-  totalVisits30d: number;
-  purchasedVisits30d: number;
-  portfolioConversionRate: number;
-  openCorrectionRequests: number;
   usageDropStoreCount: number;
-  totalCalls30d: number;
-  callsLinkedToVisit30d: number;
-  callToVisitRate: number;
   avgDaysToFirstVisit: number | null;
   activationRate14d: number;
   weeklyActiveOwners: number;
@@ -61,13 +53,8 @@ export async function getAdminPortfolioGrowthMetrics(
   const [
     totalStores,
     activeStoreVisitRows,
-    totalVisits30d,
-    purchasedVisitStats,
-    openCorrectionRequests,
     currentWeekVisits,
     previousWeekVisits,
-    totalCalls30d,
-    callsLinkedToVisit30d,
     stores,
     firstVisits,
     weeklyActiveOwners,
@@ -84,22 +71,6 @@ export async function getAdminPortfolioGrowthMetrics(
       distinct: ["storeId"],
       select: { storeId: true },
     }),
-    prisma.visit.count({
-      where: {
-        visitDate: { gte: thirtyDaysStart, lte: periodEnd },
-        ...visitStoreScope,
-      },
-    }),
-    prisma.visit.aggregate({
-      where: {
-        visitDate: { gte: thirtyDaysStart, lte: periodEnd },
-        purchaseStatus: "PURCHASED",
-        ...visitStoreScope,
-      },
-      _sum: { transactionAmount: true },
-      _count: true,
-    }),
-    prisma.correctionRequest.count({ where: { status: "OPEN" } }),
     prisma.visit.findMany({
       where: {
         visitDate: { gte: weekRange.start, lte: weekRange.end },
@@ -113,19 +84,6 @@ export async function getAdminPortfolioGrowthMetrics(
         ...visitStoreScope,
       },
       select: { storeId: true },
-    }),
-    prisma.staffCallLog.count({
-      where: {
-        createdAt: { gte: thirtyDaysStart, lte: periodEnd },
-        staff: { store: storeNotDeletedWhere },
-      },
-    }),
-    prisma.staffCallLog.count({
-      where: {
-        createdAt: { gte: thirtyDaysStart, lte: periodEnd },
-        visitId: { not: null },
-        staff: { store: storeNotDeletedWhere },
-      },
     }),
     prisma.store.findMany({
       where: storeNotDeletedWhere,
@@ -161,13 +119,6 @@ export async function getAdminPortfolioGrowthMetrics(
   const activeStoreUsageRate =
     totalStores > 0 ? Math.round((activeStores30d / totalStores) * 100) : 0;
 
-  const purchasedVisits30d = purchasedVisitStats._count;
-  const platformGmv30d = purchasedVisitStats._sum.transactionAmount ?? 0;
-  const portfolioConversionRate =
-    totalVisits30d > 0
-      ? Math.round((purchasedVisits30d / totalVisits30d) * 1000) / 10
-      : 0;
-
   const currentWeekCounts = countVisitsByStore(currentWeekVisits);
   const previousWeekCounts = countVisitsByStore(previousWeekVisits);
   let usageDropStoreCount = 0;
@@ -177,11 +128,6 @@ export async function getAdminPortfolioGrowthMetrics(
     const currentCount = currentWeekCounts.get(storeId) ?? 0;
     if (currentCount < previousCount * 0.5) usageDropStoreCount += 1;
   }
-
-  const callToVisitRate =
-    totalCalls30d > 0
-      ? Math.round((callsLinkedToVisit30d / totalCalls30d) * 1000) / 10
-      : 0;
 
   const firstVisitByStore = new Map(
     firstVisits.map((row) => [row.storeId, row._min.visitDate]),
@@ -228,15 +174,7 @@ export async function getAdminPortfolioGrowthMetrics(
   return {
     activeStores30d,
     activeStoreUsageRate,
-    platformGmv30d,
-    totalVisits30d,
-    purchasedVisits30d,
-    portfolioConversionRate,
-    openCorrectionRequests,
     usageDropStoreCount,
-    totalCalls30d,
-    callsLinkedToVisit30d,
-    callToVisitRate,
     avgDaysToFirstVisit,
     activationRate14d,
     weeklyActiveOwners,

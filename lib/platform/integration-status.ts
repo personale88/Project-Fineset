@@ -16,10 +16,19 @@ export async function getPlatformIntegrationStatus(): Promise<PlatformIntegratio
   const paymentConfigured =
     paymentProvider !== "none" && paymentProvider !== "noop";
 
+  const whatsAppApiConfigured = Boolean(
+    process.env.WHATSAPP_ACCESS_TOKEN?.trim() &&
+      process.env.WHATSAPP_PHONE_NUMBER_ID?.trim(),
+  );
+
   return {
     smtp: {
       configured: isSmtpConfigured(),
       host: getSmtpHostForDiagnostics(),
+    },
+    whatsapp: {
+      configured: true,
+      mode: whatsAppApiConfigured ? "api" : "deep_links",
     },
     redis: {
       configured: Boolean(

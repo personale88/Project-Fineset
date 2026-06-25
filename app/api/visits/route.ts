@@ -11,7 +11,7 @@ import { resolveStorePortalStoreId } from "@/lib/auth/resolve-manager-store-id";
 import { resolvePersonalStaffId, isUnlinkedManagerPersonalScope } from "@/lib/auth/resolve-personal-scope";
 import { createVisit, listVisits } from "@/lib/services/visits";
 import { withAuthQuery, withAuthValidation } from "@/lib/api/route-handler";
-import { isPortalDataReadBlocked, isPortalDataWriteBlockedForSession, billingRestrictedMutationResponse } from "@/lib/auth/billing-access-guard";
+import { isPortalDataReadBlockedForSession, isPortalDataWriteBlockedForSession, billingRestrictedMutationResponse } from "@/lib/auth/billing-access-guard";
 import { createPerfTimer, logPerf } from "@/lib/perf/timing";
 import {
   createVisitSchema,
@@ -83,7 +83,7 @@ export const GET = withAuthQuery(
     }
 
     if (storeId) {
-      const blocked = await isPortalDataReadBlocked(session, storeId);
+      const blocked = await isPortalDataReadBlockedForSession(session, storeId);
       if (blocked) {
         return NextResponse.json({
           data: [],

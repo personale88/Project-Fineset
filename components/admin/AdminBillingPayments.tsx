@@ -7,10 +7,16 @@ import {
 } from "lucide-react";
 import { useAdminDashboardOverview } from "@/hooks/useAnalytics";
 import { useBillingSummaries } from "@/hooks/useBillingFollowUps";
+import { useBillingPaymentSubmissions } from "@/hooks/useBillingPaymentSubmissions";
 import { sendBusinessInvoice, sendBillingWhatsAppReminder } from "@/lib/api/billing";
 import type { BillingAccountSummaryDto } from "@/lib/api/billing";
 import { AdminPageIntro } from "@/components/admin/AdminPageIntro";
 import { AdminLoadErrorBanner } from "@/components/admin/AdminLoadErrorBanner";
+import { AdminPaymentSubmissionsPanel } from "@/components/admin/billing/AdminPaymentSubmissionsPanel";
+import {
+  simpleTabListClassName,
+  simpleTabTriggerClassName,
+} from "@/components/admin/billing/simple-tab-styles";
 import { BillingFollowUpPane } from "@/components/admin/billing/BillingFollowUpPane";
 import { BillingBusinessCard } from "@/components/admin/billing/BillingBusinessCard";
 import {
@@ -19,6 +25,7 @@ import {
 } from "@/components/admin/billing/BillingStatusSummary";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/useToast";
 import { ApiError } from "@/types";
 import { useBillingCycleSettings } from "@/components/admin/BillingCycleSettingsProvider";
@@ -36,6 +43,7 @@ import type { AdminDashboardOverview, BusinessPortfolioRow } from "@/types";
 type AdminContent = Content["admin"];
 
 type PaymentFilter = BillingPaymentFilter;
+type SectionTab = "billing" | "payments";
 
 interface AdminBillingPaymentsProps {
   admin: AdminContent;
@@ -51,6 +59,7 @@ export function AdminBillingPayments({
   const cycleSettings = useBillingCycleSettings();
   const billingPricing = useBillingPricingConfig();
   const queryClient = useQueryClient();
+  const [sectionTab, setSectionTab] = useState<SectionTab>("billing");
   const [search, setSearch] = useState("");
   const [paymentFilter, setPaymentFilter] = useState<PaymentFilter>("ALL");
   const [sendingBusinessKey, setSendingBusinessKey] = useState<string | null>(null);
@@ -68,6 +77,8 @@ export function AdminBillingPayments({
     initialData: initialOverview,
   });
   const { data: billingSummaries = [] } = useBillingSummaries();
+  const { data: paymentSubmissionsResponse } = useBillingPaymentSubmissions("PENDING");
+  const pendingPaymentCount = paymentSubmissionsResponse?.pendingCount ?? 0;
 
   const loadFailed = initialOverviewFailed || (isError && !data);
 
@@ -261,7 +272,28 @@ export function AdminBillingPayments({
       ) : null}
 
       {!loadFailed ? (
-        <>
+        <Tabs
+          value={sectionTab}
+          onValueChange={(value) => setSectionTab(value as SectionTab)}
+          className="space-y-6"
+        >
+          <TabsList className={simpleTabListClassName}>
+            <TabsTrigger value="billing" className={simpleTabTriggerClassName}>
+              {admin.billing.sectionTabs.billing}
+            </TabsTrigger>
+            <TabsTrigger value="payments" className={simpleTabTriggerClassName}>
+              <span className="inline-flex items-center gap-2.5">
+                {admin.billing.sectionTabs.payments}
+                {pendingPaymentCount > 0 ? (
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-status-warning px-1.5 text-xs font-bold tabular-nums leading-none text-white shadow-sm ring-2 ring-status-warning/25">
+                    {pendingPaymentCount}
+                  </span>
+                ) : null}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="billing" className="mt-0 space-y-6">
       <BillingStatusSummary
         title={admin.portfolio.dashboard.subscription.title}
         subtitle={admin.portfolio.dashboard.subscription.subtitle}
@@ -333,7 +365,12 @@ export function AdminBillingPayments({
         </div>
       )}
 
-        </>
+          </TabsContent>
+
+          <TabsContent value="payments" className="mt-0">
+            <AdminPaymentSubmissionsPanel copy={admin.billing} />
+          </TabsContent>
+        </Tabs>
       ) : null}
 
       <BillingFollowUpPane

@@ -26,7 +26,6 @@ describe("invalidateEntity", () => {
     expect(keys).toContainEqual(["stores"]);
     expect(keys).toContainEqual(["analytics"]);
     expect(keys).toContainEqual(["store", "my-stores"]);
-    expect(keys).toContainEqual(["portfolio-alerts"]);
   });
 });
 

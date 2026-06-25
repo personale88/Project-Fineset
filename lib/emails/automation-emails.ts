@@ -55,6 +55,40 @@ export async function sendPaymentConfirmationEmail(input: {
   await sendMail({ to: input.to, subject, text, html });
 }
 
+export async function sendPaymentNotReceivedEmail(input: {
+  to: string;
+  businessName: string;
+  amountInr: number;
+  invoiceNumber?: string | null;
+  bodyText: string;
+  branding?: PlatformBranding;
+}): Promise<void> {
+  if (!isSmtpConfigured()) {
+    throw new Error("Email is not configured.");
+  }
+
+  const branding = await resolveBranding(input.branding);
+  const signature = billingFromName(branding);
+  const amount = formatCurrency(input.amountInr);
+  const subject = `Payment not verified — ${input.businessName}`;
+  const text = [
+    input.bodyText,
+    branding.supportEmail ? `\nSupport: ${branding.supportEmail}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const html = `
+    <p>${input.bodyText.replace(/\n/g, "<br/>")}</p>
+    <p>Amount: <strong>${amount}</strong></p>
+    ${input.invoiceNumber ? `<p>Invoice: <strong>${input.invoiceNumber}</strong></p>` : ""}
+    ${branding.supportEmail ? `<p>Support: <a href="mailto:${branding.supportEmail}">${branding.supportEmail}</a></p>` : ""}
+    <p>${signature}</p>
+  `;
+
+  await sendMail({ to: input.to, subject, text, html });
+}
+
 export async function sendPaymentReminderEmail(input: {
   to: string;
   businessName: string;

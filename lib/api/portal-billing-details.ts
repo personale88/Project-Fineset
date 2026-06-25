@@ -2,8 +2,10 @@ import type {
   PortalBillingDetailsDto,
   PortalInvoicePreviewDto,
 } from "@/lib/services/portal-billing-details";
+import type { BillingPaymentSubmissionDto } from "@/lib/services/billing-payment-submissions";
 
 export type { PortalBillingDetailsDto, PortalInvoicePreviewDto };
+export type { BillingPaymentSubmissionDto };
 
 export class PortalBillingApiError extends Error {
   constructor(
@@ -54,4 +56,16 @@ export async function fetchPortalInvoicePreview(
     throw new PortalBillingApiError(message, res.status);
   }
   return res.json() as Promise<PortalInvoicePreviewDto>;
+}
+
+export async function submitPortalPaymentSubmission(): Promise<BillingPaymentSubmissionDto> {
+  const res = await fetch("/api/billing/payment-submissions", {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const message = await readApiErrorMessage(res, "Failed to submit payment confirmation");
+    throw new PortalBillingApiError(message, res.status);
+  }
+  return res.json() as Promise<BillingPaymentSubmissionDto>;
 }

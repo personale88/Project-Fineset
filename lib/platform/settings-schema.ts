@@ -4,6 +4,7 @@ const generalSchema = z.object({
   platformName: z.string().trim().min(1).max(80),
   supportEmail: z.string().trim().email().max(120),
   supportPhone: z.string().trim().max(20),
+  paymentUpiVpa: z.string().trim().max(100),
   defaultTimezone: z.string().trim().min(1).max(64),
 });
 
@@ -11,19 +12,28 @@ const billingFieldsSchema = z.object({
   gstRatePercent: z.number().min(0).max(100),
   tier1MaxStaff: z.number().int().min(1).max(500),
   tier2MaxStaff: z.number().int().min(1).max(500),
+  tier3MaxStaff: z.number().int().min(1).max(500),
+  tier4MaxStaff: z.number().int().min(1).max(500),
   tier1MonthlyPrice: z.number().int().min(0).max(10_000_000),
   tier2MonthlyPrice: z.number().int().min(0).max(10_000_000),
   tier3MonthlyPrice: z.number().int().min(0).max(10_000_000),
+  tier4MonthlyPrice: z.number().int().min(0).max(10_000_000),
   restrictPortalOnOverdue: z.boolean(),
 });
 
-const billingSchema = billingFieldsSchema.refine(
-  (value) => value.tier1MaxStaff < value.tier2MaxStaff,
-  {
-    message: "Tier 1 staff limit must be less than tier 2.",
+const billingSchema = billingFieldsSchema
+  .refine((value) => value.tier1MaxStaff < value.tier2MaxStaff, {
+    message: "Lite staff limit must be less than Plus.",
     path: ["tier2MaxStaff"],
-  },
-);
+  })
+  .refine((value) => value.tier2MaxStaff < value.tier3MaxStaff, {
+    message: "Plus staff limit must be less than Pro.",
+    path: ["tier3MaxStaff"],
+  })
+  .refine((value) => value.tier3MaxStaff < value.tier4MaxStaff, {
+    message: "Pro staff limit must be less than Max.",
+    path: ["tier4MaxStaff"],
+  });
 
 const securitySchema = z.object({
   impersonationOverride: z.boolean().nullable(),

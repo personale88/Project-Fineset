@@ -64,7 +64,7 @@ const defaultFormValues: CreateStoreInput = {
   renewalDueAt: "",
 };
 
-interface StoresManagementProps {
+interface AdminAccountsManagementProps {
   admin: AdminContent;
   errors: ErrorsContent;
   initialOverview?: AdminDashboardOverview;
@@ -76,7 +76,7 @@ export function AdminAccountsManagement({
   errors,
   initialOverview,
   initialOverviewFailed = false,
-}: StoresManagementProps) {
+}: AdminAccountsManagementProps) {
   const { role } = useAdminPortal();
   const { settings: platformSettings } = usePlatformSettingsContext();
   const [modalOpen, setModalOpen] = useState(false);
@@ -553,6 +553,3 @@ export function AdminAccountsManagement({
     </div>
   );
 }
-
-/** @deprecated Use AdminAccountsManagement */
-export const StoresManagement = AdminAccountsManagement;

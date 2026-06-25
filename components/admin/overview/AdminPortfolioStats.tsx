@@ -6,15 +6,9 @@ import {
   AlertTriangle,
   Activity,
   ArrowRight,
-  Building2,
   CalendarClock,
-  CircleDollarSign,
   Clock,
-  HelpCircle,
-  LineChart,
-  PhoneCall,
   PhoneOff,
-  Store,
   TrendingDown,
   TrendingUp,
   Users,
@@ -23,7 +17,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/formatters";
-import type { AdminPortfolioExpansionKpis } from "@/lib/utils/admin-portfolio-expansion-kpis";
 import type { AdminPortfolioKpis } from "@/lib/utils/admin-portfolio-kpis";
 import type { AdminPortfolioGrowthMetrics } from "@/lib/services/admin-portfolio-growth";
 import type { Content } from "@/content/en";
@@ -49,32 +42,22 @@ const toneBg: Record<Tone, string> = {
 function PortfolioHero({
   copy,
   kpis,
-  growth,
   isLoading,
-  isGrowthLoading,
 }: {
   copy: DashboardCopy;
   kpis: AdminPortfolioKpis;
-  growth?: AdminPortfolioGrowthMetrics;
   isLoading?: boolean;
-  isGrowthLoading?: boolean;
 }) {
   const quickStats = [
     {
-      label: copy.scale.businesses,
+      label: copy.hero.businesses,
       value: kpis.totalBusinesses.toLocaleString("en-IN"),
-      hint: copy.scale.businessesHint,
+      hint: copy.hero.businessesHint,
     },
     {
-      label: copy.scale.stores,
+      label: copy.hero.stores,
       value: kpis.totalStores.toLocaleString("en-IN"),
       hint: `${kpis.activeStores} active · ${kpis.totalStaff} staff`,
-    },
-    {
-      label: copy.outcomes.platformGmv,
-      value: growth ? formatCurrency(growth.platformGmv30d) : "—",
-      hint: copy.outcomes.platformGmvHint,
-      loading: isGrowthLoading,
     },
     {
       label: copy.revenue.atRiskMrr,
@@ -110,7 +93,7 @@ function PortfolioHero({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:gap-4">
             {quickStats.map((stat) => (
               <div
                 key={stat.label}
@@ -119,7 +102,7 @@ function PortfolioHero({
                 <p className="truncate text-[11px] font-medium uppercase tracking-wide text-text-muted">
                   {stat.label}
                 </p>
-                {isLoading || stat.loading ? (
+                {isLoading ? (
                   <Skeleton className="mt-1.5 h-6 w-16" />
                 ) : (
                   <p
@@ -296,7 +279,7 @@ function AttentionPanel({
       icon: CalendarClock,
     },
     {
-      label: copy.health.dormantBusinesses,
+      label: copy.actions.dormantBusinesses,
       value: growth?.dormantBusinessCount ?? 0,
       tone:
         (growth?.dormantBusinessCount ?? 0) > 0 ? ("error" as const) : ("default" as const),
@@ -319,7 +302,7 @@ function AttentionPanel({
       icon: Users,
     },
     {
-      label: copy.health.usageDrop,
+      label: copy.actions.usageDrop,
       value: growth?.usageDropStoreCount ?? 0,
       tone:
         (growth?.usageDropStoreCount ?? 0) > 0 ? ("warning" as const) : ("default" as const),
@@ -511,7 +494,6 @@ interface AdminPortfolioStatsProps {
     unknown: string;
   };
   kpis: AdminPortfolioKpis;
-  expansion: AdminPortfolioExpansionKpis;
   growth?: AdminPortfolioGrowthMetrics;
   isLoading?: boolean;
   isGrowthLoading?: boolean;
@@ -522,7 +504,6 @@ export function AdminPortfolioStats({
   paymentLabels,
   paymentHints,
   kpis,
-  expansion,
   growth,
   isLoading,
   isGrowthLoading,
@@ -534,9 +515,7 @@ export function AdminPortfolioStats({
       <PortfolioHero
         copy={copy}
         kpis={kpis}
-        growth={growth}
         isLoading={isLoading}
-        isGrowthLoading={isGrowthLoading}
       />
 
       <SubscriptionHealthBar
@@ -555,211 +534,66 @@ export function AdminPortfolioStats({
         isGrowthLoading={isGrowthLoading}
       />
 
-      <div className="grid gap-6 lg:grid-cols-12">
-        <div className="space-y-6 lg:col-span-7 xl:col-span-8">
-          <MetricPanel title={copy.adoption.title} subtitle={copy.adoption.subtitle}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <CompactMetric
-                label={copy.adoption.activeStores30d}
-                value={growth ? `${growth.activeStoreUsageRate}%` : "—"}
-                hint={
-                  growth
-                    ? copy.adoption.activeStores30dHint
-                        .replace("{active}", String(growth.activeStores30d))
-                        .replace("{total}", String(kpis.totalStores))
-                    : copy.adoption.activeStores30dHint
-                        .replace("{active}", "—")
-                        .replace("{total}", String(kpis.totalStores))
-                }
-                icon={Activity}
-                tone={
-                  growth && growth.activeStoreUsageRate < 50 ? "warning" : "success"
-                }
-                isLoading={growthLoading}
-              />
-              <CompactMetric
-                label={copy.adoption.weeklyActiveOwners}
-                value={growth ? `${growth.weeklyActiveOwnerRate}%` : "—"}
-                hint={
-                  growth
-                    ? copy.adoption.weeklyActiveOwnersHint
-                        .replace("{active}", String(growth.weeklyActiveOwners))
-                        .replace("{total}", String(growth.totalBusinessOwners))
-                    : "—"
-                }
-                icon={Users}
-                isLoading={growthLoading}
-              />
-              <CompactMetric
-                label={copy.adoption.avgDaysToFirstVisit}
-                value={
-                  growth?.avgDaysToFirstVisit != null
-                    ? String(growth.avgDaysToFirstVisit)
-                    : "—"
-                }
-                hint={
-                  growth?.avgDaysToFirstVisit != null
-                    ? copy.adoption.avgDaysToFirstVisitHint
-                    : copy.adoption.avgDaysToFirstVisitEmpty
-                }
-                icon={Clock}
-                isLoading={growthLoading}
-              />
-              <CompactMetric
-                label={copy.adoption.activationRate}
-                value={growth ? `${growth.activationRate14d}%` : "—"}
-                hint={copy.adoption.activationRateHint}
-                icon={TrendingUp}
-                tone={
-                  growth && growth.activationRate14d >= 60 ? "success" : "warning"
-                }
-                isLoading={growthLoading}
-              />
-            </div>
-          </MetricPanel>
-
-          <MetricPanel title={copy.outcomes.title} subtitle={copy.outcomes.subtitle}>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <CompactMetric
-                label={copy.outcomes.platformGmv}
-                value={growth ? formatCurrency(growth.platformGmv30d) : "—"}
-                hint={copy.outcomes.platformGmvHint}
-                icon={LineChart}
-                isLoading={isGrowthLoading}
-              />
-              <CompactMetric
-                label={copy.outcomes.portfolioConversion}
-                value={growth ? `${growth.portfolioConversionRate}%` : "—"}
-                hint={
-                  growth
-                    ? copy.outcomes.portfolioConversionHint
-                        .replace("{purchased}", String(growth.purchasedVisits30d))
-                        .replace("{visits}", String(growth.totalVisits30d))
-                    : "—"
-                }
-                icon={CircleDollarSign}
-                isLoading={isGrowthLoading}
-              />
-              <CompactMetric
-                label={copy.outcomes.callToVisitRate}
-                value={growth ? `${growth.callToVisitRate}%` : "—"}
-                hint={
-                  growth
-                    ? copy.outcomes.callToVisitRateHint
-                        .replace("{linked}", String(growth.callsLinkedToVisit30d))
-                        .replace("{calls}", String(growth.totalCalls30d))
-                    : "—"
-                }
-                icon={PhoneCall}
-                isLoading={isGrowthLoading}
-              />
-            </div>
-          </MetricPanel>
+      <MetricPanel title={copy.adoption.title} subtitle={copy.adoption.subtitle}>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <CompactMetric
+            label={copy.adoption.activeStores30d}
+            value={growth ? `${growth.activeStoreUsageRate}%` : "—"}
+            hint={
+              growth
+                ? copy.adoption.activeStores30dHint
+                    .replace("{active}", String(growth.activeStores30d))
+                    .replace("{total}", String(kpis.totalStores))
+                : copy.adoption.activeStores30dHint
+                    .replace("{active}", "—")
+                    .replace("{total}", String(kpis.totalStores))
+            }
+            icon={Activity}
+            tone={
+              growth && growth.activeStoreUsageRate < 50 ? "warning" : "success"
+            }
+            isLoading={growthLoading}
+          />
+          <CompactMetric
+            label={copy.adoption.weeklyActiveOwners}
+            value={growth ? `${growth.weeklyActiveOwnerRate}%` : "—"}
+            hint={
+              growth
+                ? copy.adoption.weeklyActiveOwnersHint
+                    .replace("{active}", String(growth.weeklyActiveOwners))
+                    .replace("{total}", String(growth.totalBusinessOwners))
+                : "—"
+            }
+            icon={Users}
+            isLoading={growthLoading}
+          />
+          <CompactMetric
+            label={copy.adoption.avgDaysToFirstVisit}
+            value={
+              growth?.avgDaysToFirstVisit != null
+                ? String(growth.avgDaysToFirstVisit)
+                : "—"
+            }
+            hint={
+              growth?.avgDaysToFirstVisit != null
+                ? copy.adoption.avgDaysToFirstVisitHint
+                : copy.adoption.avgDaysToFirstVisitEmpty
+            }
+            icon={Clock}
+            isLoading={growthLoading}
+          />
+          <CompactMetric
+            label={copy.adoption.activationRate}
+            value={growth ? `${growth.activationRate14d}%` : "—"}
+            hint={copy.adoption.activationRateHint}
+            icon={TrendingUp}
+            tone={
+              growth && growth.activationRate14d >= 60 ? "success" : "warning"
+            }
+            isLoading={growthLoading}
+          />
         </div>
-
-        <div className="space-y-6 lg:col-span-5 xl:col-span-4">
-          <MetricPanel title={copy.scale.title} subtitle={copy.scale.subtitle}>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <CompactMetric
-                  label={copy.scale.businesses}
-                  value={kpis.totalBusinesses.toLocaleString("en-IN")}
-                  hint={copy.scale.businessesHint}
-                  icon={Building2}
-                  isLoading={isLoading}
-                />
-                <CompactMetric
-                  label={copy.scale.stores}
-                  value={kpis.totalStores.toLocaleString("en-IN")}
-                  hint={copy.scale.storesHint}
-                  icon={Store}
-                  isLoading={isLoading}
-                />
-              </div>
-              <CompactMetric
-                label={copy.scale.activeRate}
-                value={`${kpis.activeStoreRate}%`}
-                hint={copy.scale.activeRateHint
-                  .replace("{active}", String(kpis.activeStores))
-                  .replace("{total}", String(kpis.totalStores))}
-                icon={Store}
-                tone={
-                  kpis.totalStores > 0 && kpis.activeStores === kpis.totalStores
-                    ? "success"
-                    : "default"
-                }
-                isLoading={isLoading}
-              />
-              <CompactMetric
-                label={copy.scale.totalStaff}
-                value={kpis.totalStaff.toLocaleString("en-IN")}
-                hint={copy.scale.totalStaffHint}
-                icon={Users}
-                isLoading={isLoading}
-              />
-            </div>
-          </MetricPanel>
-
-          <MetricPanel title={copy.expansion.title} subtitle={copy.expansion.subtitle}>
-            <div className="space-y-3">
-              <CompactMetric
-                label={copy.expansion.nearTierUpgrade}
-                value={expansion.nearTierUpgradeStores.toLocaleString("en-IN")}
-                hint={copy.expansion.nearTierUpgradeHint
-                  .replace("{stores}", String(expansion.nearTierUpgradeStores))
-                  .replace("{businesses}", String(expansion.nearTierUpgradeBusinesses))}
-                icon={TrendingUp}
-                tone={expansion.nearTierUpgradeStores > 0 ? "success" : "default"}
-                isLoading={isLoading}
-              />
-              <CompactMetric
-                label={copy.expansion.singleStoreAccounts}
-                value={expansion.singleStoreBusinesses.toLocaleString("en-IN")}
-                hint={copy.expansion.singleStoreAccountsHint}
-                icon={Building2}
-                isLoading={isLoading}
-              />
-              <CompactMetric
-                label={copy.expansion.expansionMrrUpside}
-                value={formatCurrency(expansion.expansionMrrUpside)}
-                hint={copy.expansion.expansionMrrUpsideHint}
-                icon={CircleDollarSign}
-                tone={expansion.expansionMrrUpside > 0 ? "success" : "default"}
-                isLoading={isLoading}
-              />
-            </div>
-          </MetricPanel>
-
-          <MetricPanel title={copy.health.title} subtitle={copy.health.subtitle}>
-            <div className="space-y-3">
-              <CompactMetric
-                label={copy.health.openCorrections}
-                value={(growth?.openCorrectionRequests ?? 0).toLocaleString("en-IN")}
-                hint={copy.health.openCorrectionsHint}
-                icon={HelpCircle}
-                tone={(growth?.openCorrectionRequests ?? 0) > 0 ? "warning" : "default"}
-                isLoading={isGrowthLoading}
-              />
-              <CompactMetric
-                label={copy.health.usageDrop}
-                value={(growth?.usageDropStoreCount ?? 0).toLocaleString("en-IN")}
-                hint={copy.health.usageDropHint}
-                icon={TrendingDown}
-                tone={(growth?.usageDropStoreCount ?? 0) > 0 ? "warning" : "default"}
-                isLoading={isGrowthLoading}
-              />
-              <CompactMetric
-                label={copy.health.dormantBusinesses}
-                value={(growth?.dormantBusinessCount ?? 0).toLocaleString("en-IN")}
-                hint={copy.health.dormantBusinessesHint}
-                icon={AlertCircle}
-                tone={(growth?.dormantBusinessCount ?? 0) > 0 ? "error" : "default"}
-                isLoading={isGrowthLoading}
-              />
-            </div>
-          </MetricPanel>
-        </div>
-      </div>
+      </MetricPanel>
     </div>
   );
 }

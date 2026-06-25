@@ -139,6 +139,3 @@ export const fetchInitialStorePortalCalls = cache(
     return { params: merged, data };
   },
 );
-
-/** @deprecated Use fetchInitialStorePortalCalls */
-export const fetchInitialBusinessOwnerCalls = fetchInitialStorePortalCalls;

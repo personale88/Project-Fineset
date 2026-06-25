@@ -18,7 +18,7 @@ import type { AdminSession } from "@/types";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Admin Dashboard",
+  title: content.admin.shell.title,
   robots: { index: false, follow: false },
 };
 
@@ -51,7 +51,7 @@ export default async function AdminLayout({
 
   return (
     <PortalShell
-      title={`${platformSettings.general.platformName} Admin`}
+      title={content.admin.shell.title}
       signOutLabel={content.common.signOut}
       headerActions={
         <AdminPortalHeaderActions

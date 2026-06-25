@@ -40,16 +40,6 @@ export async function findExistingBusinessOwnerByEmail(email: string) {
   });
 }
 
-/** @deprecated Use hasExistingBusinessOwnerLogin */
-export async function hasExistingStoreManagerLogin(email: string): Promise<boolean> {
-  return hasExistingBusinessOwnerLogin(email);
-}
-
-/** @deprecated Use findExistingBusinessOwnerByEmail */
-export async function findExistingStoreManagerByEmail(email: string) {
-  return findExistingBusinessOwnerByEmail(email);
-}
-
 export const listOwnedStoresForBusinessOwner = unstable_cache(
   async (email: string, primaryStoreId: string): Promise<ManagerStoreOption[]> => {
     const normalized = normalizeManagerEmail(email);
@@ -92,29 +82,11 @@ export const listAccessibleStores = cache(
   },
 );
 
-/** @deprecated Use listOwnedStoresForBusinessOwner or listAccessibleStores */
-export async function listStoresLinkedToManagerEmail(
-  email: string,
-  primaryStoreId: string,
-): Promise<ManagerStoreOption[]> {
-  return listOwnedStoresForBusinessOwner(email, primaryStoreId);
-}
-
 export async function isStoreAllowedForSession(
   session: StorePortalSession,
   storeId: string,
 ): Promise<boolean> {
   const stores = await listAccessibleStores(session);
-  return stores.some((store) => store.id === storeId);
-}
-
-/** @deprecated Use isStoreAllowedForSession */
-export async function isStoreAllowedForManagerEmail(
-  email: string,
-  primaryStoreId: string,
-  storeId: string,
-): Promise<boolean> {
-  const stores = await listOwnedStoresForBusinessOwner(email, primaryStoreId);
   return stores.some((store) => store.id === storeId);
 }
 
@@ -150,22 +122,4 @@ export async function resolveAccessibleStoreId(
   }
 
   return allowed[0]!.id;
-}
-
-/** @deprecated Use resolveAccessibleStoreId */
-export async function resolveManagerStoreId(
-  email: string,
-  primaryStoreId: string,
-  requestedStoreId?: string,
-): Promise<string> {
-  return resolveAccessibleStoreId(
-    {
-      userId: "",
-      email,
-      role: "BUSINESS_OWNER",
-      storeId: primaryStoreId,
-      storeName: "",
-    },
-    requestedStoreId,
-  );
 }

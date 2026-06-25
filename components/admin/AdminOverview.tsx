@@ -9,7 +9,6 @@ import { AdminPortfolioStats } from "@/components/admin/overview/AdminPortfolioS
 import { AdminPageIntro } from "@/components/admin/AdminPageIntro";
 import { useBillingCycleSettings } from "@/components/admin/BillingCycleSettingsProvider";
 import { getBillingPaymentStatusCopy } from "@/lib/utils/billing-status-labels";
-import { computeAdminPortfolioExpansionKpis } from "@/lib/utils/admin-portfolio-expansion-kpis";
 import { computeAdminPortfolioKpis } from "@/lib/utils/admin-portfolio-kpis";
 import type { Content } from "@/content/en";
 import type { AdminDashboardOverview } from "@/types";
@@ -60,11 +59,6 @@ export function AdminOverview({
     [businesses, billingSummaries, cycleSettings],
   );
 
-  const expansion = useMemo(
-    () => computeAdminPortfolioExpansionKpis(businesses),
-    [businesses],
-  );
-
   const paymentCopy = useMemo(
     () => getBillingPaymentStatusCopy(cycleSettings),
     [cycleSettings],
@@ -111,7 +105,6 @@ export function AdminOverview({
           paymentLabels={paymentLabels}
           paymentHints={paymentHints}
           kpis={kpis}
-          expansion={expansion}
           growth={growthMetrics}
           isLoading={isLoading || isBillingLoading}
           isGrowthLoading={isGrowthLoading || growthFailed}

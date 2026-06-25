@@ -404,6 +404,16 @@ export function AdminSettingsCenter({ admin }: AdminSettingsCenterProps) {
                 />
               </div>
               <TextField
+                id="payment-upi-vpa"
+                label={copy.fields.paymentUpiVpa}
+                hint={copy.fields.paymentUpiVpaHint}
+                value={draft.general.paymentUpiVpa}
+                disabled={!canEdit}
+                onChange={(paymentUpiVpa) =>
+                  setDraft((prev) => ({ ...prev, general: { ...prev.general, paymentUpiVpa } }))
+                }
+              />
+              <TextField
                 id="default-timezone"
                 label={copy.fields.defaultTimezone}
                 hint={copy.fields.defaultTimezoneHint}
@@ -429,9 +439,12 @@ export function AdminSettingsCenter({ admin }: AdminSettingsCenterProps) {
                     gstRate: draft.billing.gstRatePercent / 100,
                     tier1MaxStaff: draft.billing.tier1MaxStaff,
                     tier2MaxStaff: draft.billing.tier2MaxStaff,
+                    tier3MaxStaff: draft.billing.tier3MaxStaff,
+                    tier4MaxStaff: draft.billing.tier4MaxStaff,
                     tier1MonthlyPrice: draft.billing.tier1MonthlyPrice,
                     tier2MonthlyPrice: draft.billing.tier2MonthlyPrice,
                     tier3MonthlyPrice: draft.billing.tier3MonthlyPrice,
+                    tier4MonthlyPrice: draft.billing.tier4MonthlyPrice,
                   },
                   draft.billing.gstRatePercent,
                 )}
@@ -449,7 +462,7 @@ export function AdminSettingsCenter({ admin }: AdminSettingsCenterProps) {
                   }))
                 }
               />
-              <div className="grid items-stretch gap-4 sm:grid-cols-3">
+              <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <NumberField
                   id="gst-rate"
                   label={copy.fields.gstRatePercent}
@@ -466,6 +479,8 @@ export function AdminSettingsCenter({ admin }: AdminSettingsCenterProps) {
                     }))
                   }
                 />
+              </div>
+              <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <NumberField
                   id="tier1-max"
                   label={copy.fields.tier1MaxStaff}
@@ -494,8 +509,36 @@ export function AdminSettingsCenter({ admin }: AdminSettingsCenterProps) {
                     }))
                   }
                 />
+                <NumberField
+                  id="tier3-max"
+                  label={copy.fields.tier3MaxStaff}
+                  value={draft.billing.tier3MaxStaff}
+                  min={3}
+                  max={500}
+                  disabled={!canEdit}
+                  onChange={(tier3MaxStaff) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      billing: { ...prev.billing, tier3MaxStaff },
+                    }))
+                  }
+                />
+                <NumberField
+                  id="tier4-max"
+                  label={copy.fields.tier4MaxStaff}
+                  value={draft.billing.tier4MaxStaff}
+                  min={4}
+                  max={500}
+                  disabled={!canEdit}
+                  onChange={(tier4MaxStaff) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      billing: { ...prev.billing, tier4MaxStaff },
+                    }))
+                  }
+                />
               </div>
-              <div className="grid items-stretch gap-4 sm:grid-cols-3">
+              <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <NumberField
                   id="tier1-price"
                   label={copy.fields.tier1MonthlyPrice}
@@ -535,6 +578,20 @@ export function AdminSettingsCenter({ admin }: AdminSettingsCenterProps) {
                     setDraft((prev) => ({
                       ...prev,
                       billing: { ...prev.billing, tier3MonthlyPrice },
+                    }))
+                  }
+                />
+                <NumberField
+                  id="tier4-price"
+                  label={copy.fields.tier4MonthlyPrice}
+                  value={draft.billing.tier4MonthlyPrice}
+                  min={0}
+                  max={10_000_000}
+                  disabled={!canEdit}
+                  onChange={(tier4MonthlyPrice) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      billing: { ...prev.billing, tier4MonthlyPrice },
                     }))
                   }
                 />
@@ -890,6 +947,17 @@ export function AdminSettingsCenter({ admin }: AdminSettingsCenterProps) {
                     label={copy.integrations.smtp}
                     configured={data.meta.integrations.smtp.configured}
                     detail={data.meta.integrations.smtp.host ?? undefined}
+                    configuredLabel={copy.integrations.configured}
+                    notConfiguredLabel={copy.integrations.notConfigured}
+                  />
+                  <IntegrationRow
+                    label={copy.integrations.whatsapp}
+                    configured={data.meta.integrations.whatsapp.configured}
+                    detail={
+                      data.meta.integrations.whatsapp.mode === "api"
+                        ? copy.integrations.whatsappApiMode
+                        : copy.integrations.whatsappDeepLinksMode
+                    }
                     configuredLabel={copy.integrations.configured}
                     notConfiguredLabel={copy.integrations.notConfigured}
                   />

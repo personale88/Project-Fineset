@@ -14,10 +14,11 @@ import {
   calculateOutstandingBilling,
   outstandingPeriodBreakdownJson,
 } from "@/lib/billing/outstanding-billing";
-import { settlementFromAccount } from "@/lib/billing/period-settlement";
+import { settlementFromAccount, type BillingPeriodSettlement } from "@/lib/billing/period-settlement";
 import { getActiveBillingPricingConfig } from "@/lib/platform/billing-pricing";
 import { groupStoresByBusiness } from "@/lib/utils/group-stores-by-business";
 import { getAdminPortfolioStoreRows } from "@/lib/services/stores";
+import { formatInvoiceNumber, invoiceNumberPrefix, randomInvoiceSuffix } from "@/lib/emails/render-invoice-email";
 import type { BusinessPortfolioRow } from "@/types";
 
 export class BillingAccountError extends Error {
@@ -33,6 +34,9 @@ export class BillingAccountError extends Error {
 async function resolvePaidThroughForBusinessKey(
   businessKey: string,
   reference = new Date(),
+  options?: {
+    settlementOverride?: BillingPeriodSettlement;
+  },
 ): Promise<Date | null> {
   const business = await resolveBusiness(businessKey);
   if (!business) return null;
@@ -50,12 +54,15 @@ async function resolvePaidThroughForBusinessKey(
   if (!billingAnchorAt) return null;
 
   const pricingConfig = await getActiveBillingPricingConfig();
-  const outstanding = calculateOutstandingBilling(business.stores, pricingConfig, {
-    billingAnchorAt,
-    settlement: settlementFromAccount({
+  const settlement =
+    options?.settlementOverride ??
+    settlementFromAccount({
       paidAt: account?.paidAt ?? null,
       paidThroughPeriodEnd: account?.paidThroughPeriodEnd ?? null,
-    }),
+    });
+  const outstanding = calculateOutstandingBilling(business.stores, pricingConfig, {
+    billingAnchorAt,
+    settlement,
     reference,
   });
 
@@ -225,6 +232,39 @@ export async function ensureBillingAccount(
   return created;
 }
 
+export async function allocateInvoiceNumber(reference = new Date()): Promise<string> {
+  const prefix = invoiceNumberPrefix(reference);
+  const rows = await prisma.billingInvoiceLog.findMany({
+    where: { invoiceNumber: { startsWith: prefix } },
+    select: { invoiceNumber: true },
+  });
+
+  const taken = new Set(rows.map((row) => row.invoiceNumber));
+  let maxSuffix = 0;
+  for (const row of rows) {
+    const suffix = row.invoiceNumber.slice(prefix.length);
+    if (/^\d+$/.test(suffix)) {
+      maxSuffix = Math.max(maxSuffix, Number.parseInt(suffix, 10));
+    }
+  }
+
+  if (maxSuffix === 0) {
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const candidate = formatInvoiceNumber(reference, randomInvoiceSuffix());
+      if (!taken.has(candidate)) return candidate;
+    }
+  }
+
+  let next = maxSuffix + 1;
+  while (next <= 999_999) {
+    const candidate = formatInvoiceNumber(reference, next);
+    if (!taken.has(candidate)) return candidate;
+    next += 1;
+  }
+
+  throw new BillingAccountError("Invoice number pool exhausted for today.", 500);
+}
+
 export async function logBillingInvoice(params: {
   businessKey: string;
   invoiceNumber: string;
@@ -346,6 +386,7 @@ export async function createBillingFollowUp(params: {
 async function syncStoreDatesForBusinessKey(
   businessKey: string,
   paymentStatus: BillingPaymentStatus,
+  options?: { force?: boolean },
 ): Promise<void> {
   const business = await resolveBusiness(businessKey);
   if (!business?.businessEmail) return;
@@ -360,7 +401,7 @@ async function syncStoreDatesForBusinessKey(
 
   if (paymentStatus === "PAID" || paymentStatus === "WAIVED") {
     const config = await getAutomationConfig().catch(() => null);
-    if (config && !config.expiryRenewal.autoExtendOnPayment) {
+    if (config && !config.expiryRenewal.autoExtendOnPayment && !options?.force) {
       return;
     }
     const nextPeriod = getActivationBillingPeriod(
@@ -386,57 +427,115 @@ export async function updateBillingPaymentStatus(params: {
   notes?: string;
   createdByEmail?: string | null;
   createdByName?: string | null;
+  /** Admin-confirmed payments bypass autoExtendOnPayment and extend access immediately. */
+  forceImmediateActivation?: boolean;
 }): Promise<BillingAccountDetailDto> {
   const account = await ensureBillingAccount(params.businessKey);
+  const accountRecord = await prisma.billingBusinessAccount.findUnique({
+    where: { id: account.id },
+    select: { id: true, paidThroughPeriodEnd: true },
+  });
+  if (!accountRecord) {
+    throw new BillingAccountError("Billing account not found.", 404);
+  }
+
   const now = new Date();
+  const paidThroughPeriodEnd =
+    params.paymentStatus === "PAID"
+      ? await resolvePaidThroughForBusinessKey(params.businessKey, now, {
+          settlementOverride: {
+            paidAt: now,
+            paidThroughPeriodEnd: accountRecord.paidThroughPeriodEnd,
+          },
+        })
+      : null;
 
   await prisma.$transaction(async (tx) => {
-    const paidThroughPeriodEnd =
-      params.paymentStatus === "PAID"
-        ? await resolvePaidThroughForBusinessKey(params.businessKey, now)
-        : null;
-
-    await tx.billingBusinessAccount.update({
-      where: { id: account.id },
-      data: {
-        paymentStatus: params.paymentStatus,
-        paidAt: params.paymentStatus === "PAID" ? now : null,
-        paidThroughPeriodEnd:
-          params.paymentStatus === "PAID" ? paidThroughPeriodEnd : null,
-        nextFollowUpAt:
-          params.paymentStatus === "PAID" ? null : undefined,
-      },
+    await applyBillingPaymentStatusInTransaction(tx, {
+      accountId: accountRecord.id,
+      paymentStatus: params.paymentStatus,
+      notes: params.notes,
+      createdByEmail: params.createdByEmail,
+      createdByName: params.createdByName,
+      now,
+      paidThroughPeriodEnd,
     });
-
-    if (params.notes?.trim()) {
-      const outcome: BillingFollowUpOutcome =
-        params.paymentStatus === "PAID"
-          ? "PAID"
-          : params.paymentStatus === "PARTIAL"
-            ? "PARTIAL_PAYMENT"
-            : params.paymentStatus === "DISPUTED"
-              ? "DISPUTED"
-              : "OTHER";
-
-      await tx.billingFollowUp.create({
-        data: {
-          accountId: account.id,
-          channel: "OTHER",
-          outcome,
-          notes: params.notes.trim(),
-          createdByEmail: params.createdByEmail ?? null,
-          createdByName: params.createdByName ?? null,
-        },
-      });
-
-      await tx.billingBusinessAccount.update({
-        where: { id: account.id },
-        data: { lastFollowUpAt: now },
-      });
-    }
   });
 
-  await syncStoreDatesForBusinessKey(params.businessKey, params.paymentStatus);
+  await finalizeBillingPaymentStatusSideEffects({
+    businessKey: params.businessKey,
+    paymentStatus: params.paymentStatus,
+    notes: params.notes,
+    createdByEmail: params.createdByEmail,
+    forceImmediateActivation: params.forceImmediateActivation,
+  });
+
+  return getBillingAccountDetail(params.businessKey);
+}
+
+type BillingPaymentStatusTxParams = {
+  accountId: string;
+  paymentStatus: BillingPaymentStatus;
+  notes?: string;
+  createdByEmail?: string | null;
+  createdByName?: string | null;
+  now: Date;
+  paidThroughPeriodEnd: Date | null;
+};
+
+export async function applyBillingPaymentStatusInTransaction(
+  tx: Prisma.TransactionClient,
+  params: BillingPaymentStatusTxParams,
+): Promise<void> {
+  await tx.billingBusinessAccount.update({
+    where: { id: params.accountId },
+    data: {
+      paymentStatus: params.paymentStatus,
+      paidAt: params.paymentStatus === "PAID" ? params.now : null,
+      paidThroughPeriodEnd:
+        params.paymentStatus === "PAID" ? params.paidThroughPeriodEnd : null,
+      nextFollowUpAt: params.paymentStatus === "PAID" ? null : undefined,
+    },
+  });
+
+  if (!params.notes?.trim()) return;
+
+  const outcome: BillingFollowUpOutcome =
+    params.paymentStatus === "PAID"
+      ? "PAID"
+      : params.paymentStatus === "PARTIAL"
+        ? "PARTIAL_PAYMENT"
+        : params.paymentStatus === "DISPUTED"
+          ? "DISPUTED"
+          : "OTHER";
+
+  await tx.billingFollowUp.create({
+    data: {
+      accountId: params.accountId,
+      channel: "OTHER",
+      outcome,
+      notes: params.notes.trim(),
+      createdByEmail: params.createdByEmail ?? null,
+      createdByName: params.createdByName ?? null,
+    },
+  });
+
+  await tx.billingBusinessAccount.update({
+    where: { id: params.accountId },
+    data: { lastFollowUpAt: params.now },
+  });
+}
+
+export async function finalizeBillingPaymentStatusSideEffects(params: {
+  businessKey: string;
+  paymentStatus: BillingPaymentStatus;
+  notes?: string;
+  createdByEmail?: string | null;
+  forceImmediateActivation?: boolean;
+}): Promise<void> {
+  await syncStoreDatesForBusinessKey(params.businessKey, params.paymentStatus, {
+    force: params.forceImmediateActivation,
+  });
 
   if (params.paymentStatus === "PAID") {
     const { sendAutomatedPaymentConfirmation } = await import(
@@ -456,8 +555,19 @@ export async function updateBillingPaymentStatus(params: {
       notes: params.notes?.trim() || null,
     },
   });
+}
 
-  return getBillingAccountDetail(params.businessKey);
+export async function resolvePaidThroughForPaidActivation(
+  businessKey: string,
+  accountPaidThroughPeriodEnd: Date | null,
+  reference = new Date(),
+): Promise<Date | null> {
+  return resolvePaidThroughForBusinessKey(businessKey, reference, {
+    settlementOverride: {
+      paidAt: reference,
+      paidThroughPeriodEnd: accountPaidThroughPeriodEnd,
+    },
+  });
 }
 
 export async function getBillingAccountDetail(

@@ -48,16 +48,6 @@ export const fetchInitialStoreStaff = cache(
   },
 );
 
-export const fetchInitialAdminStoreStaff = cache(
-  async (storeId: string): Promise<InitialStoreStaffPayload | null> => {
-    const session = await getServerSession();
-    if (!requireRole(session, ["MASTER_ADMIN", "PLATFORM_ADMIN"])) return null;
-
-    const data = await listStaff(storeId);
-    return { data, storeId };
-  },
-);
-
 export const fetchInitialStaffPerformance = cache(
   async (storeId?: string): Promise<InitialStaffPerformancePayload | null> => {
     const session = await getServerSession();

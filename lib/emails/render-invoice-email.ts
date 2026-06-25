@@ -29,43 +29,80 @@ export interface InvoiceEmailContent {
   outstandingBilling?: BusinessOutstandingBilling;
   platformName?: string;
   supportEmail?: string;
+  /** When false, omits the email footer (portal invoice preview). Defaults to true. */
+  showContactFooter?: boolean;
 }
 
-export function buildInvoiceNumber(businessKey: string, reference = new Date()): string {
-  const y = reference.getFullYear();
-  const m = String(reference.getMonth() + 1).padStart(2, "0");
-  const d = String(reference.getDate()).padStart(2, "0");
-  const slug = businessKey.replace(/[^a-z0-9]/gi, "").slice(0, 8).toUpperCase() || "BUSINESS";
-  return `INV-${y}${m}${d}-${slug}`;
+export function formatInvoiceDatePart(reference: Date): string {
+  const day = String(reference.getDate()).padStart(2, "0");
+  const month = String(reference.getMonth() + 1).padStart(2, "0");
+  const year = String(reference.getFullYear());
+  return `${day}${month}${year}`;
+}
+
+export function invoiceNumberPrefix(reference: Date): string {
+  return `INV${formatInvoiceDatePart(reference)}`;
+}
+
+/** Five-digit suffix for daily invoice series (10000–99999). */
+export function randomInvoiceSuffix(): number {
+  return 10_000 + Math.floor(Math.random() * 90_000);
+}
+
+/** Invoice id: INV + DDMMYYYY + numeric suffix (e.g. INV2407202648291). */
+export function formatInvoiceNumber(reference: Date, suffix: number): string {
+  const normalized = Math.min(Math.max(1, Math.floor(suffix)), 999_999);
+  return `${invoiceNumberPrefix(reference)}${normalized}`;
+}
+
+/** Pay-now / preview reference before an invoice is logged. */
+export function generateProvisionalInvoiceRef(reference = new Date()): string {
+  return formatInvoiceNumber(reference, randomInvoiceSuffix());
 }
 
 function formatPeriodRange(periodStart: string, periodEnd: string): string {
   return `${formatDate(periodStart)} – ${formatDate(periodEnd)}`;
 }
 
+const BRAND = {
+  gold: "#b8972e",
+  goldDark: "#8b6914",
+  goldLight: "#d4af37",
+  ink: "#5c5348",
+  inkSoft: "#6b6358",
+  cream: "#f5efe6",
+  ivory: "#faf7f2",
+  border: "#ebe3d6",
+  muted: "#a39e96",
+  warning: "#c4842f",
+} as const;
+
 function renderPeriodSummaryHtml(outstanding: BusinessOutstandingBilling): string {
   if (outstanding.unpaidPeriodCount <= 1) return "";
 
-  return `<table style="width:100%;border-collapse:collapse;margin:16px 0 8px;">
+  return `<div style="margin:0 0 20px;padding:16px 18px;background:${BRAND.ivory};border:1px solid ${BRAND.border};border-radius:12px;">
+  <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${BRAND.goldDark};">Outstanding periods</p>
+  <table style="width:100%;border-collapse:collapse;">
   <thead>
     <tr>
-      <th style="text-align:left;font-size:12px;color:#888;padding:8px 4px;">Billing period</th>
-      <th style="text-align:left;font-size:12px;color:#888;padding:8px 4px;">Due</th>
-      <th style="text-align:right;font-size:12px;color:#888;padding:8px 4px;">Amount</th>
+      <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${BRAND.gold};padding:8px 4px;border-bottom:1px solid ${BRAND.border};">Billing period</th>
+      <th style="text-align:left;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${BRAND.gold};padding:8px 4px;border-bottom:1px solid ${BRAND.border};">Due</th>
+      <th style="text-align:right;font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${BRAND.gold};padding:8px 4px;border-bottom:1px solid ${BRAND.border};">Amount</th>
     </tr>
   </thead>
   <tbody>
     ${outstanding.periods
       .map(
         (period) => `<tr>
-      <td style="padding:8px 4px;border-bottom:1px solid #eee8dc;">${escapeHtml(formatPeriodRange(period.periodStart, period.periodEnd))}${period.isOverdue ? ' <span style="color:#b45309;">(overdue)</span>' : ""}</td>
-      <td style="padding:8px 4px;border-bottom:1px solid #eee8dc;">${escapeHtml(formatDate(period.dueDate))}</td>
-      <td style="padding:8px 4px;border-bottom:1px solid #eee8dc;text-align:right;">${escapeHtml(formatCurrency(period.billing.grandTotal))}</td>
+      <td style="padding:10px 4px;border-bottom:1px solid ${BRAND.border};font-size:13px;color:${BRAND.inkSoft};">${escapeHtml(formatPeriodRange(period.periodStart, period.periodEnd))}${period.isOverdue ? ` <span style="color:${BRAND.warning};font-weight:600;">(overdue)</span>` : ""}</td>
+      <td style="padding:10px 4px;border-bottom:1px solid ${BRAND.border};font-size:13px;color:${BRAND.inkSoft};">${escapeHtml(formatDate(period.dueDate))}</td>
+      <td style="padding:10px 4px;border-bottom:1px solid ${BRAND.border};text-align:right;font-size:13px;font-weight:600;color:${BRAND.goldDark};">${escapeHtml(formatCurrency(period.billing.grandTotal))}</td>
     </tr>`,
       )
       .join("\n")}
   </tbody>
-</table>`;
+</table>
+</div>`;
 }
 
 function renderLineItemsHtml(
@@ -75,12 +112,12 @@ function renderLineItemsHtml(
   if (outstanding && outstanding.unpaidPeriodCount > 1) {
     return outstanding.periods
       .flatMap((period) => {
-        const header = `<tr>
-  <td colspan="5" style="padding:14px 8px 6px;font-weight:600;background:#faf8f4;border-bottom:1px solid #eee8dc;">${escapeHtml(formatPeriodRange(period.periodStart, period.periodEnd))}</td>
+        const header = `<tr class="period-header">
+  <td colspan="5">${escapeHtml(formatPeriodRange(period.periodStart, period.periodEnd))}</td>
 </tr>`;
         const rows = period.billing.stores.map(
           (store) => `<tr>
-  <td>${escapeHtml(store.storeName)}<br /><span style="color:#888;font-size:12px;">${store.staffCount} staff</span></td>
+  <td>${escapeHtml(store.storeName)}<span class="store-sub">${store.staffCount} staff</span></td>
   <td>${escapeHtml(store.tierLabel)}</td>
   <td class="amount">${formatCurrency(store.baseAmount)}</td>
   <td class="amount">${formatCurrency(store.gstAmount)}</td>
@@ -95,7 +132,7 @@ function renderLineItemsHtml(
   return billing.stores
     .map(
       (store) => `<tr>
-  <td>${escapeHtml(store.storeName)}<br /><span style="color:#888;font-size:12px;">${store.staffCount} staff</span></td>
+  <td>${escapeHtml(store.storeName)}<span class="store-sub">${store.staffCount} staff</span></td>
   <td>${escapeHtml(store.tierLabel)}</td>
   <td class="amount">${formatCurrency(store.baseAmount)}</td>
   <td class="amount">${formatCurrency(store.gstAmount)}</td>
@@ -147,6 +184,21 @@ function totalDueLabel(outstanding?: BusinessOutstandingBilling): string {
   return "Total due (monthly, incl. GST)";
 }
 
+function renderContactFooterHtml(
+  platformName: string,
+  supportEmail: string,
+  siteUrl: string,
+  showContactFooter: boolean,
+): string {
+  if (!showContactFooter) return "";
+
+  return `<div class="footer">
+        Sent by <strong>${escapeHtml(platformName)}</strong><br />
+        <a href="mailto:${escapeHtml(supportEmail)}">${escapeHtml(supportEmail)}</a>
+        · <a href="${escapeHtml(siteUrl)}">${escapeHtml(siteUrl)}</a>
+      </div>`;
+}
+
 export function renderInvoiceEmailHtml(content: InvoiceEmailContent): string {
   const template = readFileSync(TEMPLATE_PATH, "utf8");
   const siteUrl = content.siteUrl.replace(/\/$/, "");
@@ -173,7 +225,16 @@ export function renderInvoiceEmailHtml(content: InvoiceEmailContent): string {
     .replaceAll("{{ .TotalDueLabel }}", escapeHtml(totalDueLabel(outstandingBilling)))
     .replaceAll("{{ .PlatformName }}", escapeHtml(platformName))
     .replaceAll("{{ .SupportEmail }}", escapeHtml(supportEmail))
-    .replaceAll("{{ .SiteURL }}", escapeHtml(siteUrl));
+    .replaceAll("{{ .SiteURL }}", escapeHtml(siteUrl))
+    .replaceAll(
+      "{{ .ContactFooterHtml }}",
+      renderContactFooterHtml(
+        platformName,
+        supportEmail,
+        siteUrl,
+        content.showContactFooter !== false,
+      ),
+    );
 }
 
 export function renderInvoiceEmailText(content: InvoiceEmailContent): string {

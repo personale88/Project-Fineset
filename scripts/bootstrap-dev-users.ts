@@ -1,5 +1,5 @@
 /**
- * Dev test users linked to seeded Store Alpha (after npm run db:seed).
+ * Dev test users linked to seeded stores (after npm run db:seed).
  *
  * Usage: npm run auth:bootstrap-dev
  */
@@ -17,6 +17,7 @@ interface DevUserSpec {
   name: string;
   role: "MASTER_ADMIN" | "BUSINESS_OWNER" | "STORE_MANAGER" | "STAFF";
   employeeId?: string;
+  storeName?: string;
 }
 
 const DEV_USERS: DevUserSpec[] = [
@@ -29,20 +30,66 @@ const DEV_USERS: DevUserSpec[] = [
     email: "manager@store-alpha.local",
     name: "Store Alpha Owner",
     role: "BUSINESS_OWNER",
+    storeName: "Store Alpha",
   },
   {
     email: "store-manager@store-alpha.local",
     name: "Store Alpha Manager",
     role: "STORE_MANAGER",
     employeeId: "MGR001",
+    storeName: "Store Alpha",
   },
   {
     email: "staff-a@store-alpha.local",
     name: "Staff Member A",
     role: "STAFF",
     employeeId: "EMP001",
+    storeName: "Store Alpha",
+  },
+  {
+    email: "owner@royal-time.local",
+    name: "Rajesh Malhotra",
+    role: "BUSINESS_OWNER",
+    storeName: "Royal Watches Bandra",
+  },
+  {
+    email: "bags@luxebags.local",
+    name: "Ananya Reddy",
+    role: "BUSINESS_OWNER",
+    storeName: "Luxe Bags Koramangala",
+  },
+  {
+    email: "preeti@handbags-boutique.local",
+    name: "Preeti Handbags",
+    role: "BUSINESS_OWNER",
+    storeName: "Store Beta",
+  },
+  {
+    email: "heritage@kochi.local",
+    name: "Thomas Varghese",
+    role: "BUSINESS_OWNER",
+    storeName: "Heritage Jewels MG Road",
+  },
+  {
+    email: "mixed@jewels.local",
+    name: "Kiran Patel",
+    role: "BUSINESS_OWNER",
+    storeName: "Diamond District Surat",
   },
 ];
+
+async function resolveStoreId(storeName: string): Promise<string> {
+  const store = await prisma.store.findFirst({
+    where: { name: { equals: storeName, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (!store) {
+    throw new Error(
+      `Store "${storeName}" not found for dev bootstrap. Run npm run db:seed first.`,
+    );
+  }
+  return store.id;
+}
 
 async function main(): Promise<void> {
   const check = validatePassword(DEV_PASSWORD);
@@ -50,29 +97,30 @@ async function main(): Promise<void> {
     throw new Error(check.error);
   }
 
-  const storeAlpha = await prisma.store.findFirst({
-    where: { name: { equals: "Store Alpha", mode: "insensitive" } },
-  });
-  if (!storeAlpha) {
-    throw new Error("Run npm run db:seed first (Store Alpha not found)");
-  }
-
   const passwordHash = await hashCredential(DEV_PASSWORD);
 
   for (const spec of DEV_USERS) {
     let staffId: string | undefined;
+    let storeId: string | null = null;
+
+    if (spec.role !== "MASTER_ADMIN") {
+      if (!spec.storeName) {
+        throw new Error(`Dev user ${spec.email} requires storeName`);
+      }
+      storeId = await resolveStoreId(spec.storeName);
+    }
 
     if (spec.employeeId) {
       const staff = await prisma.staff.findFirst({
         where: {
           employeeId: spec.employeeId,
-          storeId: storeAlpha.id,
+          storeId: storeId ?? undefined,
           isActive: true,
         },
       });
       if (!staff) {
         throw new Error(
-          `Staff ${spec.employeeId} not found in Store Alpha for ${spec.email}. Run npm run db:seed first.`,
+          `Staff ${spec.employeeId} not found in ${spec.storeName} for ${spec.email}. Run npm run db:seed first.`,
         );
       }
       staffId = staff.id;
@@ -91,7 +139,7 @@ async function main(): Promise<void> {
         email: spec.email,
         name: spec.name,
         role: spec.role,
-        storeId: spec.role === "MASTER_ADMIN" ? undefined : storeAlpha.id,
+        storeId: storeId ?? undefined,
         staffId,
         passwordHash,
         isActive: true,
@@ -100,7 +148,7 @@ async function main(): Promise<void> {
       update: {
         name: spec.name,
         role: spec.role,
-        storeId: spec.role === "MASTER_ADMIN" ? null : storeAlpha.id,
+        storeId,
         ...(staffId ? { staffId } : {}),
         passwordHash,
         isActive: true,

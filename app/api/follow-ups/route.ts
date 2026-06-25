@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { handleRouteError } from "@/lib/api/route-handler";
-import { isPortalDataReadBlocked } from "@/lib/auth/billing-access-guard";
+import { isPortalDataReadBlockedForSession } from "@/lib/auth/billing-access-guard";
 import { resolvePortalStoreIdForSession } from "@/lib/auth/resolve-manager-store-id";
 import {
   badRequest,
@@ -58,7 +58,7 @@ export async function GET(req: Request) {
       }
     }
 
-    const blocked = await isPortalDataReadBlocked(session, storeId);
+    const blocked = await isPortalDataReadBlockedForSession(session, storeId);
     if (blocked) {
       return NextResponse.json([]);
     }

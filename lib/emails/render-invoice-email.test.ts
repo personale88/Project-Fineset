@@ -1,16 +1,36 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildInvoiceNumber,
+  formatInvoiceDatePart,
+  formatInvoiceNumber,
+  generateProvisionalInvoiceRef,
+  invoiceNumberPrefix,
+  randomInvoiceSuffix,
   renderInvoiceEmailHtml,
   renderInvoiceEmailText,
 } from "@/lib/emails/render-invoice-email";
 import { calculateBusinessMonthlyBilling } from "@/lib/utils/store-billing-pricing";
 
-describe("buildInvoiceNumber", () => {
-  it("builds a stable invoice id from business key and date", () => {
-    expect(
-      buildInvoiceNumber("owner@royal-time.local", new Date("2026-06-21T12:00:00Z")),
-    ).toBe("INV-20260621-OWNERROY");
+describe("formatInvoiceNumber", () => {
+  const reference = new Date("2026-07-24T12:00:00");
+
+  it("formats INV + DDMMYYYY + numeric suffix without zero padding", () => {
+    expect(formatInvoiceDatePart(reference)).toBe("24072026");
+    expect(invoiceNumberPrefix(reference)).toBe("INV24072026");
+    expect(formatInvoiceNumber(reference, 48291)).toBe("INV2407202648291");
+    expect(formatInvoiceNumber(reference, 42)).toBe("INV2407202642");
+  });
+
+  it("generates five-digit random suffixes", () => {
+    const suffix = randomInvoiceSuffix();
+    expect(suffix).toBeGreaterThanOrEqual(10_000);
+    expect(suffix).toBeLessThanOrEqual(99_999);
+  });
+
+  it("builds provisional refs with random suffixes", () => {
+    const ref = generateProvisionalInvoiceRef(reference);
+    expect(ref.startsWith("INV24072026")).toBe(true);
+    expect(ref).toMatch(/^INV24072026\d{4,6}$/);
+    expect(ref.endsWith("0000")).toBe(false);
   });
 });
 
@@ -21,7 +41,7 @@ describe("renderInvoiceEmail", () => {
   ]);
 
   const content = {
-    invoiceNumber: "INV-20260621-TEST",
+    invoiceNumber: "INV2407202648291",
     invoiceDate: "21 Jun 2026",
     businessName: "Royal Watches",
     ownerName: "Rajesh Malhotra",
@@ -29,24 +49,24 @@ describe("renderInvoiceEmail", () => {
     renewalDue: "09 Jun 2026",
     dataExpiry: "16 Feb 2027",
     paymentStatus: "Overdue",
-    siteUrl: "http://localhost:3000",
+    siteUrl: "https://app.example.com",
     billing,
   };
 
-  it("renders html with priced line items and totals", () => {
+  it("renders invoice html with invoice number", () => {
     const html = renderInvoiceEmailHtml(content);
-    expect(html).toContain("INV-20260621-TEST");
-    expect(html).toContain("Royal Watches Bandra");
-    expect(html).toContain("Excl. GST");
-    expect(html).toContain("Total due (monthly, incl. GST)");
-    expect(html).toContain("support@fineset.in");
+    expect(html).toContain("INV2407202648291");
+    expect(html).toContain("https://app.example.com");
   });
 
-  it("renders plain text invoice with GST breakdown", () => {
+  it("omits contact footer when showContactFooter is false", () => {
+    const html = renderInvoiceEmailHtml({ ...content, showContactFooter: false });
+    expect(html).not.toContain("https://app.example.com");
+    expect(html).not.toContain('class="footer"');
+  });
+
+  it("renders invoice text with invoice number", () => {
     const text = renderInvoiceEmailText(content);
-    expect(text).toContain("owner@royal-time.local");
-    expect(text).toContain("Subtotal (excl. GST):");
-    expect(text).toContain("GST (18%):");
-    expect(text).toContain("Total due (monthly, incl. GST):");
+    expect(text).toContain("INV2407202648291");
   });
 });

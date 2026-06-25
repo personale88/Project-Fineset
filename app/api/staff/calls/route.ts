@@ -6,7 +6,7 @@ import {
   unauthorized,
 } from "@/lib/auth/session";
 import { handleRouteError } from "@/lib/api/route-handler";
-import { isPortalDataReadBlocked } from "@/lib/auth/billing-access-guard";
+import { isPortalDataReadBlockedForSession } from "@/lib/auth/billing-access-guard";
 import {
   STAFF_CALLS_ROLES,
   requireStaffCallsContext,
@@ -43,7 +43,7 @@ export async function GET(req: Request) {
     );
     if (!staff) return unauthorized();
 
-    const blocked = await isPortalDataReadBlocked(session, staff.storeId);
+    const blocked = await isPortalDataReadBlockedForSession(session, staff.storeId);
     if (blocked) {
       return NextResponse.json({
         data: [],

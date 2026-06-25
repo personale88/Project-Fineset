@@ -12,6 +12,7 @@ import {
   calculateBusinessMonthlyBilling,
   type BillingPricingConfig,
   type BusinessMonthlyBilling,
+  type StoreMonthlyCharge,
 } from "@/lib/utils/store-billing-pricing";
 import type { AdminStorePortfolioRow } from "@/types";
 
@@ -137,12 +138,36 @@ export function calculateOutstandingBilling(
   };
 }
 
-/** Consolidated line items for invoice email (all unpaid periods). */
+function mergeStoreChargesByStoreId(stores: StoreMonthlyCharge[]): StoreMonthlyCharge[] {
+  const merged = new Map<string, StoreMonthlyCharge>();
+
+  for (const line of stores) {
+    const existing = merged.get(line.storeId);
+    if (!existing) {
+      merged.set(line.storeId, { ...line });
+      continue;
+    }
+
+    merged.set(line.storeId, {
+      ...existing,
+      baseAmount: existing.baseAmount + line.baseAmount,
+      gstAmount: existing.gstAmount + line.gstAmount,
+      totalAmount: existing.totalAmount + line.totalAmount,
+      proRateFactor: undefined,
+    });
+  }
+
+  return Array.from(merged.values());
+}
+
+/** Consolidated line items for portal/admin breakdown (all unpaid periods). */
 export function consolidateOutstandingBilling(
   outstanding: BusinessOutstandingBilling,
 ): BusinessMonthlyBilling {
   return {
-    stores: outstanding.periods.flatMap((period) => period.billing.stores),
+    stores: mergeStoreChargesByStoreId(
+      outstanding.periods.flatMap((period) => period.billing.stores),
+    ),
     subtotal: outstanding.subtotal,
     gstTotal: outstanding.gstTotal,
     grandTotal: outstanding.grandTotal,

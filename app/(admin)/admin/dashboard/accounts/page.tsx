@@ -1,5 +1,5 @@
 import { content } from "@/content/en";
-import { AdminAccountsManagement } from "@/components/admin/StoresManagement";
+import { AdminAccountsManagement } from "@/components/admin/AdminAccountsManagement";
 import { fetchInitialAdminOverview } from "@/lib/data/analytics";
 import {
   initialLoadFailedFlag,
