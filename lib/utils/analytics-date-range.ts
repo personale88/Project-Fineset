@@ -91,6 +91,56 @@ function formatDateRangeLabel(start: Date, end: Date): string {
   return `${start.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })} – ${end.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`;
 }
 
+const MAX_ROLLING_MONTHS = 24;
+const MAX_ROLLING_DAYS = 366;
+
+export function clampRollingMonths(months: number): number {
+  return Math.min(MAX_ROLLING_MONTHS, Math.max(1, Math.round(months)));
+}
+
+export function clampRollingDays(days: number): number {
+  return Math.min(MAX_ROLLING_DAYS, Math.max(1, Math.round(days)));
+}
+
+/** Calendar-month window: 1st of (N-1) months ago through end of reference day. */
+export function getRollingMonthsRange(
+  months: number,
+  referenceDate: Date = new Date(),
+): ResolvedDateRange {
+  const count = clampRollingMonths(months);
+  const end = new Date(referenceDate);
+  end.setHours(23, 59, 59, 999);
+  const start = new Date(referenceDate);
+  start.setHours(0, 0, 0, 0);
+  start.setMonth(start.getMonth() - (count - 1));
+  start.setDate(1);
+  const rangeLabel = formatDateRangeLabel(start, end);
+  return {
+    start,
+    end,
+    label: `Last ${count} month${count === 1 ? "" : "s"} (${rangeLabel})`,
+  };
+}
+
+/** Inclusive rolling day window ending on the reference day. */
+export function getRollingDaysRange(
+  days: number,
+  referenceDate: Date = new Date(),
+): ResolvedDateRange {
+  const count = clampRollingDays(days);
+  const end = new Date(referenceDate);
+  end.setHours(23, 59, 59, 999);
+  const start = new Date(referenceDate);
+  start.setHours(0, 0, 0, 0);
+  start.setDate(start.getDate() - (count - 1));
+  const rangeLabel = formatDateRangeLabel(start, end);
+  return {
+    start,
+    end,
+    label: `Last ${count} day${count === 1 ? "" : "s"} (${rangeLabel})`,
+  };
+}
+
 export function formatPresetPeriodLabel(
   period: AnalyticsPeriodLabel,
   start: Date,
@@ -154,6 +204,14 @@ export function resolveAnalyticsDates(
 
   if (mode === "range" && query.startDate && query.endDate) {
     return { kind: "single", range: getCustomRange(query.startDate, query.endDate) };
+  }
+
+  if (query.rollingMonths) {
+    return { kind: "single", range: getRollingMonthsRange(query.rollingMonths) };
+  }
+
+  if (query.rollingDays) {
+    return { kind: "single", range: getRollingDaysRange(query.rollingDays) };
   }
 
   const period = query.period ?? "last30days";

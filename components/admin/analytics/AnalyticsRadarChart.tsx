@@ -1,21 +1,13 @@
 "use client";
 
+import { PolarAngleAxis, PolarGrid, Radar, RadarChart } from "recharts";
+import { AnalyticsChartShell } from "@/components/admin/analytics/AnalyticsChartShell";
 import {
-  PolarAngleAxis,
-  PolarGrid,
-  Radar,
-  RadarChart,
-  ResponsiveContainer,
-  Tooltip,
-} from "recharts";
-import { ChartCard } from "@/components/shared/ChartCard";
-import {
-  CHART_COLORS,
-  CHART_TOOLTIP_CONTENT_STYLE,
-  CHART_TOOLTIP_ITEM_STYLE,
-  CHART_TOOLTIP_LABEL_STYLE,
-} from "@/lib/charts/theme";
-import { NUMERIC_FONT_FAMILY } from "@/lib/utils/typography";
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { CHART_COLORS } from "@/lib/charts/theme";
 import type { AnalyticsAskRadarPoint } from "@/types/admin-business-analytics-ask";
 
 interface AnalyticsRadarChartProps {
@@ -25,6 +17,13 @@ interface AnalyticsRadarChartProps {
   emptyMessage: string;
 }
 
+const chartConfig = {
+  value: {
+    label: "Score",
+    color: CHART_COLORS.secondary,
+  },
+};
+
 export function AnalyticsRadarChart({
   title,
   description,
@@ -33,42 +32,33 @@ export function AnalyticsRadarChart({
 }: AnalyticsRadarChartProps) {
   if (data.length === 0) {
     return (
-      <ChartCard title={title}>
+      <AnalyticsChartShell title={title} description={description}>
         <p className="text-sm text-text-muted">{emptyMessage}</p>
-      </ChartCard>
+      </AnalyticsChartShell>
     );
   }
 
   return (
-    <ChartCard title={title}>
-      {description && <p className="mb-3 text-xs text-text-muted">{description}</p>}
-      <div className="h-72 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <RadarChart data={data} cx="50%" cy="50%" outerRadius="75%">
-            <PolarGrid stroke={CHART_COLORS.grid} />
-            <PolarAngleAxis
-              dataKey="label"
-              tick={{ fill: CHART_COLORS.axis, fontSize: 11 }}
-            />
-            <Tooltip
-              contentStyle={{
-                ...CHART_TOOLTIP_CONTENT_STYLE,
-                fontFamily: NUMERIC_FONT_FAMILY,
-              }}
-              labelStyle={CHART_TOOLTIP_LABEL_STYLE}
-              itemStyle={CHART_TOOLTIP_ITEM_STYLE}
-            />
-            <Radar
-              name="Score"
-              dataKey="value"
-              stroke={CHART_COLORS.secondary}
-              fill={CHART_COLORS.secondary}
-              fillOpacity={0.22}
-              strokeWidth={2}
-            />
-          </RadarChart>
-        </ResponsiveContainer>
-      </div>
-    </ChartCard>
+    <AnalyticsChartShell title={title} description={description}>
+      <ChartContainer config={chartConfig} className="mx-auto h-[280px] w-full max-w-md">
+        <RadarChart data={data} cx="50%" cy="50%" outerRadius="72%">
+          <PolarGrid stroke="var(--border)" strokeOpacity={0.55} />
+          <PolarAngleAxis
+            dataKey="label"
+            tick={{ fill: "var(--text-muted)", fontSize: 11 }}
+          />
+          <ChartTooltip content={<ChartTooltipContent />} />
+          <Radar
+            name="Score"
+            dataKey="value"
+            stroke="var(--color-value)"
+            fill="var(--color-value)"
+            fillOpacity={0.22}
+            strokeWidth={2}
+            dot={false}
+          />
+        </RadarChart>
+      </ChartContainer>
+    </AnalyticsChartShell>
   );
 }

@@ -115,6 +115,7 @@ export interface GeminiStreamConfig {
   temperature?: number;
   model?: string;
   systemInstruction?: string;
+  responseMimeType?: "application/json" | "text/plain";
 }
 
 /**
@@ -139,6 +140,7 @@ export async function* geminiStreamContent(
     generationConfig: {
       maxOutputTokens: config.maxOutputTokens ?? 1024,
       temperature: config.temperature ?? 0.7,
+      ...(config.responseMimeType ? { responseMimeType: config.responseMimeType } : {}),
     },
   };
 

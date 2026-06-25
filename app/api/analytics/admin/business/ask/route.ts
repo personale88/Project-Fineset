@@ -24,6 +24,7 @@ import { isOutOfScopeAnalyticsPrompt, outOfScopeMessage, assessDataAvailability 
 import { isGeminiConfigured, parseIntentWithGemini } from "@/lib/analytics/ask-gemini";
 import { describeParsedIntent, parseAnalyticsAskIntent } from "@/lib/analytics/ask-intent-parser";
 import { buildAskCharts } from "@/lib/analytics/ask-charts";
+import { buildAskKpis } from "@/lib/analytics/ask-kpis";
 import { buildRuleBasedAskReport } from "@/lib/analytics/ask-report";
 import { applyAnalyticsScopeFilters, buildAnalyticsScopeDescription } from "@/lib/analytics/apply-scope-filters";
 import { emptyDataReportMessage, sparseDataReportMessage } from "@/lib/analytics/ask-guardrails";
@@ -216,7 +217,8 @@ export async function POST(req: Request) {
             data: {
               interpretedQuery: describeParsedIntent(intent),
               parseSource,
-              parseConfidence: "low",
+              parseConfidence,
+              geminiConfigured: isGeminiConfigured(),
             },
           });
           emit(controller, encoder, {
@@ -236,6 +238,7 @@ export async function POST(req: Request) {
             interpretedQuery: describeParsedIntent(intent),
             parseSource,
             parseConfidence,
+            geminiConfigured: isGeminiConfigured(),
           },
         });
 
@@ -257,7 +260,15 @@ export async function POST(req: Request) {
         const dataAvailability = assessDataAvailability(analytics.summary.totalVisits);
         const dataConfidence = assessConfidence(analytics.summary);
 
-        const charts = dataAvailability === "empty" ? [] : buildAskCharts(intent, analytics);
+        const charts =
+          dataAvailability === "empty"
+            ? []
+            : buildAskCharts(intent, analytics, { prompt: body.prompt });
+
+        const kpiCards = buildAskKpis(intent, analytics.summary, {
+          prompt: body.prompt,
+          deltas: analytics.comparison?.deltas ?? null,
+        });
 
         const kpisPayload: KpisPayload = {
           period: analytics.period,
@@ -265,6 +276,7 @@ export async function POST(req: Request) {
           summary: analytics.summary,
           comparisonSummary: analytics.comparison?.summary,
           deltas: analytics.comparison?.deltas,
+          kpiCards,
           charts,
           appliedFilters: analytics.appliedFilters,
           scopeLabel,
@@ -282,6 +294,7 @@ export async function POST(req: Request) {
 
         let report;
         let reportTokenUsage: TokenUsage | null = null;
+        let reportParsedFromAi = false;
 
         if (dataAvailability === "empty") {
           // No AI call for empty data — return canned honest message
@@ -311,8 +324,21 @@ export async function POST(req: Request) {
               accumulated += value;
               emit(controller, encoder, { type: "report_chunk", data: { text: value } });
             }
-            report = parseAiReportJson(accumulated);
-            report.dataAvailability = "sparse";
+            const parsed = parseAiReportJson(accumulated);
+            if (parsed.ok) {
+              report = { ...parsed.report, dataAvailability: "sparse" as const };
+              reportParsedFromAi = true;
+            } else {
+              if (process.env.NODE_ENV !== "production") {
+                console.warn(
+                  "[analytics-ask-sse] AI report parse failed; using rule-based fallback.",
+                  `accumulated length=${accumulated.length}`,
+                );
+              }
+              report = buildRuleBasedAskReport(analytics, dimension, {
+                dataAvailability: "sparse",
+              });
+            }
           } else {
             report = {
               summary: sparseMsg,
@@ -336,8 +362,21 @@ export async function POST(req: Request) {
               accumulated += value;
               emit(controller, encoder, { type: "report_chunk", data: { text: value } });
             }
-            report = parseAiReportJson(accumulated);
-            report.dataAvailability = "ok";
+            const parsed = parseAiReportJson(accumulated);
+            if (parsed.ok) {
+              report = { ...parsed.report, dataAvailability: "ok" as const };
+              reportParsedFromAi = true;
+            } else {
+              if (process.env.NODE_ENV !== "production") {
+                console.warn(
+                  "[analytics-ask-sse] AI report parse failed; using rule-based fallback.",
+                  `accumulated length=${accumulated.length}`,
+                );
+              }
+              report = buildRuleBasedAskReport(analytics, dimension, {
+                dataAvailability: "ok",
+              });
+            }
           } else {
             // No API key — fall back to rule-based report
             report = buildRuleBasedAskReport(analytics, dimension, {
@@ -350,7 +389,10 @@ export async function POST(req: Request) {
         emit(controller, encoder, { type: "report_complete", data: { report } });
 
         // ── Phase 7: Credits deduction + done ─────────────────────────────
-        const allTokenUsage = mergeTokenUsage(parseTokenUsage, reportTokenUsage);
+        const allTokenUsage = mergeTokenUsage(
+          parseTokenUsage,
+          reportParsedFromAi ? reportTokenUsage : null,
+        );
         const balanceCredits = await deductAnalyticsCredits({
           appUserId: userId,
           tokensUsed: allTokenUsage?.totalTokens ?? null,
@@ -415,8 +457,11 @@ function intentToAnalyticsQuery(intent: ParsedAnalyticsAskIntent): AdminBusiness
     valueTier: intent.valueTier ?? "ALL",
   };
 
-  if (intent.dateMode === "preset") query.period = intent.period ?? "last30days";
-  else if (intent.period) query.period = intent.period;
+  if (intent.dateMode === "preset" && !intent.rollingMonths && !intent.rollingDays) {
+    query.period = intent.period ?? "last30days";
+  } else if (intent.period) {
+    query.period = intent.period;
+  }
   if (intent.month) query.month = intent.month;
   if (intent.year) query.year = intent.year;
   if (intent.compareAMonth) query.compareAMonth = intent.compareAMonth;
@@ -426,6 +471,8 @@ function intentToAnalyticsQuery(intent: ParsedAnalyticsAskIntent): AdminBusiness
   if (intent.customerType) query.customerType = intent.customerType;
   if (intent.productCategory) query.productCategory = intent.productCategory;
   if (intent.area) query.area = intent.area;
+  if (intent.rollingMonths) query.rollingMonths = intent.rollingMonths;
+  if (intent.rollingDays) query.rollingDays = intent.rollingDays;
 
   return query;
 }

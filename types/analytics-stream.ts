@@ -15,6 +15,7 @@ import type { DataAvailability } from "@/lib/analytics/ask-guardrails";
 import type { TokenUsage } from "@/lib/analytics/token-estimate";
 import type { AnalyticsAskChart, AnalyticsAskReport } from "@/types/admin-business-analytics-ask";
 import type { DataConfidence } from "@/lib/analytics/data-honesty";
+import type { AskKpiCardSpec } from "@/lib/analytics/ask-kpis";
 
 export interface KpisPayload {
   period: { start: string; end: string; label: string };
@@ -29,6 +30,7 @@ export interface KpisPayload {
     avgTransaction: number;
     fieldSalesCount: number;
   };
+  kpiCards: AskKpiCardSpec[];
   charts: AnalyticsAskChart[];
   appliedFilters: AnalyticsAppliedFilter[];
   scopeLabel: string | null;
@@ -47,6 +49,7 @@ export type AnalyticsStreamEvent =
         interpretedQuery: string;
         parseSource: ParseSource;
         parseConfidence: string;
+        geminiConfigured: boolean;
       };
     }
   | { type: "kpis"; data: KpisPayload }

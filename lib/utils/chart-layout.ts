@@ -34,5 +34,34 @@ export function formatChartDateTick(value: string): string {
   }).format(date);
 }
 
+export interface TrendChartPoint {
+  date: string;
+  visits: number;
+  revenue: number;
+}
+
+/** Buckets dense daily series so long ranges stay readable (no dot clutter). */
+export function downsampleTrendForChart(
+  data: TrendChartPoint[],
+  maxPoints = 60,
+): TrendChartPoint[] {
+  if (data.length <= maxPoints) return data;
+
+  const bucketSize = Math.ceil(data.length / maxPoints);
+  const buckets: TrendChartPoint[] = [];
+
+  for (let i = 0; i < data.length; i += bucketSize) {
+    const slice = data.slice(i, i + bucketSize);
+    const anchor = slice[slice.length - 1]!;
+    buckets.push({
+      date: anchor.date,
+      visits: slice.reduce((sum, point) => sum + point.visits, 0),
+      revenue: slice.reduce((sum, point) => sum + point.revenue, 0),
+    });
+  }
+
+  return buckets;
+}
+
 export const TABS_LIST_SCROLL_CLASS =
   "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";

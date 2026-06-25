@@ -37,6 +37,8 @@ const adminBusinessAnalyticsBaseSchema = z.object({
   compareAYear: yearSchema.optional(),
   compareBMonth: monthSchema.optional(),
   compareBYear: yearSchema.optional(),
+  rollingMonths: z.coerce.number().int().min(1).max(24).optional(),
+  rollingDays: z.coerce.number().int().min(1).max(366).optional(),
   activeFilters: activeFiltersSchema,
   storeId: z.string().min(1).optional(),
   city: z.string().min(1).max(100).optional(),

@@ -1,4 +1,8 @@
 import { COHORT_PIVOT_LABELS, type CohortPivotDimension } from "@/lib/analytics/cohort-pivot";
+import {
+  pickAskChartHintsFromPrompt,
+  buildAskWidgetContext,
+} from "@/lib/analytics/ask-widget-catalog";
 import type { ParsedAnalyticsAskIntent } from "@/lib/validations/admin-business-analytics-ask.schema";
 import type {
   AnalyticsAskChart,
@@ -83,6 +87,19 @@ function buildRadarPoints(analytics: AdminBusinessAnalytics): AnalyticsAskRadarP
   ];
 }
 
+function mergeIntentChartHints(
+  intent: ParsedAnalyticsAskIntent,
+  prompt: string,
+): ParsedAnalyticsAskIntent {
+  const ctx = buildAskWidgetContext(intent, prompt);
+  const contextHints = pickAskChartHintsFromPrompt(prompt, ctx);
+  const merged = new Set<AnalyticsAskChartType>([
+    ...(intent.chartTypes ?? []),
+    ...contextHints,
+  ]);
+  return { ...intent, chartTypes: Array.from(merged) };
+}
+
 /**
  * Chooses chart types from data shape, with optional hints when the user names a chart.
  */
@@ -103,6 +120,14 @@ export function pickChartTypesFromData(
     if (hasTimeSeries) dataPicks.push("line");
     if (categoryCount >= 2) dataPicks.push(categoryCount <= 6 ? "pie" : "bar");
     else dataPicks.push("bar");
+  } else if (intent.breakdownDimension === "purchaseStatus" || hints.includes("pie")) {
+    if (categoryCount >= 2) dataPicks.push(categoryCount <= 6 ? "pie" : "bar");
+    if (hasTimeSeries) dataPicks.push("line");
+  } else if (intent.breakdownDimension === "sourceChannel") {
+    if (categoryCount >= 2) {
+      dataPicks.push(categoryCount <= 6 ? "pie" : "bar");
+    }
+    if (hasTimeSeries && !dataPicks.includes("line")) dataPicks.push("line");
   } else {
     if (hasTimeSeries) dataPicks.push("line");
     if (categoryCount >= 2) {
@@ -113,7 +138,11 @@ export function pickChartTypesFromData(
     if (dataPicks.length === 0) {
       dataPicks.push(hasTimeSeries ? "line" : "bar");
     }
-    if (dataPicks.length === 1 && analytics.summary.totalVisits > 0 && !hints.includes("radar")) {
+    if (
+      dataPicks.length === 1 &&
+      analytics.summary.totalVisits > 0 &&
+      !hints.includes("radar")
+    ) {
       dataPicks.push("radar");
     }
   }
@@ -138,14 +167,26 @@ function mergeChartTypes(
   return ordered;
 }
 
+function lineChartTitle(intent: ParsedAnalyticsAskIntent, periodLabel: string): string {
+  const text = intent.chartTypes?.includes("line") ? "Trend" : "Revenue trend";
+  if (intent.breakdownDimension === "sourceChannel") {
+    return `Visit source trend · ${periodLabel}`;
+  }
+  return `${text} · ${periodLabel}`;
+}
+
 export function buildAskCharts(
   intent: ParsedAnalyticsAskIntent,
   analytics: AdminBusinessAnalytics,
+  options?: { prompt?: string },
 ): AnalyticsAskChart[] {
-  const dimension = intent.breakdownDimension ?? "customerType";
+  const enrichedIntent = options?.prompt
+    ? mergeIntentChartHints(intent, options.prompt)
+    : intent;
+  const dimension = enrichedIntent.breakdownDimension ?? "customerType";
   const breakdown = getBreakdownRows(analytics, dimension).slice(0, 12);
   const dimLabel = COHORT_PIVOT_LABELS[dimension];
-  const chartTypes = pickChartTypesFromData(analytics, intent);
+  const chartTypes = pickChartTypesFromData(analytics, enrichedIntent);
   const charts: AnalyticsAskChart[] = [];
 
   for (const type of chartTypes) {
@@ -154,8 +195,8 @@ export function buildAskCharts(
         if (!charts.some((c) => c.type === "line") && analytics.trends.length > 0) {
           charts.push({
             type: "line",
-            title: "Revenue trend",
-            description: `Daily revenue for ${analytics.period.label}`,
+            title: lineChartTitle(enrichedIntent, analytics.period.label),
+            description: `Daily visits and revenue for ${analytics.period.label}`,
             trend: analytics.trends,
           });
         }

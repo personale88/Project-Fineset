@@ -1,22 +1,30 @@
 "use client";
 
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from "recharts";
+import { AnalyticsChartShell } from "@/components/admin/analytics/AnalyticsChartShell";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { getChartSeriesColor, CHART_COLORS } from "@/lib/charts/theme";
+import { getChartSeriesColor } from "@/lib/charts/theme";
+import {
+  truncateChartLabel,
+  VERTICAL_BAR_CHART_MARGIN,
+} from "@/lib/utils/chart-layout";
+import { NUMERIC_FONT_FAMILY } from "@/lib/utils/typography";
 import type { BreakdownRow } from "@/types/admin-business-analytics";
 
 interface AnalyticsBreakdownChartProps {
   title: string;
+  description?: string;
   data: BreakdownRow[];
   emptyMessage: string;
 }
 
 export function AnalyticsBreakdownChart({
   title,
+  description,
   data,
   emptyMessage,
 }: AnalyticsBreakdownChartProps) {
@@ -31,31 +39,28 @@ export function AnalyticsBreakdownChart({
   );
 
   return (
-    <div className="rounded-card border border-border bg-surface-card p-4 shadow-card sm:p-6">
-      <h3 className="mb-4 font-display text-lg font-semibold text-text-primary">{title}</h3>
+    <AnalyticsChartShell title={title} description={description}>
       {chartData.length === 0 ? (
         <p className="text-sm text-text-muted">{emptyMessage}</p>
       ) : (
-        <ChartContainer config={config} className="h-64 w-full">
-          <BarChart data={chartData} layout="vertical" margin={{ left: 8, right: 16, top: 4 }}>
-            <CartesianGrid
-              horizontal={false}
-              strokeDasharray="3 3"
-              stroke={CHART_COLORS.grid}
-            />
+        <ChartContainer config={config} className="h-[280px] w-full">
+          <BarChart data={chartData} layout="vertical" margin={VERTICAL_BAR_CHART_MARGIN}>
+            <CartesianGrid horizontal={false} strokeDasharray="3 3" />
             <XAxis
               type="number"
               tickLine={false}
               axisLine={false}
-              tick={{ fill: CHART_COLORS.axis, fontSize: 12 }}
+              fontSize={11}
+              fontFamily={NUMERIC_FONT_FAMILY}
             />
             <YAxis
               type="category"
               dataKey="name"
-              width={100}
+              width={108}
               tickLine={false}
               axisLine={false}
-              tick={{ fill: CHART_COLORS.axis, fontSize: 11 }}
+              fontSize={11}
+              tickFormatter={(value: string) => truncateChartLabel(value, 14)}
             />
             <ChartTooltip content={<ChartTooltipContent />} />
             <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={28}>
@@ -66,6 +71,6 @@ export function AnalyticsBreakdownChart({
           </BarChart>
         </ChartContainer>
       )}
-    </div>
+    </AnalyticsChartShell>
   );
 }

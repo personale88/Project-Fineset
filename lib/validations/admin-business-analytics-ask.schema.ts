@@ -30,6 +30,10 @@ export const analyticsAskIntentSchema = z.object({
   compareAYear: z.number().int().min(2000).max(2100).optional(),
   compareBMonth: z.number().int().min(1).max(12).optional(),
   compareBYear: z.number().int().min(2000).max(2100).optional(),
+  /** Rolling calendar-month window, e.g. "last 10 months". */
+  rollingMonths: z.number().int().min(1).max(24).optional(),
+  /** Rolling day window, e.g. "last 45 days". */
+  rollingDays: z.number().int().min(1).max(366).optional(),
   /** Optional hints when the user names a chart type; final charts are chosen from data. */
   chartTypes: z.array(analyticsAskChartTypeSchema).max(5).default([]),
   breakdownDimension: z.enum(COHORT_PIVOT_DIMENSIONS).optional(),

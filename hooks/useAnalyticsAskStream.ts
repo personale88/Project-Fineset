@@ -31,6 +31,7 @@ export interface AnalyticsAskStreamState {
   intent: string | null;
   parseSource: string | null;
   parseConfidence: string | null;
+  geminiConfigured: boolean;
   kpis: KpisPayload | null;
   reportText: string;
   report: AnalyticsAskReport | null;
@@ -55,6 +56,7 @@ const INITIAL_STATE: AnalyticsAskStreamState = {
   intent: null,
   parseSource: null,
   parseConfidence: null,
+  geminiConfigured: false,
   kpis: null,
   reportText: "",
   report: null,
@@ -156,6 +158,7 @@ export function useAnalyticsAskStream(): UseAnalyticsAskStreamReturn {
             intent: event.data.interpretedQuery,
             parseSource: event.data.parseSource,
             parseConfidence: event.data.parseConfidence,
+            geminiConfigured: event.data.geminiConfigured,
           }));
           break;
 

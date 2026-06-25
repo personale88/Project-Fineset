@@ -8,14 +8,10 @@ import { AnalyticsCreditsRechargePane } from "@/components/admin/analytics/Analy
 import { AnalyticsPromptPicker } from "@/components/admin/analytics/AnalyticsPromptPicker";
 import { AnalyticsQuickSuggestions } from "@/components/admin/analytics/AnalyticsQuickSuggestions";
 import { AnalyticsScopeCreditsBar, formatShortPeriodLabel } from "@/components/admin/analytics/AnalyticsScopeCreditsBar";
-import { AnalyticsBreakdownChart } from "@/components/admin/analytics/AnalyticsBreakdownChart";
-import { AnalyticsComparisonTrendChart } from "@/components/admin/analytics/AnalyticsComparisonTrendChart";
 import { AnalyticsParseConfirmation } from "@/components/admin/analytics/AnalyticsParseConfirmation";
-import { AnalyticsPieChart } from "@/components/admin/analytics/AnalyticsPieChart";
-import { AnalyticsRadarChart } from "@/components/admin/analytics/AnalyticsRadarChart";
+import { AskChartRenderer } from "@/components/admin/analytics/AskChartRenderer";
+import { AskKpiGrid } from "@/components/admin/analytics/AskKpiGrid";
 import { AnalyticsTokenEstimate } from "@/components/admin/analytics/AnalyticsTokenEstimate";
-import { KPICard } from "@/components/analytics/KPICard";
-import { SalesLineChart } from "@/components/charts/lazy";
 import { QueryLoadState } from "@/components/shared/QueryLoadState";
 import {
   Sheet,
@@ -33,8 +29,8 @@ import {
   useAnalyticsCredits,
 } from "@/hooks/useAnalyticsCredits";
 import { buildAnalyticsAskExamples } from "@/lib/analytics/ask-example-prompts";
+import { DEFAULT_ASK_KPI_METRICS } from "@/lib/analytics/ask-widget-catalog";
 import { cn } from "@/lib/utils/cn";
-import { formatCurrency } from "@/lib/utils/formatters";
 import type { Content } from "@/content/en";
 
 type AskCopy = Content["admin"]["analytics"]["ask"];
@@ -91,6 +87,8 @@ export function AnalyticsAskPanel({
     statusMessage,
     intent,
     parseSource,
+    parseConfidence,
+    geminiConfigured: streamGeminiConfigured,
     kpis: streamKpis,
     reportText,
     report,
@@ -111,8 +109,8 @@ export function AnalyticsAskPanel({
         status: "confirmation_required" as const,
         interpretedQuery: intent ?? "",
         parseSource: (parseSource ?? "rules") as import("@/lib/analytics/ask-confidence").ParseSource,
-        parseConfidence: "low" as import("@/lib/analytics/ask-confidence").ParseConfidence,
-        geminiConfigured: false,
+        parseConfidence: (parseConfidence ?? "low") as import("@/lib/analytics/ask-confidence").ParseConfidence,
+        geminiConfigured: streamGeminiConfigured,
         tokenUsage: null,
         message: streamError?.message ?? "",
       }
@@ -125,9 +123,9 @@ export function AnalyticsAskPanel({
         scopeLabel: streamKpis.scopeLabel,
         appliedFilters: streamKpis.appliedFilters,
         parseSource: (parseSource ?? "rules") as import("@/lib/analytics/ask-confidence").ParseSource,
-        parseConfidence: (parseSource ?? "rules") as import("@/lib/analytics/ask-confidence").ParseConfidence,
+        parseConfidence: (parseConfidence ?? "high") as import("@/lib/analytics/ask-confidence").ParseConfidence,
         aiPowered: parseSource === "gemini",
-        geminiConfigured: parseSource === "gemini",
+        geminiConfigured: streamGeminiConfigured,
         tokenUsage,
         balanceCredits: streamBalance ?? undefined,
         dataAvailability: streamKpis.dataAvailability,
@@ -136,6 +134,7 @@ export function AnalyticsAskPanel({
         summary: streamKpis.summary,
         comparisonSummary: streamKpis.comparisonSummary,
         deltas: streamKpis.deltas,
+        kpiCards: streamKpis.kpiCards,
         charts: streamKpis.charts,
         report: report ?? { summary: reportText, highlights: [], recommendations: [] },
       }
@@ -518,88 +517,21 @@ export function AnalyticsAskPanel({
                         />
                       ) : null}
 
-                      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 [&>*]:min-w-0">
-                        <KPICard label={kpis.visits} value={result.summary.totalVisits} />
-                        <KPICard
-                          label={kpis.revenue}
-                          value={formatCurrency(result.summary.totalRevenue)}
-                        />
-                        <KPICard
-                          label={kpis.conversion}
-                          value={result.summary.conversionRate}
-                          unit="%"
-                        />
-                        <KPICard
-                          label={kpis.avgTransaction}
-                          value={formatCurrency(result.summary.avgTransaction)}
-                        />
-                        <KPICard label={kpis.fieldSales} value={result.summary.fieldSalesCount} />
-                        <KPICard
-                          label={kpis.uniqueCustomers}
-                          value={result.summary.uniqueCustomers}
-                        />
-                      </div>
+                      <AskKpiGrid
+                        cards={
+                          result.kpiCards?.length
+                            ? result.kpiCards
+                            : DEFAULT_ASK_KPI_METRICS.map((metric) => ({ metric }))
+                        }
+                        summary={result.summary}
+                        labels={kpis}
+                      />
 
-                      <div className="grid gap-4 sm:gap-6 xl:grid-cols-2">
-                        {result.charts.map((chart, index) => {
-                          const key = `${chart.type}-${index}`;
-                          switch (chart.type) {
-                            case "line":
-                              return (
-                                <SalesLineChart
-                                  key={key}
-                                  title={chart.title}
-                                  data={chart.trend ?? []}
-                                  revenueLabel={kpis.revenue}
-                                />
-                              );
-                            case "bar":
-                              return (
-                                <AnalyticsBreakdownChart
-                                  key={key}
-                                  title={chart.title}
-                                  data={chart.breakdown ?? []}
-                                  emptyMessage={emptyBreakdown}
-                                />
-                              );
-                            case "pie":
-                              return (
-                                <AnalyticsPieChart
-                                  key={key}
-                                  title={chart.title}
-                                  description={chart.description}
-                                  data={chart.breakdown ?? []}
-                                  emptyMessage={emptyBreakdown}
-                                />
-                              );
-                            case "comparison":
-                              return chart.comparison &&
-                                chart.periodALabel &&
-                                chart.periodBLabel ? (
-                                <AnalyticsComparisonTrendChart
-                                  key={key}
-                                  title={chart.title}
-                                  periodALabel={chart.periodALabel}
-                                  periodBLabel={chart.periodBLabel}
-                                  revenueLabel={kpis.revenue}
-                                  data={chart.comparison}
-                                />
-                              ) : null;
-                            case "radar":
-                              return (
-                                <AnalyticsRadarChart
-                                  key={key}
-                                  title={chart.title}
-                                  description={chart.description}
-                                  data={chart.radar ?? []}
-                                  emptyMessage={emptyBreakdown}
-                                />
-                              );
-                            default:
-                              return null;
-                          }
-                        })}
-                      </div>
+                      <AskChartRenderer
+                        charts={result.charts}
+                        revenueLabel={kpis.revenue}
+                        emptyBreakdown={emptyBreakdown}
+                      />
 
                       {(phase === "thinking" || phase === "done" || reportText) ? (
                         <div className="rounded-card border border-border bg-surface-card p-4 shadow-card sm:p-6">
@@ -706,7 +638,7 @@ export function AnalyticsAskPanel({
                   <AnalyticsTokenEstimate
                     copy={copy.tokenUsage}
                     prompt={prompt}
-                    geminiConfigured={parseSource === "gemini" || confirmation?.geminiConfigured === true}
+                    geminiConfigured={streamGeminiConfigured}
                     usage={tokenUsage ?? confirmation?.tokenUsage}
                   />
                 }

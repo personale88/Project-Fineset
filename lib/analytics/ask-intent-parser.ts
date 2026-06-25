@@ -1,8 +1,14 @@
 import type { CohortPivotDimension } from "@/lib/analytics/cohort-pivot";
-import { formatPresetPeriodLabel } from "@/lib/utils/analytics-date-range";
+import {
+  formatPresetPeriodLabel,
+  formatMonthYearLabel,
+  getRollingDaysRange,
+  getRollingMonthsRange,
+  clampRollingDays,
+  clampRollingMonths,
+} from "@/lib/utils/analytics-date-range";
 import { getPeriodRange } from "@/lib/utils/analytics";
 import type { ParsedAnalyticsAskIntent } from "@/lib/validations/admin-business-analytics-ask.schema";
-import { formatMonthYearLabel } from "@/lib/utils/analytics-date-range";
 import type { AnalyticsAskChartType } from "@/types/admin-business-analytics-ask";
 
 const MONTH_MAP: Record<string, number> = {
@@ -81,6 +87,26 @@ function extractChartHints(text: string): AnalyticsAskChartType[] {
 }
 
 function extractDimension(text: string): CohortPivotDimension | undefined {
+  const explicitBy: Array<{ dimension: CohortPivotDimension; pattern: RegExp }> = [
+    { dimension: "intentTier", pattern: /\bby\s+intent(?:\s+tier)?\b/ },
+    { dimension: "customerType", pattern: /\bby\s+customer\s+type\b/ },
+    { dimension: "valueTier", pattern: /\bby\s+value\s+tier\b/ },
+    { dimension: "purchaseStatus", pattern: /\bby\s+purchase\s+status\b/ },
+    { dimension: "sourceChannel", pattern: /\bby\s+(?:visit\s+)?source(?:\s+channel)?\b|\bby\s+channel\b/ },
+    { dimension: "productCategory", pattern: /\bby\s+product(?:\s+category)?\b/ },
+    { dimension: "area", pattern: /\bby\s+(?:area|location|city)\b/ },
+    { dimension: "enrollmentOutcome", pattern: /\bby\s+enrollment(?:\s+outcome)?\b/ },
+    { dimension: "schemeProduct", pattern: /\bby\s+scheme(?:\s+product)?\b/ },
+    { dimension: "gender", pattern: /\bby\s+gender\b/ },
+    { dimension: "ageGroup", pattern: /\bby\s+age(?:\s+group)?\b/ },
+    { dimension: "visitType", pattern: /\bby\s+visit\s+type\b/ },
+    { dimension: "budgetRange", pattern: /\bby\s+(?:budget|price)\s+(?:range|band)\b/ },
+  ];
+
+  for (const { dimension, pattern } of explicitBy) {
+    if (pattern.test(text)) return dimension;
+  }
+
   for (const { dimension, patterns } of DIMENSION_KEYWORDS) {
     if (patterns.some((p) => p.test(text))) return dimension;
   }
@@ -195,6 +221,50 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
     };
   }
 
+  if (
+    isCompare &&
+    monthMatches.length === 1 &&
+    /\blast\s+year\b|\bprior\s+year\b|\bprevious\s+year\b/.test(text)
+  ) {
+    const m = monthMatches[0];
+    return {
+      dateMode: "compare",
+      compareAMonth: m.month,
+      compareAYear: m.year,
+      compareBMonth: m.month,
+      compareBYear: m.year - 1,
+      chartTypes: chartTypes.includes("comparison")
+        ? chartTypes
+        : ["comparison", ...chartTypes],
+      breakdownDimension: breakdownDimension ?? "customerType",
+      activeFilters: filterPart.activeFilters ?? [],
+      ...filterPart,
+    };
+  }
+
+  if (
+    isCompare &&
+    /\bthis\s+month\b/.test(text) &&
+    /\blast\s+year\b|\bprior\s+year\b|\bprevious\s+year\b/.test(text)
+  ) {
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    return {
+      dateMode: "compare",
+      compareAMonth: month,
+      compareAYear: year,
+      compareBMonth: month,
+      compareBYear: year - 1,
+      chartTypes: chartTypes.includes("comparison")
+        ? chartTypes
+        : ["comparison", ...chartTypes],
+      breakdownDimension: breakdownDimension ?? "customerType",
+      activeFilters: filterPart.activeFilters ?? [],
+      ...filterPart,
+    };
+  }
+
   if (monthMatches.length === 1) {
     const m = monthMatches[0];
     return {
@@ -263,6 +333,30 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
     };
   }
 
+  const rollingMonthsMatch = text.match(/\blast\s+(\d{1,2})\s+months?\b/);
+  if (rollingMonthsMatch) {
+    return {
+      dateMode: "preset",
+      rollingMonths: clampRollingMonths(Number(rollingMonthsMatch[1])),
+      chartTypes,
+      breakdownDimension: breakdownDimension ?? "customerType",
+      activeFilters: filterPart.activeFilters ?? [],
+      ...filterPart,
+    };
+  }
+
+  const rollingDaysMatch = text.match(/\blast\s+(\d{1,3})\s+days?\b/);
+  if (rollingDaysMatch) {
+    return {
+      dateMode: "preset",
+      rollingDays: clampRollingDays(Number(rollingDaysMatch[1])),
+      chartTypes,
+      breakdownDimension: breakdownDimension ?? "customerType",
+      activeFilters: filterPart.activeFilters ?? [],
+      ...filterPart,
+    };
+  }
+
   if (/\byesterday\b/.test(text)) {
     return {
       dateMode: "preset",
@@ -323,6 +417,10 @@ export function describeParsedIntent(intent: ParsedAnalyticsAskIntent): string {
     );
   } else if (intent.dateMode === "month" && intent.month && intent.year) {
     parts.push(formatMonthYearLabel(intent.month, intent.year));
+  } else if (intent.rollingMonths) {
+    parts.push(getRollingMonthsRange(intent.rollingMonths).label);
+  } else if (intent.rollingDays) {
+    parts.push(getRollingDaysRange(intent.rollingDays).label);
   } else if (intent.period) {
     const { start, end } = getPeriodRange(intent.period);
     parts.push(formatPresetPeriodLabel(intent.period, start, end));

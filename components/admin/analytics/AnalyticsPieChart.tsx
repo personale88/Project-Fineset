@@ -1,12 +1,14 @@
 "use client";
 
 import { Cell, Pie, PieChart } from "recharts";
+import { AnalyticsChartShell } from "@/components/admin/analytics/AnalyticsChartShell";
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart";
-import { ChartCard } from "@/components/shared/ChartCard";
 import { getChartSeriesColor } from "@/lib/charts/theme";
 import type { BreakdownRow } from "@/types/admin-business-analytics";
 
@@ -25,10 +27,9 @@ export function AnalyticsPieChart({
 }: AnalyticsPieChartProps) {
   if (data.length === 0) {
     return (
-      <ChartCard title={title}>
-        {description && <p className="mb-2 text-xs text-text-muted">{description}</p>}
+      <AnalyticsChartShell title={title} description={description}>
         <p className="text-sm text-text-muted">{emptyMessage}</p>
-      </ChartCard>
+      </AnalyticsChartShell>
     );
   }
 
@@ -43,18 +44,17 @@ export function AnalyticsPieChart({
   );
 
   return (
-    <ChartCard title={title}>
-      {description && <p className="mb-3 text-xs text-text-muted">{description}</p>}
-      <ChartContainer config={config} className="mx-auto h-64 w-full">
+    <AnalyticsChartShell title={title} description={description}>
+      <ChartContainer config={config} className="mx-auto h-[280px] w-full">
         <PieChart>
           <ChartTooltip content={<ChartTooltipContent />} />
           <Pie
             data={pieData}
             dataKey="value"
             nameKey="name"
-            innerRadius={52}
-            outerRadius={84}
-            paddingAngle={2}
+            innerRadius={58}
+            outerRadius={88}
+            paddingAngle={3}
             stroke="var(--surface-card)"
             strokeWidth={2}
           >
@@ -62,8 +62,9 @@ export function AnalyticsPieChart({
               <Cell key={entry.name} fill={entry.fill} />
             ))}
           </Pie>
+          <ChartLegend content={<ChartLegendContent />} />
         </PieChart>
       </ChartContainer>
-    </ChartCard>
+    </AnalyticsChartShell>
   );
 }

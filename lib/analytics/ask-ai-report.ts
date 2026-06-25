@@ -43,6 +43,9 @@ Return ONLY a valid JSON object with this exact shape:
 
 Do not include any text outside the JSON object.`;
 
+export const AI_REPORT_PARSE_FALLBACK_SUMMARY =
+  "Unable to generate AI analysis. Please try again.";
+
 // ---------------------------------------------------------------------------
 // Public streaming generator
 // ---------------------------------------------------------------------------
@@ -72,8 +75,9 @@ ${userQuestion.trim()}`;
 
   const generator = geminiStreamContent(apiKey, userPrompt, {
     systemInstruction: SYSTEM_PROMPT,
-    maxOutputTokens: 600,
-    temperature: 0.4,
+    maxOutputTokens: 1024,
+    temperature: 0.3,
+    responseMimeType: "application/json",
   });
 
   while (true) {
@@ -92,36 +96,78 @@ ${userQuestion.trim()}`;
 // Report parser — converts accumulated JSON string to AnalyticsAskReport
 // ---------------------------------------------------------------------------
 
-export function parseAiReportJson(rawText: string): AnalyticsAskReport {
-  // Extract JSON object from accumulated stream (may have surrounding whitespace)
-  const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return fallbackReport();
+export interface ParseAiReportResult {
+  report: AnalyticsAskReport;
+  ok: boolean;
+}
+
+function stripMarkdownJsonFence(rawText: string): string {
+  const trimmed = rawText.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced ? fenced[1].trim() : trimmed;
+}
+
+function extractJsonObject(rawText: string): string | null {
+  const cleaned = stripMarkdownJsonFence(rawText);
+  if (!cleaned) return null;
+  if (cleaned.startsWith("{")) return cleaned;
+
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  return jsonMatch?.[0] ?? null;
+}
+
+function normalizeParsedReport(parsed: {
+  summary?: unknown;
+  highlights?: unknown;
+  recommendations?: unknown;
+}): AnalyticsAskReport | null {
+  const summary = typeof parsed.summary === "string" ? parsed.summary.trim() : "";
+  if (!summary) return null;
+
+  return {
+    summary,
+    highlights: Array.isArray(parsed.highlights)
+      ? parsed.highlights.filter((h): h is string => typeof h === "string" && h.trim().length > 0)
+      : [],
+    recommendations: Array.isArray(parsed.recommendations)
+      ? parsed.recommendations.filter((r): r is string => typeof r === "string" && r.trim().length > 0)
+      : [],
+    dataAvailability: "ok",
+  };
+}
+
+export function parseAiReportJson(rawText: string): ParseAiReportResult {
+  const jsonText = extractJsonObject(rawText);
+  if (!jsonText) {
+    return { report: fallbackReport(), ok: false };
+  }
 
   try {
-    const parsed = JSON.parse(jsonMatch[0]) as {
-      summary?: string;
-      highlights?: unknown[];
-      recommendations?: unknown[];
+    const parsed = JSON.parse(jsonText) as {
+      summary?: unknown;
+      highlights?: unknown;
+      recommendations?: unknown;
     };
-
-    return {
-      summary: typeof parsed.summary === "string" ? parsed.summary.trim() : "",
-      highlights: Array.isArray(parsed.highlights)
-        ? parsed.highlights.filter((h): h is string => typeof h === "string")
-        : [],
-      recommendations: Array.isArray(parsed.recommendations)
-        ? parsed.recommendations.filter((r): r is string => typeof r === "string")
-        : [],
-      dataAvailability: "ok",
-    };
-  } catch {
-    return fallbackReport();
+    const report = normalizeParsedReport(parsed);
+    if (!report) {
+      return { report: fallbackReport(), ok: false };
+    }
+    return { report, ok: true };
+  } catch (error) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(
+        "[analytics-ask-report] JSON parse failed:",
+        error instanceof Error ? error.message : error,
+        jsonText.slice(0, 200),
+      );
+    }
+    return { report: fallbackReport(), ok: false };
   }
 }
 
 function fallbackReport(): AnalyticsAskReport {
   return {
-    summary: "Unable to generate AI analysis. Please try again.",
+    summary: AI_REPORT_PARSE_FALLBACK_SUMMARY,
     highlights: [],
     recommendations: [],
     dataAvailability: "ok",
