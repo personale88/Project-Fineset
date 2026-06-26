@@ -24,10 +24,10 @@ export function useUpdateAutomationConfig() {
   });
 }
 
-export function useAutomationRuns(page = 1) {
+export function useAutomationRuns(page = 1, pageSize = 20) {
   return useQuery({
-    queryKey: ["admin", "automation", "runs", page],
-    queryFn: () => fetchAutomationRuns(page),
+    queryKey: ["admin", "automation", "runs", page, pageSize],
+    queryFn: () => fetchAutomationRuns(page, pageSize),
   });
 }
 

@@ -80,6 +80,7 @@ export type AutomationRunSummary = {
   invoicesSkipped: number;
   paymentRemindersSent: number;
   whatsAppQueued: number;
+  whatsAppSent: number;
   followUpsScheduled: number;
   renewalRemindersSent: number;
   expiryWarningsSent: number;
@@ -95,6 +96,20 @@ export type AutomationRunDetail = {
   channel?: string;
   status: "success" | "skipped" | "failed" | "queued";
   message?: string;
+};
+
+export type AutomationConfigApiResponse = PlatformAutomationConfig & {
+  updatedAt?: string;
+  timezoneDrift?: boolean;
+  platformTimezone?: string;
+};
+
+export type AutomationRunResult = {
+  runId: string;
+  status: "RUNNING" | "SUCCESS" | "PARTIAL" | "FAILED";
+  summary: AutomationRunSummary;
+  errors: string[];
+  dryRunForced?: boolean;
 };
 
 export type AutomationRunLogDto = {

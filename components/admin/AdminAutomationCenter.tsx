@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Play, Zap } from "lucide-react";
 import {
   AutomationResultsHeader,
@@ -24,8 +25,12 @@ import {
 import { useAdminPortal } from "@/components/admin/AdminPortalContext";
 import { toast } from "@/hooks/useToast";
 import { DEFAULT_PLATFORM_AUTOMATION_CONFIG } from "@/lib/automation/default-config";
-import type { PlatformAutomationConfig } from "@/lib/automation/types";
+import type {
+  AutomationConfigApiResponse,
+  PlatformAutomationConfig,
+} from "@/lib/automation/types";
 import type { Content } from "@/content/en";
+import { ApiError } from "@/types";
 
 type AdminContent = Content["admin"];
 
@@ -34,6 +39,25 @@ interface AdminAutomationCenterProps {
 }
 
 const AUTOMATION_FIELD_HINT_CLASS = "min-h-10 text-xs leading-5 text-text-muted";
+
+const AUTOMATION_SCOPES: AutomationScope[] = [
+  "overview",
+  "billingCycle",
+  "invoices",
+  "paymentReminders",
+  "followUps",
+  "expiryRenewal",
+  "monthlyReports",
+  "whatsApp",
+  "history",
+];
+
+function parseAutomationScope(value: string | null): AutomationScope {
+  if (value && AUTOMATION_SCOPES.includes(value as AutomationScope)) {
+    return value as AutomationScope;
+  }
+  return "overview";
+}
 
 function AutomationFieldHint({ hint }: { hint?: string }) {
   return <p className={AUTOMATION_FIELD_HINT_CLASS}>{hint ?? "\u00A0"}</p>;
@@ -102,7 +126,13 @@ function NumberField({
         max={max}
         value={value}
         disabled={disabled}
-        onChange={(event) => onChange(Number.parseInt(event.target.value, 10) || min)}
+        onChange={(event) => {
+          const raw = event.target.value;
+          if (raw === "") return;
+          const parsed = Number.parseInt(raw, 10);
+          if (!Number.isFinite(parsed)) return;
+          onChange(Math.min(max, Math.max(min, parsed)));
+        }}
       />
     </div>
   );
@@ -115,6 +145,7 @@ function TextField({
   value,
   onChange,
   disabled,
+  format,
 }: {
   id: string;
   label: string;
@@ -122,7 +153,16 @@ function TextField({
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  format?: "time" | "countryCode";
 }) {
+  const [error, setError] = useState<string | null>(null);
+
+  function validate(next: string): boolean {
+    if (format === "time") return /^\d{2}:\d{2}$/.test(next);
+    if (format === "countryCode") return /^\d{1,4}$/.test(next);
+    return true;
+  }
+
   return (
     <div className="flex h-full flex-col gap-2">
       <Label htmlFor={id}>{label}</Label>
@@ -131,8 +171,22 @@ function TextField({
         id={id}
         value={value}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
+        aria-invalid={error ? true : undefined}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setError(null);
+        }}
+        onBlur={(event) => {
+          if (!validate(event.target.value)) {
+            setError(
+              format === "time"
+                ? "Use HH:MM format (e.g. 09:00)"
+                : "Country code must be 1–4 digits",
+            );
+          }
+        }}
       />
+      {error ? <p className="text-xs text-status-error">{error}</p> : null}
     </div>
   );
 }
@@ -211,55 +265,181 @@ function statusBadgeVariant(
       return "secondary";
     case "FAILED":
       return "error";
+    case "RUNNING":
+      return "secondary";
     default:
       return "outline";
   }
+}
+
+function toDraftConfig(config: AutomationConfigApiResponse): PlatformAutomationConfig {
+  const {
+    updatedAt: _updatedAt,
+    timezoneDrift: _timezoneDrift,
+    platformTimezone: _platformTimezone,
+    ...draft
+  } = config;
+  return draft;
+}
+
+function formatRunSummary(
+  template: string,
+  summary: {
+    invoicesSent: number;
+    paymentRemindersSent: number;
+    whatsAppQueued: number;
+    whatsAppSent: number;
+    renewalRemindersSent: number;
+    expiryWarningsSent: number;
+    monthlyReportsSent: number;
+    followUpsScheduled: number;
+  },
+): string {
+  return template
+    .replace("{invoices}", String(summary.invoicesSent))
+    .replace("{reminders}", String(summary.paymentRemindersSent))
+    .replace("{whatsapp}", String(summary.whatsAppSent || summary.whatsAppQueued))
+    .replace("{renewals}", String(summary.renewalRemindersSent))
+    .replace("{expiry}", String(summary.expiryWarningsSent))
+    .replace("{reports}", String(summary.monthlyReportsSent))
+    .replace("{followUps}", String(summary.followUpsScheduled));
+}
+
+function formatSaveError(error: unknown, copy: Content["admin"]["automation"]): string {
+  if (error instanceof ApiError) {
+    if (error.status === 409) return copy.saveConflict;
+    const details = error.body.details as
+      | { fieldErrors?: Record<string, string[]>; formErrors?: string[] }
+      | undefined;
+    const fieldMessages = details?.fieldErrors
+      ? Object.values(details.fieldErrors).flat()
+      : [];
+    const formMessages = details?.formErrors ?? [];
+    const combined = [...formMessages, ...fieldMessages].filter(Boolean);
+    if (combined.length > 0) return combined.join(" · ");
+    if (error.body.message) return error.body.message;
+  }
+  return copy.saveFailed;
 }
 
 export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
   const copy = admin.automation;
   const { role } = useAdminPortal();
   const canEdit = role === "MASTER_ADMIN";
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const scope = parseAutomationScope(searchParams.get("scope"));
 
-  const [scope, setScope] = useState<AutomationScope>("overview");
+  const setScope = useCallback(
+    (next: AutomationScope) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (next === "overview") {
+        params.delete("scope");
+      } else {
+        params.set("scope", next);
+      }
+      const qs = params.toString();
+      router.replace(qs ? `?${qs}` : "?", { scroll: false });
+    },
+    [router, searchParams],
+  );
+
   const [draft, setDraft] = useState<PlatformAutomationConfig>(
     DEFAULT_PLATFORM_AUTOMATION_CONFIG,
   );
+  const [hydratedFromServer, setHydratedFromServer] = useState(false);
+  const [configUpdatedAt, setConfigUpdatedAt] = useState<string | undefined>();
+  const [runsPageSize, setRunsPageSize] = useState(20);
 
   const { data, isLoading, isError, refetch } = useAutomationConfig();
   const updateMutation = useUpdateAutomationConfig();
   const runMutation = useRunBillingAutomation();
-  const { data: runsData, isLoading: runsLoading } = useAutomationRuns();
+  const {
+    data: runsData,
+    isLoading: runsLoading,
+    isError: runsError,
+    refetch: refetchRuns,
+  } = useAutomationRuns(1, runsPageSize);
+
+  const serverSnapshot = useMemo(
+    () => (data ? toDraftConfig(data) : null),
+    [data],
+  );
+  const isDraftDirty =
+    hydratedFromServer &&
+    serverSnapshot !== null &&
+    JSON.stringify(draft) !== JSON.stringify(serverSnapshot);
 
   const [prevConfig, setPrevConfig] = useState(data);
   if (data !== prevConfig) {
     setPrevConfig(data);
-    if (data) setDraft(data);
+    if (data) {
+      setConfigUpdatedAt(data.updatedAt);
+      if (!hydratedFromServer || !isDraftDirty) {
+        setDraft(toDraftConfig(data));
+        setHydratedFromServer(true);
+      }
+    }
   }
+
+  const timezoneDrift = data?.timezoneDrift === true;
+  const platformTimezone = data?.platformTimezone;
+  const hasMoreRuns =
+    runsData !== undefined && runsData.total > runsData.runs.length;
 
   const { title, description } = scopeMeta(copy, scope);
 
   async function saveSection(section: keyof PlatformAutomationConfig) {
     try {
-      await updateMutation.mutateAsync({ [section]: draft[section] });
+      const saved = await updateMutation.mutateAsync({
+        [section]: draft[section],
+        ...(configUpdatedAt ? { expectedUpdatedAt: configUpdatedAt } : {}),
+      });
+      setDraft(toDraftConfig(saved));
+      setConfigUpdatedAt(saved.updatedAt);
       toast({ title: copy.saveSuccess });
-    } catch {
-      toast({ title: copy.saveFailed });
+    } catch (error) {
+      toast({
+        title: copy.saveFailed,
+        description: formatSaveError(error, copy),
+      });
     }
+  }
+
+  function formatRunToastDescription(
+    result: Awaited<ReturnType<typeof runMutation.mutateAsync>>,
+  ): string {
+    const lines = [formatRunSummary(copy.runSummary, result.summary)];
+    if (result.dryRunForced) {
+      lines.push(copy.dryRunForcedWarning);
+    }
+    if (result.errors.length > 0) {
+      lines.push(result.errors.join(" · "));
+    }
+    return lines.join("\n");
   }
 
   async function handleRun(dryRun: boolean) {
     try {
       const result = await runMutation.mutateAsync({ dryRun });
+      const title =
+        result.status === "FAILED"
+          ? copy.runFailed
+          : result.status === "PARTIAL"
+            ? copy.runPartialSuccess
+            : dryRun
+              ? copy.runDryRunSuccess
+              : copy.runSuccess;
       toast({
-        title: dryRun ? copy.runDryRunSuccess : copy.runSuccess,
-        description: copy.runSummary
-          .replace("{invoices}", String(result.summary.invoicesSent))
-          .replace("{reminders}", String(result.summary.paymentRemindersSent))
-          .replace("{followUps}", String(result.summary.followUpsScheduled)),
+        title,
+        description: formatRunToastDescription(result),
       });
-    } catch {
-      toast({ title: copy.runFailed });
+    } catch (error) {
+      const description =
+        error instanceof ApiError && error.body.message
+          ? error.body.message
+          : undefined;
+      toast({ title: copy.runFailed, description });
     }
   }
 
@@ -281,6 +461,14 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
           retryLabel={copy.retry}
           onRetry={() => void refetch()}
         />
+      ) : null}
+
+      {timezoneDrift && platformTimezone ? (
+        <div className="rounded-lg border border-status-warning/30 bg-status-warning/10 px-4 py-3 text-sm text-text-secondary">
+          {copy.timezoneDriftWarning
+            .replace("{automationTz}", draft.global.timezone)
+            .replace("{platformTz}", platformTimezone)}
+        </div>
       ) : null}
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
@@ -469,6 +657,19 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
                   }))
                 }
               />
+              <ToggleRow
+                id="send-on-renewal-due"
+                label={copy.fields.sendOnRenewalDue}
+                hint={copy.fields.sendOnRenewalDueHint}
+                checked={draft.invoices.sendOnRenewalDue}
+                disabled={!canEdit}
+                onCheckedChange={(sendOnRenewalDue) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    invoices: { ...prev.invoices, sendOnRenewalDue },
+                  }))
+                }
+              />
               <div className="grid items-stretch gap-4 sm:grid-cols-2">
                 <NumberField
                   id="invoice-send-day"
@@ -588,6 +789,19 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
                   }))
                 }
               />
+              <ToggleRow
+                id="stop-after-payment"
+                label={copy.fields.stopAfterPayment}
+                hint={copy.fields.stopAfterPaymentHint}
+                checked={draft.paymentReminders.stopAfterPayment}
+                disabled={!canEdit}
+                onCheckedChange={(stopAfterPayment) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    paymentReminders: { ...prev.paymentReminders, stopAfterPayment },
+                  }))
+                }
+              />
             </ConfigSection>
           ) : null}
 
@@ -672,6 +886,19 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
                   <option value="PHONE">Phone</option>
                 </select>
               </div>
+              <ToggleRow
+                id="escalate-after-max"
+                label={copy.fields.escalateAfterMax}
+                hint={copy.fields.escalateAfterMaxHint}
+                checked={draft.followUps.escalateAfterMax}
+                disabled={!canEdit}
+                onCheckedChange={(escalateAfterMax) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    followUps: { ...prev.followUps, escalateAfterMax },
+                  }))
+                }
+              />
             </ConfigSection>
           ) : null}
 
@@ -727,6 +954,19 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
                   setDraft((prev) => ({
                     ...prev,
                     expiryRenewal: { ...prev.expiryRenewal, expiryWarningDaysBefore },
+                  }))
+                }
+              />
+              <ToggleRow
+                id="auto-extend-on-payment"
+                label={copy.fields.autoExtendOnPayment}
+                hint={copy.fields.autoExtendOnPaymentHint}
+                checked={draft.expiryRenewal.autoExtendOnPayment}
+                disabled={!canEdit}
+                onCheckedChange={(autoExtendOnPayment) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    expiryRenewal: { ...prev.expiryRenewal, autoExtendOnPayment },
                   }))
                 }
               />
@@ -832,6 +1072,19 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
                   }))
                 }
               />
+              <ToggleRow
+                id="include-billing-summary"
+                label={copy.fields.includeBillingSummary}
+                hint={copy.fields.includeBillingSummaryHint}
+                checked={draft.monthlyReports.includeBillingSummary}
+                disabled={!canEdit}
+                onCheckedChange={(includeBillingSummary) =>
+                  setDraft((prev) => ({
+                    ...prev,
+                    monthlyReports: { ...prev.monthlyReports, includeBillingSummary },
+                  }))
+                }
+              />
             </ConfigSection>
           ) : null}
 
@@ -873,6 +1126,7 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
                   label={copy.fields.defaultCountryCode}
                   value={draft.whatsApp.defaultCountryCode}
                   disabled={!canEdit}
+                  format="countryCode"
                   onChange={(defaultCountryCode) =>
                     setDraft((prev) => ({
                       ...prev,
@@ -885,6 +1139,7 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
                   label={copy.fields.businessHoursStart}
                   value={draft.whatsApp.businessHoursStart}
                   disabled={!canEdit}
+                  format="time"
                   onChange={(businessHoursStart) =>
                     setDraft((prev) => ({
                       ...prev,
@@ -897,6 +1152,7 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
                   label={copy.fields.businessHoursEnd}
                   value={draft.whatsApp.businessHoursEnd}
                   disabled={!canEdit}
+                  format="time"
                   onChange={(businessHoursEnd) =>
                     setDraft((prev) => ({
                       ...prev,
@@ -910,36 +1166,72 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
 
           {scope === "history" ? (
             <div className="p-4 sm:p-5">
-              {runsLoading ? (
+              {runsError ? (
+                <AdminLoadErrorBanner
+                  message={copy.history.loadFailed}
+                  retryLabel={copy.retry}
+                  onRetry={() => void refetchRuns()}
+                />
+              ) : runsLoading ? (
                 <p className="text-sm text-text-secondary">{copy.loading}</p>
               ) : !runsData?.runs.length ? (
                 <p className="text-sm text-text-secondary">{copy.history.empty}</p>
               ) : (
-                <ul className="divide-y divide-border rounded-lg border border-border">
-                  {runsData.runs.map((run) => (
-                    <li key={run.id} className="space-y-2 px-4 py-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant={statusBadgeVariant(run.status)}>{run.status}</Badge>
-                          <span className="text-xs text-text-muted">{run.trigger}</span>
+                <>
+                  <ul className="divide-y divide-border rounded-lg border border-border">
+                    {runsData.runs.map((run) => (
+                      <li key={run.id} className="space-y-2 px-4 py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <Badge
+                              variant={statusBadgeVariant(run.status)}
+                              className={
+                                run.status === "RUNNING"
+                                  ? "border-brand-gold/40 bg-brand-gold/10 text-brand-gold"
+                                  : undefined
+                              }
+                            >
+                              {run.status === "RUNNING" ? copy.history.running : run.status}
+                            </Badge>
+                            <span className="text-xs text-text-muted">{run.trigger}</span>
+                          </div>
+                          <span className="text-xs text-text-muted">
+                            {new Date(run.startedAt).toLocaleString(undefined, {
+                              timeZone: draft.global.timezone,
+                            })}
+                          </span>
                         </div>
-                        <span className="text-xs text-text-muted">
-                          {new Date(run.startedAt).toLocaleString("en-IN")}
-                        </span>
-                      </div>
-                      <p className="text-sm text-text-secondary">
-                        {copy.history.summaryLine
-                          .replace("{invoices}", String(run.summary.invoicesSent))
-                          .replace("{reminders}", String(run.summary.paymentRemindersSent))
-                          .replace("{whatsapp}", String(run.summary.whatsAppQueued))
-                          .replace("{followUps}", String(run.summary.followUpsScheduled))}
-                      </p>
-                      {run.errors?.length ? (
-                        <p className="text-xs text-status-error">{run.errors.join(" · ")}</p>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
+                        <p className="text-sm text-text-secondary">
+                          {copy.history.summaryLine
+                            .replace("{invoices}", String(run.summary.invoicesSent))
+                            .replace("{reminders}", String(run.summary.paymentRemindersSent))
+                            .replace("{whatsapp}", String(run.summary.whatsAppQueued))
+                            .replace("{followUps}", String(run.summary.followUpsScheduled))}
+                        </p>
+                        {run.errors?.length ? (
+                          <p className="break-words text-xs text-status-error">
+                            {run.errors.join(" · ")}
+                          </p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                  {hasMoreRuns ? (
+                    <div className="mt-4 flex justify-center">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={runsLoading}
+                        onClick={() => setRunsPageSize((size) => size + 20)}
+                      >
+                        {runsLoading ? (
+                          <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />
+                        ) : null}
+                        {copy.history.loadMore}
+                      </Button>
+                    </div>
+                  ) : null}
+                </>
               )}
             </div>
           ) : null}

@@ -10,6 +10,11 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  serverExternalPackages: [
+    "@sentry/node",
+    "import-in-the-middle",
+    "module-details-from-path",
+  ],
   async headers() {
     return [
       {

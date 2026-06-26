@@ -3,6 +3,8 @@ import {
   createAutomationRunLog,
   completeAutomationRunLog,
   getAutomationConfig,
+  assertNoActiveAutomationRun,
+  AutomationDisabledError,
 } from "@/lib/services/automation-config";
 import { sendBusinessInvoice } from "@/lib/services/send-business-invoice";
 import { createBillingFollowUp, getBillingSummaries } from "@/lib/services/billing-accounts";
@@ -18,9 +20,10 @@ import {
 import { shouldSendInvoiceToday } from "@/lib/automation/invoice-schedule";
 import {
   billingCycleMonthKeyInTimezone,
+  isValidIanaTimezone,
   isWithinBusinessHoursInTimezone,
-  shouldRunAtHourInTimezone,
   shouldRunOnDayInTimezone,
+  shouldRunMonthlyReportWindow,
 } from "@/lib/automation/timezone";
 import { isSmtpConfigured } from "@/lib/email/env";
 import {
@@ -42,14 +45,32 @@ import { getActiveBillingPricingConfig } from "@/lib/platform/billing-pricing";
 import { calculateBusinessMonthlyBilling } from "@/lib/utils/store-billing-pricing";
 import { getAdminPortfolioStoreRows } from "@/lib/services/stores";
 import { buildBillingWhatsAppReminderMessage } from "@/lib/services/send-billing-whatsapp-reminder";
+import { resolveBusinessPhone } from "@/lib/utils/group-stores-by-business";
+import {
+  isWhatsAppApiConfigured,
+  sendWhatsAppTextMessage,
+} from "@/lib/whatsapp/send-message";
+import { escapeHtml } from "@/lib/utils/escape-html";
+import { captureServerError } from "@/lib/monitoring/capture-error";
 import type {
   AutomationRunDetail,
+  AutomationRunResult,
   AutomationRunSummary,
   PlatformAutomationConfig,
 } from "@/lib/automation/types";
 import type { AutomationRunTrigger } from "@prisma/client";
 import type { BusinessPortfolioRow } from "@/types";
 
+function buildMonthlyReportBody(
+  reportLines: string[],
+): string {
+  return reportLines.join("\n");
+}
+
+function buildMonthlyReportHtml(reportLines: string[]): string {
+  const escaped = reportLines.map((line) => escapeHtml(line)).join("\n");
+  return `<pre style="font-family: sans-serif; white-space: pre-wrap;">${escaped}</pre>`;
+}
 function daysBetween(from: Date, to: Date): number {
   const a = startOfCalendarDay(from).getTime();
   const b = startOfCalendarDay(to).getTime();
@@ -114,6 +135,9 @@ async function runInvoiceAutomation(
     return;
   }
 
+  const summaries = await getBillingSummaries();
+  const summaryByKey = new Map(summaries.map((row) => [row.businessKey, row]));
+
   for (const business of businesses) {
     const schedule = shouldSendInvoiceToday({
       config,
@@ -127,23 +151,40 @@ async function runInvoiceAutomation(
       continue;
     }
 
-    const status = getBusinessPaymentStatus(
-      business,
-      reference,
-      undefined,
-      undefined,
-      cycleSettings,
-    );
-    if (config.invoices.skipIfPaid && status === "CURRENT") {
-      summary.invoicesSkipped += 1;
-      addDetail(summary, {
-        action: "invoice",
-        businessKey: business.businessKey,
-        businessName: business.businessName,
-        status: "skipped",
-        message: "Already paid for current cycle",
-      });
-      continue;
+    const billingSummary = summaryByKey.get(business.businessKey);
+    const paymentStatus = billingSummary?.paymentStatus ?? "UNPAID";
+
+    if (config.invoices.skipIfPaid) {
+      if (paymentStatus === "PAID" || paymentStatus === "WAIVED") {
+        summary.invoicesSkipped += 1;
+        addDetail(summary, {
+          action: "invoice",
+          businessKey: business.businessKey,
+          businessName: business.businessName,
+          status: "skipped",
+          message: "Already paid for current cycle",
+        });
+        continue;
+      }
+
+      const status = getBusinessPaymentStatus(
+        business,
+        reference,
+        paymentStatus,
+        undefined,
+        cycleSettings,
+      );
+      if (status === "CURRENT") {
+        summary.invoicesSkipped += 1;
+        addDetail(summary, {
+          action: "invoice",
+          businessKey: business.businessKey,
+          businessName: business.businessName,
+          status: "skipped",
+          message: "Already paid for current cycle",
+        });
+        continue;
+      }
     }
 
     if (!business.businessEmail?.trim()) {
@@ -361,6 +402,14 @@ async function runPaymentReminderAutomation(
           const message =
             error instanceof Error ? error.message : "Reminder email failed";
           errors.push(`${business.businessName}: ${message}`);
+          addDetail(summary, {
+            action: "payment_reminder",
+            businessKey: business.businessKey,
+            businessName: business.businessName,
+            channel: "EMAIL",
+            status: "failed",
+            message,
+          });
         }
       }
     }
@@ -398,6 +447,8 @@ async function runPaymentReminderAutomation(
         cycleSettings,
         pricingConfig,
       );
+      const phone = resolveBusinessPhone(business.stores);
+      const countryCode = config.whatsApp.defaultCountryCode;
       const nextFollowUpAt = new Date(reference);
       nextFollowUpAt.setDate(nextFollowUpAt.getDate() + 1);
 
@@ -409,8 +460,55 @@ async function runPaymentReminderAutomation(
           businessName: business.businessName,
           channel: "WHATSAPP",
           status: "queued",
-          message: "Would queue WhatsApp follow-up",
+          message: isWhatsAppApiConfigured()
+            ? "Would send WhatsApp reminder"
+            : "Would queue WhatsApp follow-up",
         });
+      } else if (!phone) {
+        addDetail(summary, {
+          action: "whatsapp_reminder",
+          businessKey: business.businessKey,
+          businessName: business.businessName,
+          channel: "WHATSAPP",
+          status: "skipped",
+          message: "No phone number on file",
+        });
+      } else if (isWhatsAppApiConfigured()) {
+        try {
+          await sendWhatsAppTextMessage({
+            toPhone: phone,
+            message,
+            defaultCountryCode: countryCode,
+          });
+          await recordAutomationDelivery({
+            businessKey: business.businessKey,
+            actionType: "WHATSAPP_REMINDER",
+            dedupeKey,
+            channel: "WHATSAPP",
+            status: "SUCCESS",
+          });
+          summary.whatsAppSent += 1;
+          addDetail(summary, {
+            action: "whatsapp_reminder",
+            businessKey: business.businessKey,
+            businessName: business.businessName,
+            channel: "WHATSAPP",
+            status: "success",
+            message: "WhatsApp reminder sent",
+          });
+        } catch (error) {
+          const errMessage =
+            error instanceof Error ? error.message : "WhatsApp send failed";
+          errors.push(`${business.businessName}: ${errMessage}`);
+          addDetail(summary, {
+            action: "whatsapp_reminder",
+            businessKey: business.businessKey,
+            businessName: business.businessName,
+            channel: "WHATSAPP",
+            status: "failed",
+            message: errMessage,
+          });
+        }
       } else {
         try {
           await createBillingFollowUp({
@@ -436,12 +534,12 @@ async function runPaymentReminderAutomation(
             businessName: business.businessName,
             channel: "WHATSAPP",
             status: "success",
-            message: "Follow-up scheduled — send from Billing",
+            message: "Follow-up scheduled — WhatsApp API unavailable",
           });
         } catch (error) {
-          const message =
+          const errMessage =
             error instanceof Error ? error.message : "WhatsApp queue failed";
-          errors.push(`${business.businessName}: ${message}`);
+          errors.push(`${business.businessName}: ${errMessage}`);
         }
       }
     }
@@ -699,7 +797,7 @@ async function runMonthlyReports(
   if (!shouldRunOnDayInTimezone(config.monthlyReports.sendDayOfMonth, timezone, reference)) {
     return;
   }
-  if (!shouldRunAtHourInTimezone(config.monthlyReports.sendHourLocal, timezone, reference)) {
+  if (!shouldRunMonthlyReportWindow(config.monthlyReports.sendHourLocal, timezone, reference)) {
     return;
   }
 
@@ -757,16 +855,24 @@ async function runMonthlyReports(
     reportLines.push("");
   }
 
-  const bodyText = reportLines.join("\n");
-  const subject = `${branding.platformName} monthly report — ${reference.toLocaleDateString("en-IN", { month: "short", year: "numeric" })}`;
+  const bodyText = buildMonthlyReportBody(reportLines);
+  const bodyHtml = buildMonthlyReportHtml(reportLines);
+  const subject = `${branding.platformName} monthly report — ${reference.toLocaleDateString("en-IN", { month: "short", year: "numeric", timeZone: timezone })}`;
 
   const recipients = new Set<string>();
-  if (
+  const needsAdminRecipient =
     config.monthlyReports.recipients === "admin_only" ||
-    config.monthlyReports.recipients === "both"
-  ) {
-    const adminEmail = process.env.MASTER_ADMIN_EMAIL?.trim();
-    if (adminEmail) recipients.add(adminEmail);
+    config.monthlyReports.recipients === "both";
+  const adminEmail = process.env.MASTER_ADMIN_EMAIL?.trim();
+
+  if (needsAdminRecipient) {
+    if (adminEmail) {
+      recipients.add(adminEmail);
+    } else {
+      errors.push(
+        "Monthly report recipients include admin but MASTER_ADMIN_EMAIL is not configured.",
+      );
+    }
   }
   if (
     config.monthlyReports.recipients === "business_owners" ||
@@ -814,7 +920,7 @@ async function runMonthlyReports(
       break;
     }
     try {
-      await sendMonthlyReportEmail({ to, subject, bodyText });
+      await sendMonthlyReportEmail({ to, subject, bodyText, bodyHtml });
       await recordAutomationDelivery({
         actionType: "MONTHLY_REPORT",
         dedupeKey,
@@ -841,16 +947,22 @@ export async function runBillingAutomation(input: {
   trigger: AutomationRunTrigger;
   dryRun?: boolean;
   triggeredByEmail?: string | null;
-}): Promise<{ runId: string; summary: AutomationRunSummary; errors: string[] }> {
+}): Promise<AutomationRunResult> {
   const config = await getAutomationConfig({ fresh: true });
-  const dryRun = input.dryRun === true || config.global.dryRunMode;
+  const dryRunForced = input.dryRun !== true && config.global.dryRunMode;
+  const dryRun = input.dryRun === true || dryRunForced;
 
-  if (!config.global.enabled && !dryRun && input.trigger !== "MANUAL") {
+  if (!config.global.enabled && !dryRun) {
+    if (input.trigger === "MANUAL") {
+      throw new AutomationDisabledError();
+    }
+
     const summary: AutomationRunSummary = {
       invoicesSent: 0,
       invoicesSkipped: 0,
       paymentRemindersSent: 0,
       whatsAppQueued: 0,
+      whatsAppSent: 0,
       followUpsScheduled: 0,
       renewalRemindersSent: 0,
       expiryWarningsSent: 0,
@@ -872,8 +984,44 @@ export async function runBillingAutomation(input: {
       status: "SUCCESS",
       summary,
     });
-    return { runId, summary, errors: [] };
+    return { runId, status: "SUCCESS", summary, errors: [] };
   }
+
+  if (!isValidIanaTimezone(config.global.timezone)) {
+    await assertNoActiveAutomationRun();
+    const { id: runId } = await createAutomationRunLog({
+      trigger: dryRun ? "DRY_RUN" : input.trigger,
+      triggeredByEmail: input.triggeredByEmail,
+    });
+    const summary: AutomationRunSummary = {
+      invoicesSent: 0,
+      invoicesSkipped: 0,
+      paymentRemindersSent: 0,
+      whatsAppQueued: 0,
+      whatsAppSent: 0,
+      followUpsScheduled: 0,
+      renewalRemindersSent: 0,
+      expiryWarningsSent: 0,
+      monthlyReportsSent: 0,
+      paymentConfirmationsSent: 0,
+      details: [],
+    };
+    const errors = [`Invalid automation timezone: ${config.global.timezone}`];
+    await completeAutomationRunLog(runId, {
+      status: "FAILED",
+      summary,
+      errors,
+    });
+    return {
+      runId,
+      status: "FAILED",
+      summary,
+      errors,
+      ...(dryRunForced ? { dryRunForced: true } : {}),
+    };
+  }
+
+  await assertNoActiveAutomationRun();
 
   const { id: runId } = await createAutomationRunLog({
     trigger: dryRun ? "DRY_RUN" : input.trigger,
@@ -885,6 +1033,7 @@ export async function runBillingAutomation(input: {
     invoicesSkipped: 0,
     paymentRemindersSent: 0,
     whatsAppQueued: 0,
+    whatsAppSent: 0,
     followUpsScheduled: 0,
     renewalRemindersSent: 0,
     expiryWarningsSent: 0,
@@ -941,7 +1090,13 @@ export async function runBillingAutomation(input: {
           : "FAILED";
 
     await completeAutomationRunLog(runId, { status, summary, errors });
-    return { runId, summary, errors };
+    return {
+      runId,
+      status,
+      summary,
+      errors,
+      ...(dryRunForced ? { dryRunForced: true } : {}),
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Automation run failed";
     errors.push(message);
@@ -949,17 +1104,30 @@ export async function runBillingAutomation(input: {
       status: "FAILED",
       summary,
       errors,
-    });
-    return { runId, summary, errors };
+    }).catch(() => undefined);
+    return {
+      runId,
+      status: "FAILED",
+      summary,
+      errors,
+      ...(dryRunForced ? { dryRunForced: true } : {}),
+    };
   }
 }
 
 export async function sendAutomatedPaymentConfirmation(
   businessKey: string,
-): Promise<void> {
+): Promise<{ sent: boolean; error?: string; skipped?: boolean }> {
   const config = await getAutomationConfig();
-  if (!config.invoices.paymentConfirmationEnabled) return;
-  if (!isSmtpConfigured()) return;
+  if (!config.invoices.paymentConfirmationEnabled) {
+    return { sent: false, skipped: true };
+  }
+  if (!isSmtpConfigured()) {
+    return {
+      sent: false,
+      error: "Payment confirmation email skipped — SMTP is not configured.",
+    };
+  }
 
   const account = await prisma.billingBusinessAccount.findUnique({
     where: { businessKey },
@@ -970,7 +1138,9 @@ export async function sendAutomatedPaymentConfirmation(
       paidAt: true,
     },
   });
-  if (!account?.businessEmail || !account.paidAt) return;
+  if (!account?.businessEmail || !account.paidAt) {
+    return { sent: false, skipped: true };
+  }
 
   const cycleKey = billingCycleMonthKeyInTimezone(config.global.timezone, account.paidAt);
   const dedupeKey = buildAutomationDedupeKey([
@@ -978,21 +1148,49 @@ export async function sendAutomatedPaymentConfirmation(
     "PAYMENT_CONFIRMATION",
     cycleKey,
   ]);
-  if (await wasAutomationDelivered(dedupeKey)) return;
+  if (await wasAutomationDelivered(dedupeKey)) {
+    return { sent: false, skipped: true };
+  }
 
-  await sendPaymentConfirmationEmail({
-    to: account.businessEmail,
-    businessName: account.businessName,
-    paidAt: account.paidAt,
-    invoiceNumber: account.lastInvoiceNumber,
-  });
+  try {
+    await sendPaymentConfirmationEmail({
+      to: account.businessEmail,
+      businessName: account.businessName,
+      paidAt: account.paidAt,
+      invoiceNumber: account.lastInvoiceNumber,
+    });
 
-  await recordAutomationDelivery({
-    businessKey,
-    actionType: "PAYMENT_CONFIRMATION",
-    dedupeKey,
-    channel: "EMAIL",
-    status: "SUCCESS",
-    message: "Payment confirmation",
-  });
+    await recordAutomationDelivery({
+      businessKey,
+      actionType: "PAYMENT_CONFIRMATION",
+      dedupeKey,
+      channel: "EMAIL",
+      status: "SUCCESS",
+      message: "Payment confirmation",
+    });
+
+    return { sent: true };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Payment confirmation email failed";
+
+    await recordAutomationDelivery({
+      businessKey,
+      actionType: "PAYMENT_CONFIRMATION",
+      dedupeKey,
+      channel: "EMAIL",
+      status: "FAILED",
+      message,
+    }).catch(() => undefined);
+
+    captureServerError(error, {
+      tags: { area: "automation", action: "payment_confirmation" },
+      extra: { businessKey, businessEmail: account.businessEmail },
+    });
+
+    return {
+      sent: false,
+      error: `Payment confirmation email failed: ${message}`,
+    };
+  }
 }

@@ -165,6 +165,7 @@ export interface BillingAccountDetailDto {
   followUpCount: number;
   followUps: BillingFollowUpDto[];
   invoiceLogs: BillingInvoiceLogDto[];
+  warnings?: string[];
 }
 
 function mapFollowUp(
@@ -462,7 +463,7 @@ export async function updateBillingPaymentStatus(params: {
     });
   });
 
-  await finalizeBillingPaymentStatusSideEffects({
+  const warnings = await finalizeBillingPaymentStatusSideEffects({
     businessKey: params.businessKey,
     paymentStatus: params.paymentStatus,
     notes: params.notes,
@@ -470,7 +471,8 @@ export async function updateBillingPaymentStatus(params: {
     forceImmediateActivation: params.forceImmediateActivation,
   });
 
-  return getBillingAccountDetail(params.businessKey);
+  const detail = await getBillingAccountDetail(params.businessKey);
+  return warnings.length > 0 ? { ...detail, warnings } : detail;
 }
 
 type BillingPaymentStatusTxParams = {
@@ -532,7 +534,9 @@ export async function finalizeBillingPaymentStatusSideEffects(params: {
   notes?: string;
   createdByEmail?: string | null;
   forceImmediateActivation?: boolean;
-}): Promise<void> {
+}): Promise<string[]> {
+  const warnings: string[] = [];
+
   await syncStoreDatesForBusinessKey(params.businessKey, params.paymentStatus, {
     force: params.forceImmediateActivation,
   });
@@ -541,9 +545,10 @@ export async function finalizeBillingPaymentStatusSideEffects(params: {
     const { sendAutomatedPaymentConfirmation } = await import(
       "@/lib/services/run-billing-automation"
     );
-    void sendAutomatedPaymentConfirmation(params.businessKey).catch((error) => {
-      console.error("[billing] payment confirmation email failed", error);
-    });
+    const confirmation = await sendAutomatedPaymentConfirmation(params.businessKey);
+    if (confirmation.error) {
+      warnings.push(confirmation.error);
+    }
   }
 
   void logAuthEvent({
@@ -553,8 +558,11 @@ export async function finalizeBillingPaymentStatusSideEffects(params: {
       businessKey: params.businessKey,
       paymentStatus: params.paymentStatus,
       notes: params.notes?.trim() || null,
+      ...(warnings.length > 0 ? { paymentConfirmationWarning: warnings[0] } : {}),
     },
   });
+
+  return warnings;
 }
 
 export async function resolvePaidThroughForPaidActivation(

@@ -200,7 +200,16 @@ export function BillingFollowUpPane({
     updatePayment.mutate(
       { paymentStatus: "PAID", notes: copy.markPaidNote },
       {
-        onSuccess: () => toast({ title: copy.markedPaid }),
+        onSuccess: (detail) => {
+          if (detail.warnings?.length) {
+            toast({
+              title: copy.markedPaidConfirmationWarning,
+              description: detail.warnings.join(" · "),
+            });
+            return;
+          }
+          toast({ title: copy.markedPaid });
+        },
         onError: (error) => handleApiError(error, copy.updateFailed),
       },
     );

@@ -43,6 +43,14 @@ async function main(): Promise<void> {
   const visits = await prisma.visit.deleteMany();
   const customers = await prisma.customer.deleteMany();
 
+  if (visits.count > 0) {
+    try {
+      await prisma.$executeRawUnsafe("SELECT refresh_visit_aggregate()");
+    } catch (error) {
+      console.warn("Could not refresh visit_daily_aggregate:", error);
+    }
+  }
+
   const demoStaff = await prisma.staff.findMany({
     where: { employeeId: { in: DEMO_STAFF_EMPLOYEE_IDS } },
     select: { id: true, employeeId: true },

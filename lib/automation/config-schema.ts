@@ -1,14 +1,28 @@
 import { z } from "zod";
+import { isValidIanaTimezone } from "@/lib/automation/timezone";
 
 const dayOfMonth = z.number().int().min(1).max(28);
 const hourLocal = z.number().int().min(0).max(23);
-const positiveDays = z.array(z.number().int().min(0).max(90)).max(10);
-const timeString = z.string().regex(/^\d{2}:\d{2}$/);
+const positiveDays = z
+  .array(z.number().int().min(0).max(90))
+  .max(10)
+  .transform((days) => [...new Set(days)].sort((a, b) => b - a));
+const timeString = z
+  .string()
+  .regex(/^\d{2}:\d{2}$/, "Time must be in HH:MM format (e.g. 09:00)");
+
+const timezoneString = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine((tz) => isValidIanaTimezone(tz), {
+    message: "Invalid IANA timezone (e.g. Asia/Kolkata)",
+  });
 
 const globalSchema = z.object({
   enabled: z.boolean().optional(),
   dryRunMode: z.boolean().optional(),
-  timezone: z.string().min(1).max(64).optional(),
+  timezone: timezoneString.optional(),
 });
 
 const billingCycleSchema = z.object({
@@ -31,7 +45,9 @@ const paymentRemindersSchema = z.object({
   emailEnabled: z.boolean().optional(),
   whatsAppEnabled: z.boolean().optional(),
   reminderDaysBeforeDue: positiveDays.optional(),
-  reminderDaysAfterDue: positiveDays.optional(),
+  reminderDaysAfterDue: positiveDays
+    .optional()
+    .transform((days) => (days ? [...new Set(days)].sort((a, b) => a - b) : days)),
   maxRemindersPerCycle: z.number().int().min(1).max(20).optional(),
   stopAfterPayment: z.boolean().optional(),
 });
@@ -47,7 +63,9 @@ const followUpsSchema = z.object({
 
 const expiryRenewalSchema = z.object({
   renewalReminderDaysBefore: positiveDays.optional(),
-  expiryWarningDaysBefore: positiveDays.optional(),
+  expiryWarningDaysBefore: positiveDays
+    .optional()
+    .transform((days) => (days ? [...new Set(days)].sort((a, b) => a - b) : days)),
   expiryReminderEnabled: z.boolean().optional(),
   renewalReminderEnabled: z.boolean().optional(),
   autoExtendOnPayment: z.boolean().optional(),
@@ -65,7 +83,10 @@ const monthlyReportsSchema = z.object({
 
 const whatsAppSchema = z.object({
   enabled: z.boolean().optional(),
-  defaultCountryCode: z.string().regex(/^\d{1,4}$/).optional(),
+  defaultCountryCode: z
+    .string()
+    .regex(/^\d{1,4}$/, "Country code must be 1–4 digits")
+    .optional(),
   businessHoursOnly: z.boolean().optional(),
   businessHoursStart: timeString.optional(),
   businessHoursEnd: timeString.optional(),
@@ -80,6 +101,7 @@ export const automationConfigPatchSchema = z.object({
   expiryRenewal: expiryRenewalSchema.optional(),
   monthlyReports: monthlyReportsSchema.optional(),
   whatsApp: whatsAppSchema.optional(),
+  expectedUpdatedAt: z.string().datetime().optional(),
 });
 
 export type AutomationConfigPatchInput = z.infer<typeof automationConfigPatchSchema>;
@@ -87,3 +109,32 @@ export type AutomationConfigPatchInput = z.infer<typeof automationConfigPatchSch
 export const automationRunRequestSchema = z.object({
   dryRun: z.boolean().optional(),
 });
+
+export function validateMergedAutomationConfig(
+  config: {
+    paymentReminders: {
+      enabled: boolean;
+      reminderDaysBeforeDue: number[];
+      reminderDaysAfterDue: number[];
+    };
+  },
+): { ok: true } | { ok: false; message: string; path: string[] } {
+  if (!config.paymentReminders.enabled) {
+    return { ok: true };
+  }
+  if (config.paymentReminders.reminderDaysBeforeDue.length === 0) {
+    return {
+      ok: false,
+      message: "reminderDaysBeforeDue cannot be empty when payment reminders are enabled",
+      path: ["paymentReminders", "reminderDaysBeforeDue"],
+    };
+  }
+  if (config.paymentReminders.reminderDaysAfterDue.length === 0) {
+    return {
+      ok: false,
+      message: "reminderDaysAfterDue cannot be empty when payment reminders are enabled",
+      path: ["paymentReminders", "reminderDaysAfterDue"],
+    };
+  }
+  return { ok: true };
+}

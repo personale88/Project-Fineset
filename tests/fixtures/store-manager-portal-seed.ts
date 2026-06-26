@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db/prisma";
 import { visitDenormFields } from "@/lib/services/call-record-denorm";
 import { prepareCustomerPii } from "@/lib/services/pii";
+import { assertSafeTestDatabase } from "@/tests/helpers/assert-safe-test-database";
+import { cleanupStoreFixtureByName } from "@/tests/helpers/scoped-store-cleanup";
+
+const FIXTURE_STORE_NAME = "Manager Portal Test Store";
 
 export interface StoreManagerPortalSeedResult {
   storeId: string;
@@ -18,18 +22,8 @@ export interface StoreManagerPortalSeedResult {
 }
 
 export async function seedStoreManagerPortalFixtures(): Promise<StoreManagerPortalSeedResult> {
-  await prisma.authAuditLog.deleteMany();
-  await prisma.phoneRevealLog.deleteMany();
-  await prisma.staffCallLog.deleteMany();
-  await prisma.correctionRequest.deleteMany();
-  await prisma.followUp.deleteMany();
-  await prisma.fieldSale.deleteMany();
-  await prisma.visit.deleteMany();
-  await prisma.customer.deleteMany();
-  await prisma.appUser.deleteMany();
-  await prisma.staff.deleteMany();
-  await prisma.importHistory.deleteMany();
-  await prisma.store.deleteMany();
+  assertSafeTestDatabase();
+  await cleanupStoreFixtureByName(FIXTURE_STORE_NAME);
 
   const now = new Date();
   const year = now.getFullYear();
@@ -39,7 +33,7 @@ export async function seedStoreManagerPortalFixtures(): Promise<StoreManagerPort
 
   const store = await prisma.store.create({
     data: {
-      name: "Manager Portal Test Store",
+      name: FIXTURE_STORE_NAME,
       category: "JEWELRY",
       city: "Test City",
       state: "TS",
@@ -213,5 +207,5 @@ export async function seedStoreManagerPortalFixtures(): Promise<StoreManagerPort
 }
 
 export async function disconnectStoreManagerPortalSeed(): Promise<void> {
-  await prisma.$disconnect();
+  await cleanupStoreFixtureByName(FIXTURE_STORE_NAME);
 }

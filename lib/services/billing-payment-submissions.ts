@@ -365,7 +365,7 @@ export async function reviewBillingPaymentSubmission(params: {
       });
     });
 
-    await finalizeBillingPaymentStatusSideEffects({
+    const warnings = await finalizeBillingPaymentStatusSideEffects({
       businessKey: existing.businessKey,
       paymentStatus: "PAID",
       notes,
@@ -373,7 +373,10 @@ export async function reviewBillingPaymentSubmission(params: {
       forceImmediateActivation: true,
     });
 
-    return { submission: mapBillingPaymentSubmission(updated) };
+    return {
+      submission: mapBillingPaymentSubmission(updated),
+      ...(warnings.length > 0 ? { warnings } : {}),
+    };
   }
 
   const reviewResult = await prisma.billingPaymentSubmission.updateMany({

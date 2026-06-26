@@ -23,7 +23,7 @@ export const DEFAULT_PLATFORM_AUTOMATION_CONFIG: PlatformAutomationConfig = {
     enabled: true,
     emailEnabled: true,
     whatsAppEnabled: true,
-    reminderDaysBeforeDue: [3, 1],
+    reminderDaysBeforeDue: [3, 1, 0],
     reminderDaysAfterDue: [1, 3, 7],
     maxRemindersPerCycle: 5,
     stopAfterPayment: true,

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { getServerSession, unauthorized } from "@/lib/auth/session";
 import { runBillingAutomation } from "@/lib/services/run-billing-automation";
 import { automationRunRequestSchema } from "@/lib/automation/config-schema";
+import {
+  AutomationDisabledError,
+  AutomationRunConflictError,
+} from "@/lib/services/automation-config";
 
 export async function POST(req: Request) {
   const session = await getServerSession();
@@ -13,7 +17,13 @@ export async function POST(req: Request) {
     );
   }
 
-  const body: unknown = await req.json().catch(() => ({}));
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ message: "Invalid JSON" }, { status: 400 });
+  }
+
   const parsed = automationRunRequestSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -22,11 +32,24 @@ export async function POST(req: Request) {
     );
   }
 
-  const result = await runBillingAutomation({
-    trigger: parsed.data.dryRun ? "DRY_RUN" : "MANUAL",
-    dryRun: parsed.data.dryRun,
-    triggeredByEmail: session.email,
-  });
+  try {
+    const result = await runBillingAutomation({
+      trigger: parsed.data.dryRun ? "DRY_RUN" : "MANUAL",
+      dryRun: parsed.data.dryRun,
+      triggeredByEmail: session.email,
+    });
 
-  return NextResponse.json(result);
+    return NextResponse.json(result);
+  } catch (error) {
+    if (error instanceof AutomationDisabledError) {
+      return NextResponse.json({ message: error.message }, { status: 409 });
+    }
+    if (error instanceof AutomationRunConflictError) {
+      return NextResponse.json(
+        { message: error.message, existingRunId: error.existingRunId },
+        { status: 409 },
+      );
+    }
+    throw error;
+  }
 }

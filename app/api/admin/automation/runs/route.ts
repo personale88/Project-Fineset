@@ -14,8 +14,10 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const page = Number.parseInt(searchParams.get("page") ?? "1", 10);
-  const pageSize = Number.parseInt(searchParams.get("pageSize") ?? "20", 10);
+  const pageRaw = Number.parseInt(searchParams.get("page") ?? "1", 10);
+  const pageSizeRaw = Number.parseInt(searchParams.get("pageSize") ?? "20", 10);
+  const page = Number.isFinite(pageRaw) ? pageRaw : 1;
+  const pageSize = Number.isFinite(pageSizeRaw) ? pageSizeRaw : 20;
 
   const data = await listAutomationRuns(page, pageSize);
   return NextResponse.json(data);

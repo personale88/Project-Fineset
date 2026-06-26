@@ -1,3 +1,4 @@
+import { scheduleVisitDailyAggregateRefresh } from "@/lib/analytics/refresh-visit-aggregate";
 import { prisma } from "@/lib/db/prisma";
 import { hashPhone } from "@/lib/crypto/pii";
 import { phoneDigitsForHash } from "@/lib/import-engine/utils/phoneNormaliser";
@@ -1045,6 +1046,7 @@ export async function recordManualStaffCall(
           rollbackError,
         );
       });
+      scheduleVisitDailyAggregateRefresh();
     }
 
     if (error instanceof ManualStaffCallError) {

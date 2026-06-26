@@ -1,3 +1,12 @@
+export function isValidIanaTimezone(timezone: string): boolean {
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getDayOfMonthInTimezone(timezone: string, reference = new Date()): number {
   return Number(
     new Intl.DateTimeFormat("en-US", {
@@ -53,6 +62,15 @@ export function shouldRunAtHourInTimezone(
   reference = new Date(),
 ): boolean {
   return getHourInTimezone(timezone, reference) === hourLocal;
+}
+
+/** Hourly cron may miss the exact local hour — allow on/after configured hour (dedupe prevents duplicates). */
+export function shouldRunMonthlyReportWindow(
+  sendHourLocal: number,
+  timezone: string,
+  reference = new Date(),
+): boolean {
+  return getHourInTimezone(timezone, reference) >= sendHourLocal;
 }
 
 export function isWithinBusinessHoursInTimezone(

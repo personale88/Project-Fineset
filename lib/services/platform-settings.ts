@@ -98,6 +98,15 @@ export async function updatePlatformSettings(
   invalidateCache();
   if (patch.general?.defaultTimezone !== undefined) {
     invalidateAutomationConfigCache();
+    if (merged.general.defaultTimezone !== current.general.defaultTimezone) {
+      const { syncAutomationConfigTimezone } = await import(
+        "@/lib/services/automation-config"
+      );
+      await syncAutomationConfigTimezone(
+        merged.general.defaultTimezone,
+        updatedByEmail,
+      );
+    }
   }
 
   const integrations = await getPlatformIntegrationStatus();

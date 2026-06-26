@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/db/prisma";
 import { prepareCustomerPii } from "@/lib/services/pii";
+import { assertSafeTestDatabase } from "@/tests/helpers/assert-safe-test-database";
+import { cleanupStoreFixtureByName } from "@/tests/helpers/scoped-store-cleanup";
+
+const FIXTURE_STORE_NAME = "Perf Test Store";
 
 export interface PerfSeedResult {
   storeId: string;
@@ -9,22 +13,14 @@ export interface PerfSeedResult {
 
 /** Minimal dataset for performance integration tests. */
 export async function seedPerfFixtures(): Promise<PerfSeedResult> {
-  await prisma.authAuditLog.deleteMany();
-  await prisma.appUser.deleteMany();
-  await prisma.followUp.deleteMany();
-  await prisma.staffCallLog.deleteMany();
-  await prisma.fieldSale.deleteMany();
-  await prisma.visit.deleteMany();
-  await prisma.customer.deleteMany();
-  await prisma.staff.deleteMany();
-  await prisma.importHistory.deleteMany();
-  await prisma.store.deleteMany();
+  assertSafeTestDatabase();
+  await cleanupStoreFixtureByName(FIXTURE_STORE_NAME);
 
   const managerEmail = "perf-manager@test.local";
 
   const store = await prisma.store.create({
     data: {
-      name: "Perf Test Store",
+      name: FIXTURE_STORE_NAME,
       category: "JEWELRY",
       city: "Test City",
       state: "TS",
@@ -107,5 +103,5 @@ export async function seedPerfFixtures(): Promise<PerfSeedResult> {
 }
 
 export async function disconnectPerfSeed(): Promise<void> {
-  // Uses the shared Prisma singleton; avoid disconnecting between integration suites.
+  await cleanupStoreFixtureByName(FIXTURE_STORE_NAME);
 }

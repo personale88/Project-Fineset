@@ -11,6 +11,7 @@ import { getSchemaConfig } from "@/lib/import-engine/schema-configs";
 import type { ImportPayload, ImportResult, TransformedRow } from "@/lib/import-engine/types";
 import { rowsForImport } from "@/lib/import-engine/core/validator";
 import { prisma } from "@/lib/db/prisma";
+import { scheduleVisitDailyAggregateRefresh } from "@/lib/analytics/refresh-visit-aggregate";
 import {
   resolveImportCustomerName,
   resolveImportCustomerPhone,
@@ -457,6 +458,9 @@ export async function rollbackImport(
   const deletedVisitLogs = await prisma.visit.deleteMany({
     where: { importBatchId: batchId },
   });
+  if (deletedVisitLogs.count > 0) {
+    scheduleVisitDailyAggregateRefresh();
+  }
 
   let deletedCustomers = 0;
   const customerIds = [
