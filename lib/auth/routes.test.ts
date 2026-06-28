@@ -65,6 +65,10 @@ describe("portal routes", () => {
       "MASTER_ADMIN",
       "PLATFORM_ADMIN",
     ]);
+    expect(getProtectedApiRouteForPath("/api/analytics/admin/credits")?.roles).toEqual([
+      "MASTER_ADMIN",
+      "PLATFORM_ADMIN",
+    ]);
     expect(getProtectedApiRouteForPath("/api/stores")?.roles).toEqual([
       "MASTER_ADMIN",
       "PLATFORM_ADMIN",

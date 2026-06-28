@@ -25,6 +25,7 @@ export const PROTECTED_API_ROUTES: ReadonlyArray<{
   roles: readonly UserRole[];
 }> = [
   { prefix: "/api/admin", roles: ["MASTER_ADMIN", "PLATFORM_ADMIN"] },
+  { prefix: "/api/analytics/admin", roles: ["MASTER_ADMIN", "PLATFORM_ADMIN"] },
   { prefix: "/api/stores", roles: ["MASTER_ADMIN", "PLATFORM_ADMIN"] },
   { prefix: "/api/audit", roles: ["BUSINESS_OWNER", "MASTER_ADMIN", "PLATFORM_ADMIN"] },
   {

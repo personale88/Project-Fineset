@@ -1,15 +1,15 @@
 import { type NextRequest, NextResponse } from "next/server";
-import {
-  getProtectedApiRouteForPath,
-  getProtectedRouteForPath,
-  getRedirectForRole,
-  LEGACY_STORE_DASHBOARD_PATH,
-  PROTECTED_PORTAL_ROUTES,
-  resolveLegacyDashboardRedirect,
-} from "@/lib/auth/routes";
+import { evaluateProxyAuth } from "@/lib/auth/proxy-auth";
+import { PROTECTED_PORTAL_ROUTES } from "@/lib/auth/routes";
 import { getSessionTokenFromRequest } from "@/lib/auth/session-cookie";
 import { getAppSessionRoleFromRequestToken } from "@/lib/auth/session-store";
 import type { UserRole } from "@/types";
+
+function nextWithPathname(request: NextRequest, pathname: string) {
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname);
+  return NextResponse.next({ request: { headers: requestHeaders } });
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
@@ -21,79 +21,53 @@ export async function proxy(request: NextRequest) {
     return role ?? undefined;
   }
 
-  if (
-    pathname === LEGACY_STORE_DASHBOARD_PATH ||
-    pathname.startsWith(`${LEGACY_STORE_DASHBOARD_PATH}/`)
-  ) {
-    const role = await resolveRole();
-    const remappedPath = resolveLegacyDashboardRedirect(pathname, role);
-
-    if (!role) {
-      const loginUrl = new URL("/", request.url);
-      loginUrl.searchParams.set("callbackUrl", remappedPath);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    const destination = new URL(`${remappedPath}${search}`, request.url);
-    return NextResponse.redirect(destination);
-  }
-
-  const protectedApiRoute = getProtectedApiRouteForPath(pathname);
-
-  if (protectedApiRoute) {
-    const apiRole = await resolveRole();
-
-    if (!apiRole) {
-      return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
-    }
-
-    if (!protectedApiRoute.roles.includes(apiRole)) {
-      return NextResponse.json({ message: "Forbidden" }, { status: 403 });
-    }
-
-    return NextResponse.next({ request });
-  }
-
-  const protectedRoute = getProtectedRouteForPath(pathname);
-
-  if (!protectedRoute) {
-    return NextResponse.next({ request });
-  }
-
   const role = await resolveRole();
+  const decision = evaluateProxyAuth(pathname, request.url, role);
 
-  if (!role) {
-    const loginUrl = new URL("/", request.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
+  switch (decision.action) {
+    case "next":
+      return nextWithPathname(request, pathname);
+    case "json":
+      return NextResponse.json({ message: decision.message }, { status: decision.status });
+    case "redirect": {
+      const destination = new URL(decision.location);
+      if (
+        !destination.searchParams.has("callbackUrl") &&
+        search &&
+        destination.origin === new URL(request.url).origin
+      ) {
+        destination.search = search;
+      }
+      return NextResponse.redirect(destination);
+    }
   }
-
-  if (!protectedRoute.roles.includes(role)) {
-    return NextResponse.redirect(
-      new URL(getRedirectForRole(role), request.url),
-    );
-  }
-
-  return NextResponse.next({ request });
 }
 
 export const config = {
   matcher: [
+    "/api/admin",
     "/api/admin/:path*",
+    "/api/stores",
     "/api/stores/:path*",
     "/api/billing/:path*",
     "/api/customers/:path*",
     "/api/import/:path*",
     "/api/audit/:path*",
     "/api/sync/:path*",
+    "/api/analytics/admin",
+    "/api/analytics/admin/:path*",
     "/api/analytics/:path*",
     "/api/staff/:path*",
     "/api/calls/:path*",
     "/api/visits/:path*",
     "/api/field-sales/:path*",
+    "/staff/dashboard",
     "/staff/dashboard/:path*",
+    "/store-manager/dashboard",
     "/store-manager/dashboard/:path*",
+    "/business-owner/dashboard",
     "/business-owner/dashboard/:path*",
+    "/admin/dashboard",
     "/admin/dashboard/:path*",
     "/store/dashboard/:path*",
   ],
