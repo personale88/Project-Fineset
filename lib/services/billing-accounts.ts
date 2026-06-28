@@ -143,6 +143,8 @@ export interface BillingInvoiceLogDto {
 export interface BillingAccountSummaryDto {
   businessKey: string;
   paymentStatus: BillingPaymentStatus;
+  paidAt: string | null;
+  paidThroughPeriodEnd: string | null;
   followUpCount: number;
   lastFollowUpAt: string | null;
   nextFollowUpAt: string | null;
@@ -634,6 +636,8 @@ export async function getBillingSummaries(): Promise<BillingAccountSummaryDto[]>
   return accounts.map((account) => ({
     businessKey: account.businessKey,
     paymentStatus: account.paymentStatus,
+    paidAt: account.paidAt?.toISOString() ?? null,
+    paidThroughPeriodEnd: account.paidThroughPeriodEnd?.toISOString() ?? null,
     followUpCount: account._count.followUps,
     lastFollowUpAt: account.lastFollowUpAt?.toISOString() ?? null,
     nextFollowUpAt: account.nextFollowUpAt?.toISOString() ?? null,

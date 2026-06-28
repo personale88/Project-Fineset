@@ -1,3 +1,15 @@
+export function isValidIanaTimezone(timezone: string): boolean {
+  const trimmed = timezone.trim();
+  if (!trimmed) return false;
+
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: trimmed }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getDayOfMonthInTimezone(timezone: string, reference = new Date()): number {
   return Number(
     new Intl.DateTimeFormat("en-US", {

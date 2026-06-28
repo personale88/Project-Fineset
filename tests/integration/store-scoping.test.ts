@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/prisma";
 import { resolveAccessibleStoreId } from "@/lib/services/manager-stores";
-import type { BusinessOwnerSession } from "@/types";
+import type { BusinessOwnerSession, StoreSession } from "@/types";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -53,7 +53,7 @@ describe.skipIf(!hasDb)("store scoping integration", () => {
     );
   });
 
-  it("rejects store not linked to owner email", async () => {
+  it("EC-BE-061: rejects store not linked to owner email with STORE_ACCESS_DENIED", async () => {
     const session: BusinessOwnerSession = {
       role: "BUSINESS_OWNER",
       userId: "owner-scope",
@@ -64,6 +64,20 @@ describe.skipIf(!hasDb)("store scoping integration", () => {
 
     await expect(
       resolveAccessibleStoreId(session, "clnonexistentstore000000000"),
+    ).rejects.toThrow("STORE_ACCESS_DENIED");
+  });
+
+  it("EC-BE-062: blocks store manager cross-store access at service layer", async () => {
+    const session: StoreSession = {
+      role: "STORE_MANAGER",
+      userId: "mgr-scope",
+      email: "manager-scope@test.local",
+      storeId: primaryStoreId,
+      storeName: "Primary Store",
+    };
+
+    await expect(
+      resolveAccessibleStoreId(session, secondaryStoreId),
     ).rejects.toThrow("STORE_ACCESS_DENIED");
   });
 });

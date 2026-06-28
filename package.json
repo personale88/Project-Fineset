@@ -20,6 +20,7 @@
     "test:coverage": "vitest run --coverage",
     "test:coverage:gate": "vitest run --coverage",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:automation-regression": "dotenv -e .env.local -- vitest run --config vitest.integration.config.ts tests/integration/automation-backend.test.ts tests/integration/automation-backend-pending.test.ts tests/integration/billing-payment-submissions.test.ts tests/integration/auth-security.test.ts tests/integration/auth-flows.test.ts tests/integration/store-scoping.test.ts tests/integration/store-manager-portal.test.ts tests/integration/staff-deactivation.test.ts tests/integration/visit-sale-date.test.ts tests/integration/sync.test.ts tests/integration/analytics-credit-payment-submissions.test.ts tests/integration/production-env-validation.test.ts tests/integration/admin-portal-fixes.test.ts tests/integration/automation-backend-regression.test.ts -t EC-BE-",
     "test:auth": "dotenv -e .env.local -- vitest run --config vitest.integration.config.ts tests/integration/auth-flows.test.ts tests/integration/auth-security.test.ts",
     "pretest:e2e": "playwright install chromium",
     "pretest:e2e:all": "playwright install chromium",

@@ -30,7 +30,12 @@ export async function fetchAutomationRuns(
 
 export async function runBillingAutomation(input?: {
   dryRun?: boolean;
-}): Promise<{ runId: string; summary: AutomationRunLogDto["summary"]; errors: string[] }> {
+}): Promise<{
+  runId: string;
+  status: AutomationRunLogDto["status"];
+  summary: AutomationRunLogDto["summary"];
+  errors: string[];
+}> {
   return apiFetch("/api/admin/automation/run", {
     method: "POST",
     body: JSON.stringify(input ?? {}),

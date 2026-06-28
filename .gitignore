@@ -23,6 +23,10 @@
 .DS_Store
 *.pem
 
+# local QA spreadsheets (keep outside repo)
+docs/*.xlsx
+docs/EC-AUTO-*.xlsx
+
 # debug
 npm-debug.log*
 yarn-debug.log*

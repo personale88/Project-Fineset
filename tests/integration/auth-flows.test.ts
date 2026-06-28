@@ -109,11 +109,20 @@ describe.skipIf(!hasDb)("auth flows integration", () => {
     }
   });
 
-  it("rejects wrong password without revealing account existence", async () => {
-    const result = await authenticateWithPassword(staffEmail, "WrongPass#9test");
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.reason).toBe("invalid_credentials");
+  it("EC-BE-059: rejects wrong password without revealing account existence", async () => {
+    const wrongPassword = await authenticateWithPassword(staffEmail, "WrongPass#9test");
+    expect(wrongPassword.ok).toBe(false);
+    if (!wrongPassword.ok) {
+      expect(wrongPassword.reason).toBe("invalid_credentials");
+    }
+
+    const unknownEmail = await authenticateWithPassword(
+      `missing-${runId}@test.local`,
+      "WrongPass#9test",
+    );
+    expect(unknownEmail.ok).toBe(false);
+    if (!unknownEmail.ok) {
+      expect(unknownEmail.reason).toBe("invalid_credentials");
     }
   });
 
@@ -170,10 +179,15 @@ describe.skipIf(!hasDb)("auth flows integration", () => {
     }
   });
 
-  it("returns generic success for unknown email on password reset (no enumeration)", async () => {
+});
+
+describe.skipIf(!hasDb)("password reset missing email guard", () => {
+  it("EC-BE-060: returns generic success for password reset on missing email", async () => {
     capturedResetToken = null;
 
-    const result = await requestPasswordResetAction(`missing-${runId}@test.local`);
+    const result = await requestPasswordResetAction(
+      `missing-${randomUUID().slice(0, 8)}@test.local`,
+    );
     expect(result.ok).toBe(true);
     expect(capturedResetToken).toBeNull();
   });

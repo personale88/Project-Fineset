@@ -1,14 +1,20 @@
 import { z } from "zod";
+import { isValidIanaTimezone } from "@/lib/automation/timezone";
 
 const dayOfMonth = z.number().int().min(1).max(28);
 const hourLocal = z.number().int().min(0).max(23);
 const positiveDays = z.array(z.number().int().min(0).max(90)).max(10);
 const timeString = z.string().regex(/^\d{2}:\d{2}$/);
+const ianaTimezone = z
+  .string()
+  .min(1)
+  .max(64)
+  .refine(isValidIanaTimezone, { message: "Invalid IANA timezone." });
 
 const globalSchema = z.object({
   enabled: z.boolean().optional(),
   dryRunMode: z.boolean().optional(),
-  timezone: z.string().min(1).max(64).optional(),
+  timezone: ianaTimezone.optional(),
 });
 
 const billingCycleSchema = z.object({

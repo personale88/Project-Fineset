@@ -36,6 +36,9 @@ export const PERF_BUDGETS = {
     normalizePortfolio100: 50,
     visitExport1k: 2_000,
   },
+  automation: {
+    run120BusinessesDryRun: 30_000,
+  },
   payload: {
     visitsPageMaxBytes: 500_000,
   },

@@ -12,7 +12,7 @@ import { formatDate } from "@/lib/utils/formatters";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
-describe.skipIf(!hasDb)("visit sale date integration", () => {
+describe.skipIf(!hasDb)("EC-BE-066: visit sale date parsing and boundaries", () => {
   let storeId: string;
   let staffId: string;
   const createdVisitIds: string[] = [];

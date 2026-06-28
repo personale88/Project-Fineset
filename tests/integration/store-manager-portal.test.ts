@@ -128,7 +128,7 @@ describe.skipIf(!hasDb)("store manager portal integration", () => {
     expect(personalIds).not.toContain(fixtures.rsoVisitId);
   });
 
-  it("GET /api/staff/calls rejects invalid viewStaffId", async () => {
+  it("EC-BE-063: GET /api/staff/calls rejects invalid viewStaffId", async () => {
     const response = await getStaffCalls(
       request(
         `/api/staff/calls?viewStaffId=clnonexistentstaff000000000&year=${fixtures.year}&month=${fixtures.month}`,
@@ -162,7 +162,7 @@ describe.skipIf(!hasDb)("store manager portal integration", () => {
     expect(followUp?.visit?.staffId).toBe(fixtures.rsoStaffId);
   });
 
-  it("POST /api/assignments/bulk rejects invalid payload", async () => {
+  it("EC-BE-064: POST /api/assignments/bulk rejects invalid payload", async () => {
     const response = await postBulkAssign(
       request("/api/assignments/bulk", {
         method: "POST",

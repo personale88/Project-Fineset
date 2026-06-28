@@ -59,7 +59,7 @@ describe.skipIf(!hasDb)("staff deactivation integration", () => {
     await prisma.$disconnect();
   });
 
-  it("syncs AppUser.isActive when staff is deactivated", async () => {
+  it("EC-BE-065: syncs AppUser deactivation and clears sessions when staff is deactivated", async () => {
     await updateStaff(staffId, storeId, { isActive: false });
 
     const appUser = await prisma.appUser.findUnique({ where: { id: appUserId } });

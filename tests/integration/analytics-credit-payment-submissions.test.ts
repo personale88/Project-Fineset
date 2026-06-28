@@ -98,3 +98,58 @@ describe.skipIf(!hasDb)("analytics credit payment submissions", () => {
     expect(ledger?.amount).toBe(packCredits);
   });
 });
+
+describe.skipIf(!hasDb)("analytics credit pending submission dedupe", () => {
+  const runId = randomUUID().slice(0, 8);
+  const email = `vitest-credits-dedupe-${runId}@test.local`;
+  let adminUserId: string;
+  let session: AppSession;
+
+  beforeAll(async () => {
+    const admin = await prisma.appUser.create({
+      data: {
+        authId: randomUUID(),
+        email,
+        name: "Vitest Credits Dedupe Admin",
+        role: "MASTER_ADMIN",
+        passwordHash: await hashCredential("VitestCredits#9test"),
+        isActive: true,
+        activatedAt: new Date(),
+      },
+      select: { id: true },
+    });
+    adminUserId = admin.id;
+    session = {
+      userId: admin.id,
+      email,
+      role: "MASTER_ADMIN",
+      permissions: {},
+    };
+  }, 60_000);
+
+  afterAll(async () => {
+    await prisma.billingPaymentSubmission.deleteMany({
+      where: { businessKey: analyticsCreditBusinessKey(adminUserId) },
+    });
+    await prisma.appUser.deleteMany({ where: { id: adminUserId } });
+    await prisma.$disconnect();
+  });
+
+  it("EC-BE-068: refreshes existing pending submission instead of creating duplicates", async () => {
+    const first = await createAnalyticsCreditPaymentSubmission(session, "starter");
+    const second = await createAnalyticsCreditPaymentSubmission(session, "growth");
+
+    expect(second.id).toBe(first.id);
+    expect(second.status).toBe("PENDING");
+    expect(second.packId).toBe("growth");
+    expect(second.creditAmount).toBe(getAnalyticsCreditPack("growth")?.credits);
+
+    const pendingCount = await prisma.billingPaymentSubmission.count({
+      where: {
+        businessKey: analyticsCreditBusinessKey(adminUserId),
+        status: "PENDING",
+      },
+    });
+    expect(pendingCount).toBe(1);
+  });
+});

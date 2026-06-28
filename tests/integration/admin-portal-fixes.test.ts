@@ -92,7 +92,7 @@ describe.skipIf(!hasDb)("admin portal production fixes", () => {
     await prisma.$disconnect();
   });
 
-  it("grants analytics credits and records a GRANT ledger entry", async () => {
+  it("EC-BE-070: grants analytics credits and records a GRANT ledger entry", async () => {
     const before = await prisma.analyticsCreditAccount.findUnique({
       where: { appUserId: adminUserId },
       select: { balanceCredits: true },

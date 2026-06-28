@@ -1,5 +1,9 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import bundleAnalyzer from "@next/bundle-analyzer";
 import { withSerwist } from "@serwist/turbopack";
+
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -10,6 +14,10 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   compress: true,
+  serverExternalPackages: ["@sentry/node", "@sentry/node-core"],
+  turbopack: {
+    root: projectRoot,
+  },
   async headers() {
     return [
       {

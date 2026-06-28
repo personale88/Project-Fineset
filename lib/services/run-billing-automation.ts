@@ -11,8 +11,11 @@ import { computeAdminPortfolioKpis } from "@/lib/utils/admin-portfolio-kpis";
 import { formatCurrency } from "@/lib/utils/formatters";
 import {
   buildAutomationDedupeKey,
+  claimAutomationDelivery,
   countAutomationDeliveries,
+  type AutomationDeliveryAction,
   recordAutomationDelivery,
+  releaseAutomationDeliveryClaim,
   wasAutomationDelivered,
 } from "@/lib/automation/delivery-log";
 import { shouldSendInvoiceToday } from "@/lib/automation/invoice-schedule";
@@ -47,8 +50,28 @@ import type {
   AutomationRunSummary,
   PlatformAutomationConfig,
 } from "@/lib/automation/types";
-import type { AutomationRunTrigger } from "@prisma/client";
+import type { AutomationRunStatus, AutomationRunTrigger } from "@prisma/client";
 import type { BusinessPortfolioRow } from "@/types";
+
+export function resolveAutomationRunStatus(
+  summary: AutomationRunSummary,
+  errors: string[],
+): AutomationRunStatus {
+  if (errors.length === 0) return "SUCCESS";
+
+  const hasSuccessfulActions =
+    summary.invoicesSent > 0 ||
+    summary.paymentRemindersSent > 0 ||
+    summary.whatsAppQueued > 0 ||
+    summary.followUpsScheduled > 0 ||
+    summary.renewalRemindersSent > 0 ||
+    summary.expiryWarningsSent > 0 ||
+    summary.monthlyReportsSent > 0 ||
+    summary.paymentConfirmationsSent > 0 ||
+    summary.details.some((detail) => detail.status === "success");
+
+  return hasSuccessfulActions ? "PARTIAL" : "FAILED";
+}
 
 function daysBetween(from: Date, to: Date): number {
   const a = startOfCalendarDay(from).getTime();
@@ -71,9 +94,23 @@ async function skipIfAlreadyDelivered(input: {
   dryRun: boolean;
   summary: AutomationRunSummary;
   detail: AutomationRunDetail;
+  claim: {
+    businessKey?: string | null;
+    actionType: AutomationDeliveryAction;
+    channel?: string | null;
+    message?: string | null;
+  };
 }): Promise<boolean> {
   if (input.dryRun) return false;
-  if (await wasAutomationDelivered(input.dedupeKey)) {
+
+  const claimed = await claimAutomationDelivery({
+    dedupeKey: input.dedupeKey,
+    businessKey: input.claim.businessKey,
+    actionType: input.claim.actionType,
+    channel: input.claim.channel,
+    message: input.claim.message,
+  });
+  if (!claimed) {
     addDetail(input.summary, {
       ...input.detail,
       status: "skipped",
@@ -114,6 +151,19 @@ async function runInvoiceAutomation(
     return;
   }
 
+  const billingAccounts = businesses.length
+    ? await prisma.billingBusinessAccount.findMany({
+        where: { businessKey: { in: businesses.map((business) => business.businessKey) } },
+        select: {
+          businessKey: true,
+          paymentStatus: true,
+          paidAt: true,
+          paidThroughPeriodEnd: true,
+        },
+      })
+    : [];
+  const accountByKey = new Map(billingAccounts.map((account) => [account.businessKey, account]));
+
   for (const business of businesses) {
     const schedule = shouldSendInvoiceToday({
       config,
@@ -127,12 +177,15 @@ async function runInvoiceAutomation(
       continue;
     }
 
+    const account = accountByKey.get(business.businessKey);
     const status = getBusinessPaymentStatus(
       business,
       reference,
-      undefined,
-      undefined,
+      account?.paymentStatus ?? null,
+      account?.paidAt ?? null,
       cycleSettings,
+      undefined,
+      account?.paidThroughPeriodEnd ?? null,
     );
     if (config.invoices.skipIfPaid && status === "CURRENT") {
       summary.invoicesSkipped += 1;
@@ -176,6 +229,12 @@ async function runInvoiceAutomation(
           channel: "EMAIL",
           status: "skipped",
         },
+        claim: {
+          businessKey: business.businessKey,
+          actionType: "INVOICE",
+          channel: "EMAIL",
+          message: schedule.reason,
+        },
       })
     ) {
       continue;
@@ -213,6 +272,7 @@ async function runInvoiceAutomation(
         message: schedule.reason,
       });
     } catch (error) {
+      await releaseAutomationDeliveryClaim(dedupeKey);
       const message = error instanceof Error ? error.message : "Invoice send failed";
       errors.push(`${business.businessName}: ${message}`);
       addDetail(summary, {
@@ -275,8 +335,10 @@ async function runPaymentReminderAutomation(
       business,
       reference,
       paymentStatus,
-      undefined,
+      billingSummary?.paidAt ?? null,
       cycleSettings,
+      undefined,
+      billingSummary?.paidThroughPeriodEnd ?? null,
     );
     if (portfolioStatus === "CURRENT") continue;
 
@@ -319,6 +381,11 @@ async function runPaymentReminderAutomation(
             channel: "EMAIL",
             status: "skipped",
           },
+          claim: {
+            businessKey: business.businessKey,
+            actionType: "PAYMENT_REMINDER",
+            channel: "EMAIL",
+          },
         })
       ) {
         continue;
@@ -358,6 +425,7 @@ async function runPaymentReminderAutomation(
             status: "success",
           });
         } catch (error) {
+          await releaseAutomationDeliveryClaim(dedupeKey);
           const message =
             error instanceof Error ? error.message : "Reminder email failed";
           errors.push(`${business.businessName}: ${message}`);
@@ -387,6 +455,11 @@ async function runPaymentReminderAutomation(
             businessName: business.businessName,
             channel: "WHATSAPP",
             status: "skipped",
+          },
+          claim: {
+            businessKey: business.businessKey,
+            actionType: "WHATSAPP_REMINDER",
+            channel: "WHATSAPP",
           },
         })
       ) {
@@ -439,6 +512,7 @@ async function runPaymentReminderAutomation(
             message: "Follow-up scheduled — send from Billing",
           });
         } catch (error) {
+          await releaseAutomationDeliveryClaim(dedupeKey);
           const message =
             error instanceof Error ? error.message : "WhatsApp queue failed";
           errors.push(`${business.businessName}: ${message}`);
@@ -572,6 +646,11 @@ async function runExpiryRenewalReminders(
               channel: "EMAIL",
               status: "skipped",
             },
+            claim: {
+              businessKey: business.businessKey,
+              actionType: "RENEWAL_REMINDER",
+              channel: "EMAIL",
+            },
           })
         ) {
           continue;
@@ -605,6 +684,7 @@ async function runExpiryRenewalReminders(
             });
             summary.renewalRemindersSent += 1;
           } catch (error) {
+            await releaseAutomationDeliveryClaim(dedupeKey);
             errors.push(
               `${business.businessName}: ${
                 error instanceof Error ? error.message : "Renewal reminder failed"
@@ -640,6 +720,11 @@ async function runExpiryRenewalReminders(
               channel: "EMAIL",
               status: "skipped",
             },
+            claim: {
+              businessKey: business.businessKey,
+              actionType: "EXPIRY_WARNING",
+              channel: "EMAIL",
+            },
           })
         ) {
           continue;
@@ -673,6 +758,7 @@ async function runExpiryRenewalReminders(
             });
             summary.expiryWarningsSent += 1;
           } catch (error) {
+            await releaseAutomationDeliveryClaim(dedupeKey);
             errors.push(
               `${business.businessName}: ${
                 error instanceof Error ? error.message : "Expiry warning failed"
@@ -795,6 +881,11 @@ async function runMonthlyReports(
           status: "skipped",
           message: `Already sent to ${to}`,
         },
+        claim: {
+          actionType: "MONTHLY_REPORT",
+          channel: "EMAIL",
+          message: to,
+        },
       })
     ) {
       continue;
@@ -830,6 +921,7 @@ async function runMonthlyReports(
         message: `Sent to ${to}`,
       });
     } catch (error) {
+      await releaseAutomationDeliveryClaim(dedupeKey);
       errors.push(
         `${to}: ${error instanceof Error ? error.message : "Monthly report failed"}`,
       );
@@ -841,7 +933,12 @@ export async function runBillingAutomation(input: {
   trigger: AutomationRunTrigger;
   dryRun?: boolean;
   triggeredByEmail?: string | null;
-}): Promise<{ runId: string; summary: AutomationRunSummary; errors: string[] }> {
+}): Promise<{
+  runId: string;
+  status: AutomationRunStatus;
+  summary: AutomationRunSummary;
+  errors: string[];
+}> {
   const config = await getAutomationConfig({ fresh: true });
   const dryRun = input.dryRun === true || config.global.dryRunMode;
 
@@ -868,11 +965,12 @@ export async function runBillingAutomation(input: {
       trigger: input.trigger,
       triggeredByEmail: input.triggeredByEmail,
     });
+    const status: AutomationRunStatus = "SUCCESS";
     await completeAutomationRunLog(runId, {
-      status: "SUCCESS",
+      status,
       summary,
     });
-    return { runId, summary, errors: [] };
+    return { runId, status, summary, errors: [] };
   }
 
   const { id: runId } = await createAutomationRunLog({
@@ -933,24 +1031,20 @@ export async function runBillingAutomation(input: {
       errors,
     );
 
-    const status =
-      errors.length === 0
-        ? "SUCCESS"
-        : summary.details.some((d) => d.status === "success")
-          ? "PARTIAL"
-          : "FAILED";
+    const status = resolveAutomationRunStatus(summary, errors);
 
     await completeAutomationRunLog(runId, { status, summary, errors });
-    return { runId, summary, errors };
+    return { runId, status, summary, errors };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Automation run failed";
     errors.push(message);
+    const status: AutomationRunStatus = "FAILED";
     await completeAutomationRunLog(runId, {
-      status: "FAILED",
+      status,
       summary,
       errors,
     });
-    return { runId, summary, errors };
+    return { runId, status, summary, errors };
   }
 }
 

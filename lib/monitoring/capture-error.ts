@@ -1,6 +1,7 @@
-import * as Sentry from "@sentry/node";
+type SentryModule = typeof import("@sentry/node");
 
 let initialized = false;
+let sentryModulePromise: Promise<SentryModule> | null = null;
 
 function isNextBuild(): boolean {
   return process.env.NEXT_PHASE === "phase-production-build";
@@ -10,9 +11,17 @@ function shouldCapture(): boolean {
   return Boolean(process.env.SENTRY_DSN?.trim()) && !isNextBuild();
 }
 
-export function initErrorMonitoring(): void {
+function loadSentryModule(): Promise<SentryModule> {
+  if (!sentryModulePromise) {
+    sentryModulePromise = import("@sentry/node");
+  }
+  return sentryModulePromise;
+}
+
+export async function initErrorMonitoring(): Promise<void> {
   if (initialized || !shouldCapture()) return;
 
+  const Sentry = await loadSentryModule();
   Sentry.init({
     dsn: process.env.SENTRY_DSN,
     environment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV ?? "development",
@@ -46,22 +55,25 @@ export function captureServerError(
     return;
   }
 
-  initErrorMonitoring();
+  void (async () => {
+    await initErrorMonitoring();
+    const Sentry = await loadSentryModule();
 
-  Sentry.withScope((scope) => {
-    if (context?.tags) {
-      for (const [key, value] of Object.entries(context.tags)) {
-        scope.setTag(key, value);
+    Sentry.withScope((scope) => {
+      if (context?.tags) {
+        for (const [key, value] of Object.entries(context.tags)) {
+          scope.setTag(key, value);
+        }
       }
-    }
-    if (context?.extra) {
-      scope.setExtras(context.extra);
-    }
-    if (context?.user) {
-      scope.setUser(context.user);
-    }
-    Sentry.captureException(error);
-  });
+      if (context?.extra) {
+        scope.setExtras(context.extra);
+      }
+      if (context?.user) {
+        scope.setUser(context.user);
+      }
+      Sentry.captureException(error);
+    });
+  })();
 }
 
 export function captureServerMessage(
@@ -73,17 +85,20 @@ export function captureServerMessage(
     return;
   }
 
-  initErrorMonitoring();
+  void (async () => {
+    await initErrorMonitoring();
+    const Sentry = await loadSentryModule();
 
-  Sentry.withScope((scope) => {
-    if (context?.tags) {
-      for (const [key, value] of Object.entries(context.tags)) {
-        scope.setTag(key, value);
+    Sentry.withScope((scope) => {
+      if (context?.tags) {
+        for (const [key, value] of Object.entries(context.tags)) {
+          scope.setTag(key, value);
+        }
       }
-    }
-    if (context?.extra) {
-      scope.setExtras(context.extra);
-    }
-    Sentry.captureMessage(message, "warning");
-  });
+      if (context?.extra) {
+        scope.setExtras(context.extra);
+      }
+      Sentry.captureMessage(message, "warning");
+    });
+  })();
 }

@@ -75,7 +75,7 @@ describe.skipIf(!hasDb)("auth security integration", () => {
     await prisma.$disconnect();
   });
 
-  it("keeps AppUser table intact after injection-style login attempts", async () => {
+  it("EC-BE-057: keeps AppUser table intact after injection-style login attempts", async () => {
     const countBefore = await prisma.appUser.count();
 
     for (const payload of SQL_INJECTION_PAYLOADS) {
@@ -94,7 +94,7 @@ describe.skipIf(!hasDb)("auth security integration", () => {
     }
   });
 
-  it("rejects XSS-like strings in password reset without throwing", async () => {
+  it("EC-BE-058: rejects XSS-like strings in password reset without throwing", async () => {
     for (const payload of [...SQL_INJECTION_PAYLOADS, ...XSS_PAYLOADS]) {
       const result = await requestPasswordResetAction(payload);
       expect(result.ok === true || result.ok === false).toBe(true);
