@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const FIXTURES_PATH = resolve(__dirname, ".auth-fixtures.json");
+const FIXTURES_PATH = resolve(__dirname, "../.auth-fixtures.json");
 
 export function devPortalUsersReady(): boolean {
   try {

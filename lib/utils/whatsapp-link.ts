@@ -1,21 +1,43 @@
 const DEFAULT_COUNTRY_CODE = "91";
 
-export function normalizeWhatsAppPhone(phone: string): string | null {
+export function normalizeWhatsAppPhone(
+  phone: string,
+  countryCode: string = DEFAULT_COUNTRY_CODE,
+): string | null {
+  const dialCode = countryCode.replace(/\D/g, "");
+  if (!dialCode) return null;
+
   const digits = phone.replace(/\D/g, "");
-  if (digits.length === 10) return `${DEFAULT_COUNTRY_CODE}${digits}`;
-  if (digits.length === 12 && digits.startsWith(DEFAULT_COUNTRY_CODE)) return digits;
-  if (digits.length >= 11 && digits.length <= 15) return digits;
+  if (!digits) return null;
+
+  if (digits.startsWith(dialCode) && digits.length > dialCode.length) {
+    const localLength = digits.length - dialCode.length;
+    if (localLength >= 7 && localLength <= 12) return digits;
+  }
+
+  if (digits.length === 10) {
+    return `${dialCode}${digits}`;
+  }
+
+  if (digits.length >= 11 && digits.length <= 15) {
+    return digits;
+  }
+
   return null;
 }
 
-export function buildWhatsAppUrl(phone: string, message: string): string | null {
-  const normalized = normalizeWhatsAppPhone(phone);
+export function buildWhatsAppUrl(
+  phone: string,
+  message: string,
+  countryCode: string = DEFAULT_COUNTRY_CODE,
+): string | null {
+  const normalized = normalizeWhatsAppPhone(phone, countryCode);
   if (!normalized) return null;
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 
-export function buildTelHref(phone: string): string | null {
-  const normalized = normalizeWhatsAppPhone(phone);
+export function buildTelHref(phone: string, countryCode: string = DEFAULT_COUNTRY_CODE): string | null {
+  const normalized = normalizeWhatsAppPhone(phone, countryCode);
   if (!normalized) return null;
   return `tel:+${normalized}`;
 }

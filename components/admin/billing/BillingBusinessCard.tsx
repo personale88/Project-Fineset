@@ -92,6 +92,7 @@ interface BillingBusinessCardProps {
   invoiceSent: boolean;
   isSendingInvoice: boolean;
   isSendingWhatsApp: boolean;
+  canManage?: boolean;
   onSendInvoice: (businessKey: string) => void;
   onSendWhatsAppReminder: (businessKey: string) => void;
   onFollowUp: (business: BusinessPortfolioRow) => void;
@@ -105,6 +106,7 @@ export function BillingBusinessCard({
   invoiceSent,
   isSendingInvoice,
   isSendingWhatsApp,
+  canManage = true,
   onSendInvoice,
   onSendWhatsAppReminder,
   onFollowUp,
@@ -205,6 +207,7 @@ export function BillingBusinessCard({
       </div>
 
       {/* Actions */}
+      {canManage ? (
       <div className="flex flex-col gap-3 border-b border-border bg-surface-secondary/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
         <div className="flex flex-wrap items-center gap-2">
           {showFollowUp ? (
@@ -287,6 +290,17 @@ export function BillingBusinessCard({
           </div>
         ) : null}
       </div>
+      ) : invoiceSent ? (
+        <div className="border-b border-border bg-surface-secondary/20 px-4 py-3 sm:px-5">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full bg-status-success/10 px-3 py-1.5 text-sm font-medium text-status-success"
+            role="status"
+          >
+            <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden />
+            {billing.invoiceSent}
+          </span>
+        </div>
+      ) : null}
 
       {/* Store breakdown */}
       {business.storeCount > 1 ? (

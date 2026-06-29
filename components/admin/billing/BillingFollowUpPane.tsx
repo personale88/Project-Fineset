@@ -223,14 +223,34 @@ export function BillingFollowUpPane({
     startWhatsAppTransition(async () => {
       try {
         const result = await sendBillingWhatsAppReminder(businessKey);
-        window.open(result.whatsappUrl, "_blank", "noopener,noreferrer");
-        toast({
-          title: billingCopy.whatsAppReminderOpened,
-          description: billingCopy.whatsAppReminderOpenedDescription.replace(
-            "{phone}",
-            result.phone,
-          ),
-        });
+        if (result.delivery === "sent") {
+          toast({
+            title: billingCopy.whatsAppReminderSent,
+            description: billingCopy.whatsAppReminderSentDescription.replace(
+              "{phone}",
+              result.phone,
+            ),
+          });
+        } else if (result.delivery === "queued") {
+          toast({
+            title: billingCopy.whatsAppReminderQueued,
+            description: billingCopy.whatsAppReminderQueuedDescription.replace(
+              "{phone}",
+              result.phone,
+            ),
+          });
+        } else {
+          if (result.whatsappUrl) {
+            window.open(result.whatsappUrl, "_blank", "noopener,noreferrer");
+          }
+          toast({
+            title: billingCopy.whatsAppReminderOpened,
+            description: billingCopy.whatsAppReminderOpenedDescription.replace(
+              "{phone}",
+              result.phone,
+            ),
+          });
+        }
         onWhatsAppSent?.();
       } catch (error) {
         handleApiError(error, billingCopy.whatsAppReminderFailed);

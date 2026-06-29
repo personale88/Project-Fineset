@@ -58,4 +58,31 @@ describe("buildWorkQueueResponse", () => {
     expect(response.categoryTotals.due_today_task).toBe(50);
     expect(response.categoryTotals.not_answered).toBe(30);
   });
+
+  it("includes a preview item for every non-empty category even when limit is small", () => {
+    const items = [
+      ...Array.from({ length: 10 }, (_, index) => makeItem("overdue_task", index)),
+      ...Array.from({ length: 8 }, (_, index) => makeItem("due_today_task", index)),
+      ...Array.from({ length: 6 }, (_, index) => makeItem("not_answered", index)),
+    ];
+
+    const response = buildWorkQueueResponse(items, 5);
+    const previewReasons = new Set(response.items.map((item) => item.reason));
+
+    expect(previewReasons.has("overdue_task")).toBe(true);
+    expect(previewReasons.has("due_today_task")).toBe(true);
+    expect(previewReasons.has("not_answered")).toBe(true);
+  });
+
+  it("still includes due today previews when overdue dominates the queue", () => {
+    const items = [
+      ...Array.from({ length: 80 }, (_, index) => makeItem("overdue_task", index)),
+      ...Array.from({ length: 57 }, (_, index) => makeItem("due_today_task", index)),
+    ];
+
+    const response = buildWorkQueueResponse(items, 30);
+
+    expect(response.categoryTotals.due_today_task).toBe(57);
+    expect(response.items.some((item) => item.reason === "due_today_task")).toBe(true);
+  });
 });

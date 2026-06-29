@@ -72,7 +72,7 @@ export async function updateAutomationConfig(
   });
 
   invalidateCache();
-  return merged;
+  return getAutomationConfig({ fresh: true });
 }
 
 function emptySummary(): AutomationRunSummary {
@@ -115,6 +115,15 @@ function mapRunLog(row: {
     errors,
     triggeredByEmail: row.triggeredByEmail,
   };
+}
+
+export async function getAutomationRunById(
+  id: string,
+): Promise<AutomationRunLogDto | null> {
+  const row = await prisma.automationRunLog.findUnique({
+    where: { id },
+  });
+  return row ? mapRunLog(row) : null;
 }
 
 export async function listAutomationRuns(

@@ -6,6 +6,7 @@ import {
 const HIDE_BOTTOM_NAV_PREFIXES = [
   `${STAFF_DASHBOARD_PATH}/log-visit`,
   `${STAFF_DASHBOARD_PATH}/field-sales`,
+  `${STAFF_DASHBOARD_PATH}/log-field-sale`,
   `${STORE_MANAGER_DASHBOARD_PATH}/log-visit`,
   `${STORE_MANAGER_DASHBOARD_PATH}/log-field-sale`,
 ] as const;

@@ -2,6 +2,7 @@
 
 import type { Control, UseFormSetValue, UseFormWatch } from "react-hook-form";
 import { calculateDurationMins, formatDurationMins } from "@/lib/utils/formatters";
+import { coerceFormTimeValue } from "@/lib/utils/time-input";
 import { SchemePitchOutcomeSection } from "@/components/forms/shared/SchemePitchOutcomeSection";
 import type {
   FieldSalesFormCopy,
@@ -38,9 +39,11 @@ export function FieldSalesFormSections({
   const startTime = watch("startTime");
   const endTime = watch("endTime");
 
+  const resolvedStartTime = coerceFormTimeValue(startTime);
+  const resolvedEndTime = coerceFormTimeValue(endTime);
   const totalDurationLabel =
-    startTime && endTime && endTime > startTime
-      ? formatDurationMins(calculateDurationMins(startTime, endTime))
+    resolvedStartTime && resolvedEndTime && resolvedEndTime > resolvedStartTime
+      ? formatDurationMins(calculateDurationMins(resolvedStartTime, resolvedEndTime))
       : null;
 
   return (

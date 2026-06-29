@@ -31,6 +31,16 @@ const PORTAL_USERS = [
   },
 ] as const;
 
+const PORTAL_HEADER_EXPECTATIONS: Record<
+  (typeof PORTAL_USERS)[number]["label"],
+  { portalType: string }
+> = {
+  staff: { portalType: "Staff" },
+  "store manager": { portalType: "Store Manager" },
+  "business owner": { portalType: "Business Owner" },
+  "master admin": { portalType: "Master Admin" },
+};
+
 for (const user of PORTAL_USERS) {
   test(`login as ${user.label} reaches dashboard`, async ({ page }) => {
     test.skip(
@@ -45,5 +55,9 @@ for (const user of PORTAL_USERS) {
     });
 
     await expect(page.getByTestId("portal-shell")).toBeVisible();
+    await expect(page.getByTestId("portal-brand-title")).toHaveText("My Store");
+    await expect(page.getByTestId("portal-type-label")).toHaveText(
+      PORTAL_HEADER_EXPECTATIONS[user.label].portalType,
+    );
   });
 }

@@ -25,7 +25,8 @@ export function StaffPortalShell({ storeId, children }: StaffPortalShellProps) {
   return (
     <BillingAccessProvider storeId={storeId}>
       <PortalShell
-        title={content.staff.shell.title}
+        title={content.common.portalBrandTitle}
+        portalType={content.staff.shell.title}
         homeHref={STAFF_DASHBOARD_PATH}
         navItems={buildStaffDesktopNav()}
         showDesktopNav

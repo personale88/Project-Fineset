@@ -5,7 +5,7 @@ type ErrorsCopy = Content["errors"];
 
 const GENERIC_API_MESSAGES = new Set(["Request failed", "Validation failed"]);
 
-function isNetworkError(error: unknown): boolean {
+export function isNetworkError(error: unknown): boolean {
   if (error instanceof TypeError) return true;
   if (error instanceof Error && /failed to fetch|network error|load failed/i.test(error.message)) {
     return true;

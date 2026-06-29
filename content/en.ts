@@ -1,6 +1,7 @@
 export const content = {
   common: {
     appName: "MyStore",
+    portalBrandTitle: "My Store",
     loading: "Loading…",
     save: "Save",
     cancel: "Cancel",
@@ -115,6 +116,8 @@ export const content = {
       localBypassSubtitle: "Local dev — enter your work email only",
       localBypassHint: "No password needed — DEV_AUTH_BYPASS is enabled.",
       submitLabel: "Sign In",
+      errorUnknownDevUser:
+        "No local dev account for this email. Run npm run db:seed, then try again (e.g. staff-a@store-alpha.local).",
       errorInvalid: "Invalid email or password",
       errorMissingProfile:
         "No staff account is linked to this email. Ask your store manager to add you or resend your invite.",
@@ -2694,6 +2697,8 @@ export const content = {
       empty: "No businesses match your search or filters.",
       showingBusinesses: "{shown} of {total} businesses",
       filterAll: "All statuses",
+      readOnlyHint:
+        "View-only billing — only master admins can send invoices, log follow-ups, or change payment status. You can still review payment submissions in the Payments tab.",
       sectionTabs: {
         billing: "Billing",
         payments: "Payments",
@@ -2775,6 +2780,10 @@ export const content = {
       sendingWhatsAppReminder: "Opening WhatsApp…",
       whatsAppReminderOpened: "WhatsApp opened",
       whatsAppReminderOpenedDescription: "Reminder prepared for {phone}",
+      whatsAppReminderSent: "WhatsApp reminder sent",
+      whatsAppReminderSentDescription: "Delivered to {phone}",
+      whatsAppReminderQueued: "WhatsApp reminder queued",
+      whatsAppReminderQueuedDescription: "Follow-up saved for {phone}. Open WhatsApp from Billing when ready.",
       whatsAppReminderFailed: "Could not send WhatsApp reminder",
       whatsAppReminderNoPhone: "Add a store manager phone before sending a WhatsApp reminder",
       monthlySubtotal: "Subtotal (excl. GST)",
@@ -2857,13 +2866,52 @@ export const content = {
       save: "Save changes",
       saveSuccess: "Automation settings saved.",
       saveFailed: "Could not save automation settings.",
+      offlineHint:
+        "You are offline. Reconnect to save or run automation settings.",
       readOnlyHint: "Only master admins can edit automation settings.",
       runNow: "Run automations now",
       runDryRun: "Preview run (dry run)",
       runSuccess: "Automation run completed.",
+      runPartialSuccess: "Automation run completed with warnings.",
       runDryRunSuccess: "Dry run completed — no messages were sent.",
+      runDryRunForced:
+        "Dry run mode prevented live sends.",
+      runDryRunForcedHint:
+        "Turn off dry run mode on Overview to send live messages.",
       runFailed: "Automation run failed.",
-      runSummary: "{invoices} invoices · {reminders} reminders · {followUps} follow-ups scheduled",
+      runDisabledHint: "Enable automations before running live automations.",
+      runNowConfirm: {
+        title: "Run live automations?",
+        description:
+          "This manual run applies today's automation schedule to all eligible businesses. Outcomes are recorded in Run history.",
+        dryRunNotice:
+          "Dry run mode is on. Actions will be logged without sending emails or creating follow-ups.",
+        enabledActionsTitle: "Configured actions that may send messages",
+        noActions:
+          "No invoice or reminder emails are configured, but other scheduled jobs may still run.",
+        auditHint:
+          "Only master admins can trigger live runs. Use Preview run (dry run) first when testing changes.",
+        cancel: "Cancel",
+        confirm: "Run live automations",
+        confirming: "Running…",
+        actions: {
+          invoices: "Auto-send invoices (email)",
+          paymentReminderEmails: "Payment reminder emails",
+          whatsAppReminders: "WhatsApp payment reminders (queued for Billing)",
+          followUps: "Follow-up scheduling",
+          renewalReminders: "Renewal reminder emails",
+          expiryWarnings: "Expiry warning emails",
+          monthlyReports: "Monthly report emails",
+        },
+      },
+      dryRunModeActiveBanner:
+        "Dry run mode is on. Run Now logs actions without sending emails or creating follow-ups.",
+      whatsAppQueueOnlyBanner:
+        "WhatsApp Business API is not connected. Payment reminder runs queue follow-ups for manual send from Billing.",
+      runWhatsAppQueuedHint:
+        "WhatsApp reminders were queued for manual send from Billing.",
+      runSummary:
+        "{invoices} invoices · {reminders} reminders · {whatsapp} WhatsApp queued · {followUps} follow-ups scheduled · {renewals} renewal reminders · {expiry} expiry warnings · {reports} monthly reports",
       scope: {
         overview: "Overview",
         overviewHint: "Master switch, dry-run mode, and manual runs.",
@@ -2897,6 +2945,11 @@ export const content = {
         dryRunMode: "Dry run mode",
         dryRunModeHint: "Log actions without sending emails or creating follow-ups.",
         timezone: "Timezone",
+        timezoneHint: "Platform default: {platformTimezone} (Master Settings).",
+        timezoneDriftMessage:
+          "Automation timezone ({automationTimezone}) differs from Master Settings ({platformTimezone}). Scheduled jobs use the automation timezone.",
+        timezoneDriftSync: "Use platform timezone",
+        timezoneSyncedHint: "Matches the platform timezone in Master Settings.",
         cycleStartDay: "Billing cycle starts (day of month)",
         cycleStartDayHint: "Usually the 1st — start of the monthly billing period.",
         paymentDueDay: "Payment due day",
@@ -2909,6 +2962,8 @@ export const content = {
         paymentConfirmationHint: "Send confirmation when an account is marked paid.",
         skipIfPaid: "Skip paid accounts",
         skipIfPaidHint: "Do not invoice businesses already paid this cycle.",
+        sendOnRenewalDue: "Send on renewal due date",
+        sendOnRenewalDueHint: "Email invoices when a business renewal date falls on the run day.",
         invoiceSendDay: "Invoice send day",
         invoiceSendDayHint: "Day of month to send invoices (1–28).",
         daysBeforeRenewal: "Days before renewal",
@@ -2922,9 +2977,13 @@ export const content = {
         reminderDaysAfterDue: "Remind after due (days)",
         reminderDaysAfterDueHint: "Comma-separated days overdue, e.g. 1, 3, 7",
         maxRemindersPerCycle: "Max reminders per cycle",
+        stopAfterPayment: "Stop after payment",
+        stopAfterPaymentHint: "Skip reminders once an account is paid or waived this cycle.",
         followUpsEnabled: "Follow-up automation",
         autoScheduleNext: "Auto-schedule next follow-up",
         autoScheduleNextHint: "When a follow-up date passes, schedule the next one.",
+        escalateAfterMax: "Escalate after max follow-ups",
+        escalateAfterMaxHint: "Flag accounts that reach the maximum follow-up count.",
         maxFollowUps: "Maximum follow-ups",
         followUpSpacingDays: "Spacing between follow-ups (days)",
         followUpSpacingDaysHint: "Comma-separated, e.g. 2, 3, 5, 7, 7",
@@ -2933,6 +2992,8 @@ export const content = {
         expiryWarningsEnabled: "Expiry warnings",
         renewalReminderDaysBefore: "Renewal reminder days before",
         expiryWarningDaysBefore: "Expiry warning days before",
+        autoExtendOnPayment: "Auto-extend on payment",
+        autoExtendOnPaymentHint: "Extend store access dates when payment is confirmed.",
         monthlyReportsEnabled: "Monthly report emails",
         reportSendDay: "Report send day",
         reportSendHour: "Send hour (local)",
@@ -2943,17 +3004,36 @@ export const content = {
         recipientsBoth: "Both",
         includePortfolioSummary: "Include portfolio summary",
         includePerStoreMetrics: "Include per-store metrics",
+        includeBillingSummary: "Include billing summary",
+        includeBillingSummaryHint: "Add billing totals and overdue counts to monthly report emails.",
         whatsAppEnabled: "WhatsApp automation",
         whatsAppEnabledHint: "Queue WhatsApp billing follow-ups (manual send from Billing until API is connected).",
         businessHoursOnly: "Business hours only",
         defaultCountryCode: "Default country code",
         businessHoursStart: "Business hours start",
         businessHoursEnd: "Business hours end",
+        businessHoursFormatHint: "Use 24-hour HH:MM format, for example 09:00.",
+      },
+      validation: {
+        numberRange: "Enter a whole number between {min} and {max}.",
       },
       history: {
-        empty: "No automation runs yet. Use Preview run or enable scheduled cron.",
+        loading: "Loading run history…",
+        loadFailed: "Could not load run history.",
+        loadMoreFailed: "Could not load more run history.",
+        emptyTitle: "No automation runs yet",
+        emptyDescription:
+          "Open Overview and use Preview run (dry run) to log a sample run here, or schedule the hourly billing cron for live automations.",
+        emptyReadOnlyDescription:
+          "Runs appear here after a master admin previews automations or scheduled jobs execute.",
+        emptyCronHint:
+          "Cron schedule: GET /api/cron/billing-automation with Authorization: Bearer CRON_SECRET",
+        loadMore: "Load more",
+        showingRuns: "Showing {shown} of {total} runs",
         summaryLine:
-          "{invoices} invoices · {reminders} email reminders · {whatsapp} WhatsApp queued · {followUps} follow-ups",
+          "{invoices} invoices · {reminders} email reminders · {whatsapp} WhatsApp queued · {followUps} follow-ups · {renewals} renewal reminders · {expiry} expiry warnings · {reports} monthly reports",
+        errorsPrivacyHint:
+          "Business names and recipient emails are hidden in error summaries.",
       },
     },
     settings: {

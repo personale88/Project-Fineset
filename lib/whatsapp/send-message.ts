@@ -1,4 +1,6 @@
 import { normalizeWhatsAppPhone } from "@/lib/utils/whatsapp-link";
+import { getAutomationConfig } from "@/lib/services/automation-config";
+import { DEFAULT_PLATFORM_AUTOMATION_CONFIG } from "@/lib/automation/default-config";
 
 export class WhatsAppSendError extends Error {
   constructor(
@@ -20,6 +22,7 @@ export function isWhatsAppApiConfigured(): boolean {
 export async function sendWhatsAppTextMessage(params: {
   toPhone: string;
   message: string;
+  countryCode?: string;
 }): Promise<void> {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
@@ -28,7 +31,15 @@ export async function sendWhatsAppTextMessage(params: {
     throw new WhatsAppSendError("WhatsApp API is not configured.", 503);
   }
 
-  const normalized = normalizeWhatsAppPhone(params.toPhone);
+  let countryCode = params.countryCode;
+  if (!countryCode) {
+    const config = await getAutomationConfig().catch(() => null);
+    countryCode =
+      config?.whatsApp.defaultCountryCode ??
+      DEFAULT_PLATFORM_AUTOMATION_CONFIG.whatsApp.defaultCountryCode;
+  }
+
+  const normalized = normalizeWhatsAppPhone(params.toPhone, countryCode);
   if (!normalized) {
     throw new WhatsAppSendError("The phone number on file is not valid for WhatsApp.", 400);
   }

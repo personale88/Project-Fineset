@@ -19,7 +19,13 @@ export type SignInResult =
   | { ok: true; redirectTo: string }
   | {
       ok: false;
-      code: "invalid_credentials" | "inactive" | "deactivated" | "rate_limited" | "generic";
+      code:
+        | "invalid_credentials"
+        | "inactive"
+        | "deactivated"
+        | "rate_limited"
+        | "generic"
+        | "unknown_dev_user";
     };
 
 function logSignIn(event: string, payload: Record<string, unknown>) {
@@ -61,6 +67,10 @@ export async function signInAction(
     }
     if (auth.reason === "inactive" || auth.reason === "no_password") {
       return { ok: false, code: "inactive" };
+    }
+    if (auth.reason === "unknown_dev_user") {
+      logSignIn("unknown_dev_user", { totalMs: Date.now() - startedAt, email: normalizedEmail });
+      return { ok: false, code: "unknown_dev_user" };
     }
 
     logSignIn("invalid_credentials", { totalMs: Date.now() - startedAt });

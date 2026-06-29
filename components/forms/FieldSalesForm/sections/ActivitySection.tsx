@@ -110,7 +110,7 @@ export function ActivitySection({
               <FormControl>
                 <Input
                   type="time"
-                  value={field.value ? formatTimeForInput(field.value) : ""}
+                  value={formatTimeForInput(field.value)}
                   onChange={(event) => {
                     field.onChange(parseTimeInput(event.target.value));
                   }}
@@ -129,7 +129,7 @@ export function ActivitySection({
               <FormControl>
                 <Input
                   type="time"
-                  value={field.value ? formatTimeForInput(field.value) : ""}
+                  value={formatTimeForInput(field.value)}
                   onChange={(event) => {
                     if (!event.target.value) {
                       field.onChange(undefined);

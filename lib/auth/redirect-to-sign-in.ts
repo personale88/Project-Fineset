@@ -14,3 +14,12 @@ export function redirectToSignIn(callbackPath?: string | null): never {
   }
   redirect("/");
 }
+
+export function applyExpiredSessionRedirectParams(
+  destination: URL,
+  options: { hadSessionToken: boolean; role: string | null | undefined },
+): void {
+  if (options.hadSessionToken && !options.role) {
+    destination.searchParams.set("error", "session_expired");
+  }
+}

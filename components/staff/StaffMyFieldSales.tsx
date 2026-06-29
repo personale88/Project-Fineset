@@ -64,7 +64,7 @@ export function StaffMyFieldSales({
             <p className="text-text-secondary">{copy.subtitle}</p>
           </div>
           <Button asChild variant="outline" size="sm">
-            <Link href={`${portalBasePath}/log-field-sale`}>{copy.logFieldSale}</Link>
+            <Link href={`${portalBasePath}/field-sales`}>{copy.logFieldSale}</Link>
           </Button>
         </div>
       </div>

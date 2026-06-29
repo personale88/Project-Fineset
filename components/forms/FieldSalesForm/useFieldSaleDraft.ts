@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import type { UseFormReset, UseFormWatch } from "react-hook-form";
 import {
   getDefaultFieldSaleValues,
@@ -107,14 +107,10 @@ export function useFieldSaleDraft(
   reset: UseFormReset<FieldSalesFormValues>,
   enabled = true,
 ): void {
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!enabled) return;
-    const draft = loadFieldSaleDraft();
-    if (draft) {
-      reset(buildClientFieldSaleFormValues(draft));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrate once on mount
-  }, []);
+    reset(buildClientFieldSaleFormValues(loadFieldSaleDraft()));
+  }, [enabled, reset]);
 
   useEffect(() => {
     if (!enabled) return;

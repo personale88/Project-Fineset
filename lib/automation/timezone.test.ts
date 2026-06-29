@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getDayOfMonthInTimezone,
   getHourInTimezone,
+  formatDateTimeInTimezone,
   shouldRunAtHourInTimezone,
   shouldRunOnDayInTimezone,
 } from "@/lib/automation/timezone";
@@ -22,5 +23,12 @@ describe("automation timezone helpers", () => {
   it("matches configured local day", () => {
     const reference = new Date("2026-06-04T18:30:00.000Z");
     expect(shouldRunOnDayInTimezone(5, "Asia/Kolkata", reference)).toBe(true);
+  });
+
+  it("formats datetimes in the configured IANA timezone", () => {
+    const reference = "2026-06-01T10:00:00.000Z";
+    expect(formatDateTimeInTimezone(reference, "Asia/Kolkata")).toBe("01 Jun 2026, 03:30 pm");
+    expect(formatDateTimeInTimezone(reference, "America/New_York")).toBe("01 Jun 2026, 06:00 am");
+    expect(formatDateTimeInTimezone(reference, "UTC")).toBe("01 Jun 2026, 10:00 am");
   });
 });

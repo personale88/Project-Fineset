@@ -165,7 +165,7 @@ describe.skipIf(!hasDb || !isSmtpConfigured())(
 
       expect(response.status).toBe(200);
       const body = await response.json();
-      runIds.push(body.runId);
+      runIds.push(body.id);
 
       expect(body.summary.invoicesSent).toBe(1);
       expect(body.errors).toEqual([]);
@@ -212,7 +212,7 @@ describe.skipIf(!hasDb || !isSmtpConfigured())(
 
         expect(response.status).toBe(200);
         const body = await response.json();
-        runIds.push(body.runId);
+        runIds.push(body.id);
 
         expect(body.summary.invoicesSent).toBe(1);
         expect(body.errors).toEqual([]);
@@ -439,9 +439,9 @@ describe.skipIf(!hasDb)(
 
       const cronBody = await cronResponse.json();
       const manualBody = await manualResponse.json();
-      runIds.push(cronBody.runId, manualBody.runId);
+      runIds.push(cronBody.id, manualBody.id);
 
-      expect(cronBody.runId).not.toBe(manualBody.runId);
+      expect(cronBody.id).not.toBe(manualBody.id);
       expect(cronBody.errors).toEqual([]);
       expect(manualBody.errors).toEqual([]);
       expect(cronBody.summary.invoicesSent + manualBody.summary.invoicesSent).toBe(1);
@@ -459,7 +459,7 @@ describe.skipIf(!hasDb)(
       expect(deliveryCount).toBe(1);
 
       const runLogs = await prisma.automationRunLog.findMany({
-        where: { id: { in: [cronBody.runId, manualBody.runId] } },
+        where: { id: { in: [cronBody.id, manualBody.id] } },
       });
       expect(runLogs.map((row) => row.trigger).sort()).toEqual(["CRON", "MANUAL"]);
 
@@ -681,7 +681,7 @@ describe.skipIf(!hasDb)(
       });
       const elapsed = Date.now() - started;
 
-      runIds.push(result.runId);
+      runIds.push(result.id);
       assertWithinBudget(elapsed, PERF_BUDGETS.automation.run120BusinessesDryRun);
 
       expect(result.status).toBe("SUCCESS");
@@ -1106,7 +1106,7 @@ describe.skipIf(!hasDb)(
       ]);
       const elapsed = Date.now() - started;
 
-      runIds.push(result.runId);
+      runIds.push(result.id);
       assertWithinBudget(elapsed, PERF_BUDGETS.automation.run120BusinessesDryRun);
 
       expect(result.status).toBe("SUCCESS");

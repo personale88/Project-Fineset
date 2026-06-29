@@ -87,6 +87,46 @@ async function ensureDevPortalUsers(prisma: PrismaClient): Promise<void> {
   }
 }
 
+async function ensureDevPlatformAdminUsers(prisma: PrismaClient): Promise<void> {
+  const passwordHash = await hashCredential(DEV_PASSWORD);
+  const specs = [
+    {
+      email: "platform-admin-no-billing@store-alpha.local",
+      name: "Platform Admin No Billing",
+      adminPermissions: { portfolio: true, accounts: true, analytics: true },
+    },
+    {
+      email: "platform-admin-billing@store-alpha.local",
+      name: "Platform Admin Billing",
+      adminPermissions: { portfolio: true, accounts: true, billing: true },
+    },
+  ] as const;
+
+  for (const spec of specs) {
+    await prisma.appUser.upsert({
+      where: { email: spec.email },
+      create: {
+        authId: randomUUID(),
+        email: spec.email,
+        name: spec.name,
+        role: "PLATFORM_ADMIN",
+        adminPermissions: spec.adminPermissions,
+        passwordHash,
+        isActive: true,
+        activatedAt: new Date(),
+      },
+      update: {
+        name: spec.name,
+        role: "PLATFORM_ADMIN",
+        adminPermissions: spec.adminPermissions,
+        passwordHash,
+        isActive: true,
+        activatedAt: new Date(),
+      },
+    });
+  }
+}
+
 export default async function globalSetup(): Promise<void> {
   if (!process.env.DATABASE_URL?.trim()) {
     writeFileSync(FIXTURES_PATH, JSON.stringify({ skip: true, reason: "no DATABASE_URL" }));
@@ -181,6 +221,7 @@ export default async function globalSetup(): Promise<void> {
     }
 
     await ensureDevPortalUsers(prisma);
+    await ensureDevPlatformAdminUsers(prisma);
 
     const devPortalUsersReady = Boolean(
       await prisma.appUser.findUnique({

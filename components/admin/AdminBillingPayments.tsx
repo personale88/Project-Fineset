@@ -12,6 +12,9 @@ import { sendBusinessInvoice, sendBillingWhatsAppReminder } from "@/lib/api/bill
 import type { BillingAccountSummaryDto } from "@/lib/api/billing";
 import { AdminPageIntro } from "@/components/admin/AdminPageIntro";
 import { AdminLoadErrorBanner } from "@/components/admin/AdminLoadErrorBanner";
+import { AdminReadOnlyBanner } from "@/components/admin/AdminReadOnlyBanner";
+import { useAdminPortal } from "@/components/admin/AdminPortalContext";
+import { canEditAdminPortal } from "@/lib/auth/admin-portal-access";
 import { AdminPaymentSubmissionsPanel } from "@/components/admin/billing/AdminPaymentSubmissionsPanel";
 import {
   simpleTabListClassName,
@@ -56,6 +59,8 @@ export function AdminBillingPayments({
   initialOverview,
   initialOverviewFailed = false,
 }: AdminBillingPaymentsProps) {
+  const { role } = useAdminPortal();
+  const canManageBilling = canEditAdminPortal(role);
   const cycleSettings = useBillingCycleSettings();
   const billingPricing = useBillingPricingConfig();
   const queryClient = useQueryClient();
@@ -231,14 +236,34 @@ export function AdminBillingPayments({
     startWhatsAppTransition(async () => {
       try {
         const result = await sendBillingWhatsAppReminder(businessKey);
-        window.open(result.whatsappUrl, "_blank", "noopener,noreferrer");
-        toast({
-          title: admin.billing.whatsAppReminderOpened,
-          description: admin.billing.whatsAppReminderOpenedDescription.replace(
-            "{phone}",
-            result.phone,
-          ),
-        });
+        if (result.delivery === "sent") {
+          toast({
+            title: admin.billing.whatsAppReminderSent,
+            description: admin.billing.whatsAppReminderSentDescription.replace(
+              "{phone}",
+              result.phone,
+            ),
+          });
+        } else if (result.delivery === "queued") {
+          toast({
+            title: admin.billing.whatsAppReminderQueued,
+            description: admin.billing.whatsAppReminderQueuedDescription.replace(
+              "{phone}",
+              result.phone,
+            ),
+          });
+        } else {
+          if (result.whatsappUrl) {
+            window.open(result.whatsappUrl, "_blank", "noopener,noreferrer");
+          }
+          toast({
+            title: admin.billing.whatsAppReminderOpened,
+            description: admin.billing.whatsAppReminderOpenedDescription.replace(
+              "{phone}",
+              result.phone,
+            ),
+          });
+        }
         void queryClient.invalidateQueries({ queryKey: ["billing-summaries"] });
         void queryClient.invalidateQueries({ queryKey: ["billing-account", businessKey] });
       } catch (error) {
@@ -263,7 +288,11 @@ export function AdminBillingPayments({
         nav={admin.nav}
       />
 
-      {loadFailed ? (
+      {!canManageBilling ? (
+        <AdminReadOnlyBanner message={admin.billing.readOnlyHint} />
+      ) : null}
+
+      {loadFailed && sectionTab === "billing" ? (
         <AdminLoadErrorBanner
           message={admin.overview.loadFailed}
           retryLabel={admin.overview.retry}
@@ -271,29 +300,30 @@ export function AdminBillingPayments({
         />
       ) : null}
 
-      {!loadFailed ? (
-        <Tabs
-          value={sectionTab}
-          onValueChange={(value) => setSectionTab(value as SectionTab)}
-          className="space-y-6"
-        >
-          <TabsList className={simpleTabListClassName}>
-            <TabsTrigger value="billing" className={simpleTabTriggerClassName}>
-              {admin.billing.sectionTabs.billing}
-            </TabsTrigger>
-            <TabsTrigger value="payments" className={simpleTabTriggerClassName}>
-              <span className="inline-flex items-center gap-2.5">
-                {admin.billing.sectionTabs.payments}
-                {pendingPaymentCount > 0 ? (
-                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-status-warning px-1.5 text-xs font-bold tabular-nums leading-none text-white shadow-sm ring-2 ring-status-warning/25">
-                    {pendingPaymentCount}
-                  </span>
-                ) : null}
-              </span>
-            </TabsTrigger>
-          </TabsList>
+      <Tabs
+        value={sectionTab}
+        onValueChange={(value) => setSectionTab(value as SectionTab)}
+        className="space-y-6"
+      >
+        <TabsList className={simpleTabListClassName}>
+          <TabsTrigger value="billing" className={simpleTabTriggerClassName}>
+            {admin.billing.sectionTabs.billing}
+          </TabsTrigger>
+          <TabsTrigger value="payments" className={simpleTabTriggerClassName}>
+            <span className="inline-flex items-center gap-2.5">
+              {admin.billing.sectionTabs.payments}
+              {pendingPaymentCount > 0 ? (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-status-warning px-1.5 text-xs font-bold tabular-nums leading-none text-white shadow-sm ring-2 ring-status-warning/25">
+                  {pendingPaymentCount}
+                </span>
+              ) : null}
+            </span>
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="billing" className="mt-0 space-y-6">
+        <TabsContent value="billing" className="mt-0 space-y-6">
+      {!loadFailed ? (
+        <>
       <BillingStatusSummary
         title={admin.portfolio.dashboard.subscription.title}
         subtitle={admin.portfolio.dashboard.subscription.subtitle}
@@ -352,6 +382,7 @@ export function AdminBillingPayments({
                 business={business}
                 billing={admin.billing}
                 statusLabels={paymentStatusLabels}
+                canManage={canManageBilling}
                 onSendInvoice={handleSendInvoice}
                 isSendingInvoice={sendingBusinessKey === business.businessKey}
                 invoiceSent={invoiceSent}
@@ -365,13 +396,15 @@ export function AdminBillingPayments({
         </div>
       )}
 
+        </>
+      ) : null}
+
           </TabsContent>
 
           <TabsContent value="payments" className="mt-0">
             <AdminPaymentSubmissionsPanel copy={admin.billing} />
           </TabsContent>
         </Tabs>
-      ) : null}
 
       <BillingFollowUpPane
         open={followUpBusiness !== null}

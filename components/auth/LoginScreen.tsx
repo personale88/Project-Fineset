@@ -27,6 +27,7 @@ export function LoginScreen({ showLogo = false }: LoginScreenProps) {
           localAuthBypass={localAuthBypass}
           localBypassHint={localAuthBypass ? c.localBypassHint : undefined}
           errorInvalid={c.errorInvalid}
+          errorUnknownDevUser={c.errorUnknownDevUser}
           errorInactive={c.errorInactive}
           errorDeactivated={c.errorDeactivated}
           errorGeneric={c.errorGeneric}

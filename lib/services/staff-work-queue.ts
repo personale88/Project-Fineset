@@ -124,10 +124,10 @@ function buildWorkQueueResponse(
 
   // Reserve at least one preview item per non-empty category so accordions are not empty.
   for (const reason of REASON_ORDER) {
-    if (preview.length >= limit) break;
     const bucket = byReason.get(reason) ?? [];
-    if (bucket.length === 0) continue;
-    addPreviewItem(bucket[0]!);
+    for (const item of bucket) {
+      if (addPreviewItem(item)) break;
+    }
   }
 
   for (const item of merged) {

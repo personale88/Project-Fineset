@@ -23,6 +23,7 @@ interface NavItem {
 
 interface PortalShellProps {
   title: string;
+  portalType?: string;
   homeHref?: string;
   navItems?: NavItem[];
   showDesktopNav?: boolean;
@@ -35,6 +36,7 @@ interface PortalShellProps {
 
 export function PortalShell({
   title,
+  portalType,
   homeHref = "/",
   navItems = [],
   showDesktopNav = true,
@@ -87,9 +89,22 @@ export function PortalShell({
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-page-x py-4 sm:gap-4 sm:px-page-md">
           <div className="flex min-w-0 items-center gap-3 sm:gap-6">
             <Link href={homeHref} className="flex shrink-0 items-center gap-2.5">
-              <Logo size={28} linked={false} />
-              <span className="font-display text-lg font-semibold text-brand-gold">
-                {title}
+              <Logo size={36} linked={false} />
+              <span className="min-w-0">
+                <span
+                  className="block font-display text-lg font-semibold leading-tight text-brand-gold"
+                  data-testid="portal-brand-title"
+                >
+                  {title}
+                </span>
+                {portalType ? (
+                  <span
+                    className="block text-xs leading-tight text-text-muted"
+                    data-testid="portal-type-label"
+                  >
+                    {portalType}
+                  </span>
+                ) : null}
               </span>
             </Link>
             {navItems.length > 0 && showDesktopNav && (

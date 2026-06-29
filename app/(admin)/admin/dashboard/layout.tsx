@@ -50,7 +50,8 @@ export default async function AdminLayout({
 
   return (
     <PortalShell
-      title={content.admin.shell.title}
+      title={content.common.portalBrandTitle}
+      portalType={content.admin.shell.title}
       signOutLabel={content.common.signOut}
     >
       <RealtimeSyncProvider>

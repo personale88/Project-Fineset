@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAdminPortal } from "@/components/admin/AdminPortalContext";
+import { canEditAdminPortal } from "@/lib/auth/admin-portal-access";
 import {
   useCreateStoreCategory,
   useDeleteStoreCategory,
@@ -229,7 +230,7 @@ function IntegrationRow({
 export function AdminSettingsCenter({ admin }: AdminSettingsCenterProps) {
   const copy = admin.settings;
   const { role } = useAdminPortal();
-  const canEdit = role === "MASTER_ADMIN";
+  const canEdit = canEditAdminPortal(role);
   const router = useRouter();
 
   const [scope, setScope] = useState<SettingsScope>("general");

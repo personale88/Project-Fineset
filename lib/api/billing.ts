@@ -33,7 +33,8 @@ export async function sendBusinessInvoice(
 }
 
 export interface SendBillingWhatsAppReminderResult {
-  whatsappUrl: string;
+  delivery: "sent" | "queued" | "deep_link";
+  whatsappUrl: string | null;
   phone: string;
   message: string;
 }

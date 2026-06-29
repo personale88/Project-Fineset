@@ -102,10 +102,21 @@ export async function authenticateWithPassword(
   password: string,
 ): Promise<
   | { ok: true; profile: AppUserWithRelations }
-  | { ok: false; reason: "invalid_credentials" | "inactive" | "deactivated" | "no_password" }
+  | {
+      ok: false;
+      reason:
+        | "invalid_credentials"
+        | "inactive"
+        | "deactivated"
+        | "no_password"
+        | "unknown_dev_user";
+    }
 > {
   const profile = await loadAppUserProfileByEmail(email.trim().toLowerCase());
   if (!profile) {
+    if (isLocalAuthBypassEnabled()) {
+      return { ok: false, reason: "unknown_dev_user" };
+    }
     return { ok: false, reason: "invalid_credentials" };
   }
 

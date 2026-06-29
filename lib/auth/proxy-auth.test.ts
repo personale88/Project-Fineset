@@ -72,5 +72,36 @@ describe("evaluateProxyAuth", () => {
       action: "redirect",
       location: `${ORIGIN}/staff/dashboard`,
     });
+    expect(
+      evaluateProxyAuth(`${ADMIN_DASHBOARD_PATH}/automation`, ORIGIN, "STORE_MANAGER"),
+    ).toEqual({
+      action: "redirect",
+      location: `${ORIGIN}/store-manager/dashboard`,
+    });
+    expect(
+      evaluateProxyAuth(`${ADMIN_DASHBOARD_PATH}/automation`, ORIGIN, "BUSINESS_OWNER"),
+    ).toEqual({
+      action: "redirect",
+      location: `${ORIGIN}/business-owner/dashboard`,
+    });
+  });
+
+  it("forbids store portal roles on admin automation APIs", () => {
+    for (const role of ["STAFF", "STORE_MANAGER", "BUSINESS_OWNER"] as const) {
+      expect(
+        evaluateProxyAuth("/api/admin/automation/config", ORIGIN, role),
+      ).toEqual({
+        action: "json",
+        status: 403,
+        message: "Forbidden",
+      });
+      expect(
+        evaluateProxyAuth("/api/admin/automation/runs", ORIGIN, role),
+      ).toEqual({
+        action: "json",
+        status: 403,
+        message: "Forbidden",
+      });
+    }
   });
 });

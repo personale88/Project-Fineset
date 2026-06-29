@@ -87,3 +87,15 @@ export function isWithinBusinessHoursInTimezone(
   const end = endH * 60 + endM;
   return minutes >= start && minutes <= end;
 }
+
+export function formatDateTimeInTimezone(date: Date | string, timezone: string): string {
+  const value = typeof date === "string" ? new Date(date) : date;
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: timezone,
+  }).format(value);
+}

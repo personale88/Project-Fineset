@@ -1,6 +1,7 @@
 import { GET as getBillingAutomationCron } from "@/app/api/cron/billing-automation/route";
 import { POST as postAutomationRun } from "@/app/api/admin/automation/run/route";
 import { GET as getAutomationConfigRoute, PATCH as patchAutomationConfig } from "@/app/api/admin/automation/config/route";
+import { GET as getAutomationRunsRoute } from "@/app/api/admin/automation/runs/route";
 import { randomUUID } from "crypto";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db/prisma";
@@ -27,12 +28,19 @@ import { runBillingAutomation, sendAutomatedPaymentConfirmation } from "@/lib/se
 import * as runBillingAutomationModule from "@/lib/services/run-billing-automation";
 import { buildAutomationDedupeKey } from "@/lib/automation/delivery-log";
 import { mergeAutomationConfig, toBillingCycleSettings } from "@/lib/automation/merge-config";
+import {
+  assertManualAutomationRunAllowed,
+  AutomationRunBlockedError,
+} from "@/lib/automation/run-request";
 import * as automationEmailsModule from "@/lib/emails/automation-emails";
+import * as whatsAppSendModule from "@/lib/whatsapp/send-message";
 import { getPaymentDeadline, startOfCalendarDay } from "@/lib/utils/billing-cycle";
 import type {
   AdminStorePortfolioRow,
+  BusinessOwnerSession,
   MasterAdminSession,
   PlatformAdminSession,
+  StaffSession,
   StoreSession,
 } from "@/types";
 
@@ -44,6 +52,7 @@ function makePortfolioStore(input: {
   renewalDueAt?: string | null;
   dataExpiryAt?: string | null;
   storeName?: string;
+  storeManagerPhone?: string | null;
 }): AdminStorePortfolioRow {
   const now = new Date().toISOString();
   return {
@@ -56,7 +65,7 @@ function makePortfolioStore(input: {
     businessOwnerName: "Partial Test Owner",
     businessOwnerEmail: input.ownerEmail,
     storeManagerName: null,
-    storeManagerPhone: null,
+    storeManagerPhone: input.storeManagerPhone ?? null,
     staffCount: 0,
     createdAt: now,
     updatedAt: now,
@@ -113,6 +122,10 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
   const deliveryDedupeKeys: string[] = [];
   const billingAccountKeys: string[] = [];
 
+  function runErrors(errors: string[] | null): string[] {
+    return errors ?? [];
+  }
+
   afterAll(async () => {
     if (billingAccountKeys.length > 0) {
       await prisma.billingBusinessAccount.deleteMany({
@@ -143,7 +156,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(result.errors).toEqual([]);
     expect(result.summary.invoicesSent).toBe(0);
@@ -161,7 +174,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     );
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("SUCCESS");
     expect(runLog.trigger).toBe("CRON");
@@ -185,7 +198,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     const deliveryCountAfter = await prisma.automationDeliveryLog.count();
 
@@ -196,7 +209,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(deliveryCountAfter).toBe(deliveryCountBefore);
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.trigger).toBe("DRY_RUN");
     expect(runLog.status).toBe("SUCCESS");
@@ -231,7 +244,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(result.summary.invoicesSent).toBe(0);
     expect(result.errors).toContain(
@@ -239,7 +252,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     );
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.trigger).toBe("CRON");
     expect(runLog.status).toBe("FAILED");
@@ -333,7 +346,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     // Some actions succeed
     expect(result.summary.invoicesSent).toBe(1);
@@ -347,8 +360,8 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     ).toBe(true);
 
     // Some actions fail
-    expect(result.errors.length).toBeGreaterThan(0);
-    expect(result.errors.some((message) => message.includes("Simulated invoice send failure"))).toBe(
+    expect(runErrors(result.errors).length).toBeGreaterThan(0);
+    expect(runErrors(result.errors).some((message) => message.includes("Simulated invoice send failure"))).toBe(
       true,
     );
     expect(
@@ -366,12 +379,12 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).not.toBe("FAILED");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("PARTIAL");
     expect(runLog.status).not.toBe("SUCCESS");
     expect(runLog.status).not.toBe("FAILED");
-    expect(runLog.errors).toEqual(expect.arrayContaining(result.errors));
+    expect(runLog.errors).toEqual(expect.arrayContaining(runErrors(result.errors)));
 
     smtpSpy.mockRestore();
     storesSpy.mockRestore();
@@ -413,13 +426,13 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     // All actions fail — no successful sends
     expect(result.summary.invoicesSent).toBe(0);
-    expect(result.errors.length).toBeGreaterThanOrEqual(2);
+    expect(runErrors(result.errors).length).toBeGreaterThanOrEqual(2);
     expect(
-      result.errors.every((message) => message.includes("Simulated total invoice failure")),
+      runErrors(result.errors).every((message) => message.includes("Simulated total invoice failure")),
     ).toBe(true);
     expect(result.summary.details.filter((detail) => detail.status === "success")).toEqual([]);
     expect(
@@ -434,12 +447,12 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).not.toBe("PARTIAL");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("FAILED");
     expect(runLog.status).not.toBe("SUCCESS");
     expect(runLog.status).not.toBe("PARTIAL");
-    expect(runLog.errors).toEqual(expect.arrayContaining(result.errors));
+    expect(runLog.errors).toEqual(expect.arrayContaining(runErrors(result.errors)));
 
     smtpSpy.mockRestore();
     storesSpy.mockRestore();
@@ -487,7 +500,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(invoiceSpy).not.toHaveBeenCalled();
     expect(result.summary.invoicesSent).toBe(0);
@@ -500,7 +513,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).toBe("SUCCESS");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("SUCCESS");
 
@@ -561,7 +574,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(invoiceSpy).toHaveBeenCalledOnce();
     expect(invoiceSpy).toHaveBeenCalledWith(email, "automation@fineset.local");
@@ -579,7 +592,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).toBe("SUCCESS");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("SUCCESS");
 
@@ -644,7 +657,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(invoiceSpy).not.toHaveBeenCalled();
     expect(result.summary.invoicesSent).toBe(0);
@@ -704,7 +717,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(invoiceSpy).not.toHaveBeenCalled();
     expect(result.summary.invoicesSent).toBe(0);
@@ -776,13 +789,13 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(firstRun.runId);
+    runIds.push(firstRun.id);
 
     const secondRun = await runBillingAutomation({
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(secondRun.runId);
+    runIds.push(secondRun.id);
 
     expect(invoiceSpy).toHaveBeenCalledOnce();
     expect(firstRun.summary.invoicesSent).toBe(1);
@@ -853,12 +866,12 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(invoiceSpy).toHaveBeenCalledTimes(2);
     expect(result.summary.invoicesSent).toBe(1);
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toContain("Simulated invoice send failure");
+    expect(runErrors(result.errors)[0]).toContain("Simulated invoice send failure");
     expect(
       result.summary.details.some(
         (detail) =>
@@ -924,13 +937,13 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(allocateSpy).toHaveBeenCalled();
     expect(poolError.status).toBe(500);
     expect(result.summary.invoicesSent).toBe(0);
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0]).toContain("Invoice number pool exhausted for today.");
+    expect(runErrors(result.errors)[0]).toContain("Invoice number pool exhausted for today.");
     expect(
       result.summary.details.some(
         (detail) =>
@@ -943,10 +956,10 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).toBe("FAILED");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("FAILED");
-    expect(runLog.errors).toEqual(expect.arrayContaining(result.errors));
+    expect(runLog.errors).toEqual(expect.arrayContaining(runErrors(result.errors)));
 
     smtpSpy.mockRestore();
     storesSpy.mockRestore();
@@ -1015,7 +1028,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(reminderSpy).not.toHaveBeenCalled();
     expect(result.summary.paymentRemindersSent).toBe(0);
@@ -1027,7 +1040,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).toBe("SUCCESS");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("SUCCESS");
 
@@ -1126,7 +1139,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(
       automationConfig.paymentReminders.reminderDaysBeforeDue.length +
@@ -1142,7 +1155,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).toBe("SUCCESS");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("SUCCESS");
 
@@ -1226,7 +1239,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(
       automationConfig.paymentReminders.reminderDaysBeforeDue.length +
@@ -1241,7 +1254,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).toBe("SUCCESS");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("SUCCESS");
 
@@ -1337,7 +1350,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(reminderSpy).not.toHaveBeenCalled();
     expect(result.summary.paymentRemindersSent).toBe(0);
@@ -1354,7 +1367,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).toBe("SUCCESS");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("SUCCESS");
 
@@ -1439,13 +1452,13 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(firstRun.runId);
+    runIds.push(firstRun.id);
 
     const secondRun = await runBillingAutomation({
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(secondRun.runId);
+    runIds.push(secondRun.id);
 
     expect(reminderSpy).toHaveBeenCalledOnce();
     expect(firstRun.summary.paymentRemindersSent).toBe(1);
@@ -1537,7 +1550,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(reminderSpy).not.toHaveBeenCalled();
     expect(result.summary.paymentRemindersSent).toBe(0);
@@ -1547,7 +1560,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).toBe("FAILED");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("FAILED");
     expect(runLog.errors).toContain(
@@ -1642,7 +1655,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(followUpSpy).not.toHaveBeenCalled();
     expect(result.summary.whatsAppQueued).toBe(0);
@@ -1735,6 +1748,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
           storeId: `store-${runId}`,
           ownerEmail: email,
           renewalDueAt: addCalendarDays(reference, -14),
+          storeManagerPhone: "9876543210",
         }),
       ]);
 
@@ -1745,7 +1759,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     const followUp = await prisma.billingFollowUp.findFirst({
       where: { account: { businessKey: email }, channel: "WHATSAPP" },
@@ -1761,15 +1775,211 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
           detail.businessKey === email &&
           detail.channel === "WHATSAPP" &&
           detail.status === "success" &&
-          detail.message === "Follow-up scheduled — send from Billing",
+          detail.message === "Follow-up scheduled for +919876543210 — send from Billing",
       ),
     ).toBe(true);
     expect(followUp).not.toBeNull();
     expect(followUp?.outcome).toBe("RESCHEDULED");
-    expect(followUp?.notes).toContain("[Automation] WhatsApp reminder queued.");
+    expect(followUp?.notes).toContain("[Automation] WhatsApp reminder queued for +919876543210.");
     expect(result.status).toBe("SUCCESS");
 
     storesSpy.mockRestore();
+  });
+
+  it("EC-BE-022b: uses the configured default country code when queueing WhatsApp reminders", async () => {
+    const runId = randomUUID().slice(0, 8);
+    const timezone = "America/New_York";
+    const today = getDayOfMonthInTimezone(timezone);
+    const notInvoiceDay = today <= 15 ? 28 : 1;
+    const email = `whatsapp-country-${runId}@test.local`;
+    const reference = new Date();
+    const insideHours = businessHoursIncludingNow(timezone, reference);
+    const automationConfig = {
+      global: { enabled: true, dryRunMode: false, timezone },
+      billingCycle: { cycleStartDay: 1, paymentDueDay: 10, gracePeriodDays: 10 },
+      invoices: {
+        autoSendEnabled: false,
+        sendDayOfMonth: notInvoiceDay,
+        sendOnRenewalDue: false,
+      },
+      paymentReminders: {
+        enabled: true,
+        emailEnabled: false,
+        whatsAppEnabled: true,
+        reminderDaysBeforeDue: [] as number[],
+        reminderDaysAfterDue: [] as number[],
+        maxRemindersPerCycle: 5,
+        stopAfterPayment: false,
+      },
+      whatsApp: {
+        enabled: true,
+        defaultCountryCode: "1",
+        businessHoursOnly: true,
+        businessHoursStart: insideHours.start,
+        businessHoursEnd: insideHours.end,
+      },
+      followUps: { enabled: false, autoScheduleNext: false },
+      monthlyReports: { enabled: false },
+      expiryRenewal: {
+        expiryReminderEnabled: false,
+        renewalReminderEnabled: false,
+      },
+    };
+    const cycleSettings = toBillingCycleSettings(mergeAutomationConfig(automationConfig));
+    const daysUntilDue = daysUntilPaymentDeadline(reference, cycleSettings);
+    if (daysUntilDue >= 0) {
+      automationConfig.paymentReminders.reminderDaysBeforeDue = [daysUntilDue];
+    } else {
+      automationConfig.paymentReminders.reminderDaysAfterDue = [Math.abs(daysUntilDue)];
+    }
+    const cycleKey = billingCycleMonthKeyInTimezone(timezone, reference);
+    const variant =
+      daysUntilDue >= 0 ? `before_${daysUntilDue}` : `after_${Math.abs(daysUntilDue)}`;
+    deliveryDedupeKeys.push(
+      buildAutomationDedupeKey([email, "WHATSAPP_REMINDER", cycleKey, variant]),
+    );
+
+    billingAccountKeys.push(email);
+    await prisma.billingBusinessAccount.create({
+      data: {
+        businessKey: email,
+        businessName: "WhatsApp Country Code Test",
+        businessEmail: email,
+        paymentStatus: "UNPAID",
+      },
+    });
+
+    const storesSpy = vi
+      .spyOn(storesModule, "getAdminPortfolioStoreRows")
+      .mockResolvedValue([
+        makePortfolioStore({
+          storeId: `store-${runId}`,
+          ownerEmail: email,
+          renewalDueAt: addCalendarDays(reference, -14),
+          storeManagerPhone: "5551234567",
+        }),
+      ]);
+
+    await updateAutomationConfig(automationConfig);
+    resetAutomationConfigCacheForTests();
+
+    const result = await runBillingAutomation({
+      trigger: "CRON",
+      triggeredByEmail: "vitest@local",
+    });
+    runIds.push(result.id);
+
+    expect(result.summary.whatsAppQueued).toBe(1);
+    expect(
+      result.summary.details.some(
+        (detail) =>
+          detail.action === "whatsapp_reminder" &&
+          detail.message === "Follow-up scheduled for +15551234567 — send from Billing",
+      ),
+    ).toBe(true);
+
+    const followUp = await prisma.billingFollowUp.findFirst({
+      where: { account: { businessKey: email }, channel: "WHATSAPP" },
+    });
+    expect(followUp?.notes).toContain("[Automation] WhatsApp reminder queued for +15551234567.");
+
+    storesSpy.mockRestore();
+  });
+
+  it("EC-BE-022c: never sends WhatsApp reminders via the Business API during automation", async () => {
+    const runId = randomUUID().slice(0, 8);
+    const timezone = "Asia/Kolkata";
+    const today = getDayOfMonthInTimezone(timezone);
+    const notInvoiceDay = today <= 15 ? 28 : 1;
+    const email = `whatsapp-no-api-${runId}@test.local`;
+    const reference = new Date();
+    const insideHours = businessHoursIncludingNow(timezone, reference);
+    const automationConfig = {
+      global: { enabled: true, dryRunMode: false, timezone },
+      billingCycle: { cycleStartDay: 1, paymentDueDay: 10, gracePeriodDays: 10 },
+      invoices: {
+        autoSendEnabled: false,
+        sendDayOfMonth: notInvoiceDay,
+        sendOnRenewalDue: false,
+      },
+      paymentReminders: {
+        enabled: true,
+        emailEnabled: false,
+        whatsAppEnabled: true,
+        reminderDaysBeforeDue: [] as number[],
+        reminderDaysAfterDue: [] as number[],
+        maxRemindersPerCycle: 5,
+        stopAfterPayment: false,
+      },
+      whatsApp: {
+        enabled: true,
+        businessHoursOnly: true,
+        businessHoursStart: insideHours.start,
+        businessHoursEnd: insideHours.end,
+      },
+      followUps: { enabled: false, autoScheduleNext: false },
+      monthlyReports: { enabled: false },
+      expiryRenewal: {
+        expiryReminderEnabled: false,
+        renewalReminderEnabled: false,
+      },
+    };
+    const cycleSettings = toBillingCycleSettings(mergeAutomationConfig(automationConfig));
+    const daysUntilDue = daysUntilPaymentDeadline(reference, cycleSettings);
+    if (daysUntilDue >= 0) {
+      automationConfig.paymentReminders.reminderDaysBeforeDue = [daysUntilDue];
+    } else {
+      automationConfig.paymentReminders.reminderDaysAfterDue = [Math.abs(daysUntilDue)];
+    }
+    const cycleKey = billingCycleMonthKeyInTimezone(timezone, reference);
+    const variant =
+      daysUntilDue >= 0 ? `before_${daysUntilDue}` : `after_${Math.abs(daysUntilDue)}`;
+    deliveryDedupeKeys.push(
+      buildAutomationDedupeKey([email, "WHATSAPP_REMINDER", cycleKey, variant]),
+    );
+
+    billingAccountKeys.push(email);
+    await prisma.billingBusinessAccount.create({
+      data: {
+        businessKey: email,
+        businessName: "WhatsApp No API Test",
+        businessEmail: email,
+        paymentStatus: "UNPAID",
+      },
+    });
+
+    const storesSpy = vi
+      .spyOn(storesModule, "getAdminPortfolioStoreRows")
+      .mockResolvedValue([
+        makePortfolioStore({
+          storeId: `store-${runId}`,
+          ownerEmail: email,
+          renewalDueAt: addCalendarDays(reference, -14),
+          storeManagerPhone: "9876543210",
+        }),
+      ]);
+    const apiConfiguredSpy = vi
+      .spyOn(whatsAppSendModule, "isWhatsAppApiConfigured")
+      .mockReturnValue(true);
+    const sendWhatsAppSpy = vi
+      .spyOn(whatsAppSendModule, "sendWhatsAppTextMessage")
+      .mockResolvedValue(undefined);
+
+    await updateAutomationConfig(automationConfig);
+    resetAutomationConfigCacheForTests();
+
+    const result = await runBillingAutomation({
+      trigger: "CRON",
+      triggeredByEmail: "vitest@local",
+    });
+    runIds.push(result.id);
+
+    expect(result.summary.whatsAppQueued).toBe(1);
+    expect(sendWhatsAppSpy).not.toHaveBeenCalled();
+
+    storesSpy.mockRestore();
+    apiConfiguredSpy.mockRestore();
+    sendWhatsAppSpy.mockRestore();
   });
 
   it("EC-BE-023: auto-schedules next follow-up when nextFollowUpAt is due", async () => {
@@ -1821,7 +2031,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     const account = await prisma.billingBusinessAccount.findUniqueOrThrow({
       where: { businessKey: email },
@@ -1910,7 +2120,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     const followUps = await prisma.billingFollowUp.findMany({
       where: { account: { businessKey: email } },
@@ -1999,7 +2209,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     const updatedAccount = await prisma.billingBusinessAccount.findUniqueOrThrow({
       where: { businessKey: email },
@@ -2087,7 +2297,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(renewalSpy).not.toHaveBeenCalled();
     expect(expirySpy).not.toHaveBeenCalled();
@@ -2167,7 +2377,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(renewalSpy).not.toHaveBeenCalled();
     expect(expirySpy).not.toHaveBeenCalled();
@@ -2262,13 +2472,13 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(firstRun.runId);
+    runIds.push(firstRun.id);
 
     const secondRun = await runBillingAutomation({
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(secondRun.runId);
+    runIds.push(secondRun.id);
 
     expect(renewalSpy).toHaveBeenCalledOnce();
     expect(expirySpy).toHaveBeenCalledOnce();
@@ -2356,7 +2566,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(renewalSpy).not.toHaveBeenCalled();
     expect(expirySpy).not.toHaveBeenCalled();
@@ -2371,7 +2581,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).toBe("FAILED");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("FAILED");
     expect(runLog.errors).toContain(
@@ -2435,7 +2645,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(reportSpy).not.toHaveBeenCalled();
     expect(result.summary.monthlyReportsSent).toBe(0);
@@ -2446,7 +2656,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).toBe("SUCCESS");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("SUCCESS");
 
@@ -2504,7 +2714,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(reportSpy).not.toHaveBeenCalled();
     expect(result.summary.monthlyReportsSent).toBe(0);
@@ -2515,7 +2725,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).toBe("SUCCESS");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("SUCCESS");
 
@@ -2591,7 +2801,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
         trigger: "CRON",
         triggeredByEmail: "vitest@local",
       });
-      runIds.push(result.runId);
+      runIds.push(result.id);
 
       return {
         result,
@@ -2695,7 +2905,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(reportSpy).toHaveBeenCalledOnce();
     const bodyText = reportSpy.mock.calls[0]?.[0]?.bodyText ?? "";
@@ -2777,13 +2987,13 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(firstRun.runId);
+    runIds.push(firstRun.id);
 
     const secondRun = await runBillingAutomation({
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(secondRun.runId);
+    runIds.push(secondRun.id);
 
     expect(reportSpy).toHaveBeenCalledOnce();
     expect(reportSpy).toHaveBeenCalledWith(
@@ -2860,7 +3070,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
       trigger: "CRON",
       triggeredByEmail: "vitest@local",
     });
-    runIds.push(result.runId);
+    runIds.push(result.id);
 
     expect(reportSpy).not.toHaveBeenCalled();
     expect(result.summary.monthlyReportsSent).toBe(0);
@@ -2873,7 +3083,7 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     expect(result.status).toBe("FAILED");
 
     const runLog = await prisma.automationRunLog.findUniqueOrThrow({
-      where: { id: result.runId },
+      where: { id: result.id },
     });
     expect(runLog.status).toBe("FAILED");
     expect(runLog.errors).toContain(
@@ -3097,8 +3307,11 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     const runSpy = vi
       .spyOn(runBillingAutomationModule, "runBillingAutomation")
       .mockResolvedValue({
-        runId: "should-not-run",
+        id: "should-not-run",
+        trigger: "DRY_RUN",
         status: "SUCCESS",
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
         summary: {
           invoicesSent: 0,
           invoicesSkipped: 0,
@@ -3111,27 +3324,37 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
           paymentConfirmationsSent: 0,
           details: [],
         },
-        errors: [],
+        errors: null,
+        triggeredByEmail: null,
       });
 
     const sessionSpy = vi.spyOn(sessionModule, "getServerSession");
 
-    for (const session of [platformAdmin, storeManager]) {
-      sessionSpy.mockResolvedValueOnce(session);
+    sessionSpy.mockResolvedValueOnce(platformAdmin);
+    const platformResponse = await postAutomationRun(
+      new Request("http://localhost/api/admin/automation/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun: true }),
+      }),
+    );
+    expect(platformResponse.status).toBe(403);
+    await expect(platformResponse.json()).resolves.toEqual({
+      message: "Only master admins can run automations.",
+    });
 
-      const response = await postAutomationRun(
-        new Request("http://localhost/api/admin/automation/run", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ dryRun: true }),
-        }),
-      );
-
-      expect(response.status).toBe(403);
-      await expect(response.json()).resolves.toEqual({
-        message: "Only master admins can run automations.",
-      });
-    }
+    sessionSpy.mockResolvedValueOnce(storeManager);
+    const storeResponse = await postAutomationRun(
+      new Request("http://localhost/api/admin/automation/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun: true }),
+      }),
+    );
+    expect(storeResponse.status).toBe(403);
+    await expect(storeResponse.json()).resolves.toEqual({
+      message: "Forbidden",
+    });
 
     expect(runSpy).not.toHaveBeenCalled();
 
@@ -3150,8 +3373,11 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     const runSpy = vi
       .spyOn(runBillingAutomationModule, "runBillingAutomation")
       .mockResolvedValue({
-        runId: "should-not-run",
+        id: "should-not-run",
+        trigger: "DRY_RUN",
         status: "SUCCESS",
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
         summary: {
           invoicesSent: 0,
           invoicesSkipped: 0,
@@ -3164,7 +3390,8 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
           paymentConfirmationsSent: 0,
           details: [],
         },
-        errors: [],
+        errors: null,
+        triggeredByEmail: null,
       });
     const sessionSpy = vi
       .spyOn(sessionModule, "getServerSession")
@@ -3206,22 +3433,31 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
     const updateSpy = vi.spyOn(automationConfigModule, "updateAutomationConfig");
     const sessionSpy = vi.spyOn(sessionModule, "getServerSession");
 
-    for (const session of [platformAdmin, storeManager]) {
-      sessionSpy.mockResolvedValueOnce(session);
+    sessionSpy.mockResolvedValueOnce(platformAdmin);
+    const platformResponse = await patchAutomationConfig(
+      new Request("http://localhost/api/admin/automation/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ global: { enabled: false } }),
+      }),
+    );
+    expect(platformResponse.status).toBe(403);
+    await expect(platformResponse.json()).resolves.toEqual({
+      message: "Only master admins can update automation settings.",
+    });
 
-      const response = await patchAutomationConfig(
-        new Request("http://localhost/api/admin/automation/config", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ global: { enabled: false } }),
-        }),
-      );
-
-      expect(response.status).toBe(403);
-      await expect(response.json()).resolves.toEqual({
-        message: "Only master admins can update automation settings.",
-      });
-    }
+    sessionSpy.mockResolvedValueOnce(storeManager);
+    const storeResponse = await patchAutomationConfig(
+      new Request("http://localhost/api/admin/automation/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ global: { enabled: false } }),
+      }),
+    );
+    expect(storeResponse.status).toBe(403);
+    await expect(storeResponse.json()).resolves.toEqual({
+      message: "Forbidden",
+    });
 
     expect(updateSpy).not.toHaveBeenCalled();
 
@@ -3252,6 +3488,60 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
 
     sessionSpy.mockRestore();
     configSpy.mockRestore();
+  });
+
+  it("EC-BE-047: returns 403 when store portal roles call GET /automation/config or /automation/runs", async () => {
+    const staff: StaffSession = {
+      role: "STAFF",
+      userId: "staff-user",
+      email: "staff@test.local",
+      staffId: "staff-ec-be-047",
+      storeId: "store-ec-be-047",
+      name: "Staff User",
+    };
+    const storeManager: StoreSession = {
+      role: "STORE_MANAGER",
+      userId: "store-manager-user",
+      email: "manager@test.local",
+      storeId: "store-ec-be-047",
+      storeName: "EC-BE-047 Store",
+    };
+    const businessOwner: BusinessOwnerSession = {
+      role: "BUSINESS_OWNER",
+      userId: "owner-user",
+      email: "owner@test.local",
+      storeId: "store-ec-be-047",
+      storeName: "EC-BE-047 Store",
+    };
+
+    const configSpy = vi.spyOn(automationConfigModule, "getAutomationConfig");
+    const runsSpy = vi.spyOn(automationConfigModule, "listAutomationRuns");
+    const sessionSpy = vi.spyOn(sessionModule, "getServerSession");
+
+    for (const session of [staff, storeManager, businessOwner]) {
+      sessionSpy.mockResolvedValueOnce(session);
+      const configResponse = await getAutomationConfigRoute();
+      expect(configResponse.status).toBe(403);
+      await expect(configResponse.json()).resolves.toEqual({
+        message: "Forbidden",
+      });
+
+      sessionSpy.mockResolvedValueOnce(session);
+      const runsResponse = await getAutomationRunsRoute(
+        new Request("http://localhost/api/admin/automation/runs?page=1&pageSize=20"),
+      );
+      expect(runsResponse.status).toBe(403);
+      await expect(runsResponse.json()).resolves.toEqual({
+        message: "Forbidden",
+      });
+    }
+
+    expect(configSpy).not.toHaveBeenCalled();
+    expect(runsSpy).not.toHaveBeenCalled();
+
+    sessionSpy.mockRestore();
+    configSpy.mockRestore();
+    runsSpy.mockRestore();
   });
 
   it("EC-BE-044: returns 400 when PATCH /automation/config body fails validation", async () => {
@@ -3390,5 +3680,182 @@ describe.skipIf(!hasDb)("billing automation backend", () => {
 
     sessionSpy.mockRestore();
     updateSpy.mockRestore();
+  });
+
+  it("EC-BE-050: PATCH section persists and GET returns saved values after reload-style read", async () => {
+    resetAutomationConfigCacheForTests();
+
+    const masterAdmin: MasterAdminSession = {
+      role: "MASTER_ADMIN",
+      userId: "master-admin-user",
+      email: "master-admin@test.local",
+      permissions: { billing: true },
+    };
+    const sessionSpy = vi
+      .spyOn(sessionModule, "getServerSession")
+      .mockResolvedValue(masterAdmin);
+
+    try {
+      const firstPatch = await patchAutomationConfig(
+        new Request("http://localhost/api/admin/automation/config", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            invoices: {
+              autoSendEnabled: false,
+              sendDayOfMonth: 7,
+              daysBeforeRenewal: 2,
+            },
+          }),
+        }),
+      );
+
+      expect(firstPatch.status).toBe(200);
+      const firstSaved = await firstPatch.json();
+      expect(firstSaved.invoices.autoSendEnabled).toBe(false);
+      expect(firstSaved.invoices.sendDayOfMonth).toBe(7);
+      expect(firstSaved.invoices.daysBeforeRenewal).toBe(2);
+
+      resetAutomationConfigCacheForTests();
+      await getAutomationConfig();
+
+      const reloadResponse = await getAutomationConfigRoute();
+      expect(reloadResponse.status).toBe(200);
+      const reloaded = await reloadResponse.json();
+      expect(reloaded.invoices.autoSendEnabled).toBe(false);
+      expect(reloaded.invoices.sendDayOfMonth).toBe(7);
+      expect(reloaded.invoices.daysBeforeRenewal).toBe(2);
+
+      const secondPatch = await patchAutomationConfig(
+        new Request("http://localhost/api/admin/automation/config", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paymentReminders: {
+              enabled: true,
+              maxRemindersPerCycle: 5,
+            },
+          }),
+        }),
+      );
+
+      expect(secondPatch.status).toBe(200);
+      const secondSaved = await secondPatch.json();
+      expect(secondSaved.invoices.sendDayOfMonth).toBe(7);
+      expect(secondSaved.paymentReminders.maxRemindersPerCycle).toBe(5);
+
+      const freshFromDb = await getAutomationConfig({ fresh: true });
+      expect(freshFromDb.invoices.sendDayOfMonth).toBe(7);
+      expect(freshFromDb.paymentReminders.maxRemindersPerCycle).toBe(5);
+    } finally {
+      sessionSpy.mockRestore();
+      resetAutomationConfigCacheForTests();
+    }
+  });
+
+  it("EC-BE-051: manual POST /automation/run appears in GET /automation/runs", async () => {
+    resetAutomationConfigCacheForTests();
+
+    const masterAdmin: MasterAdminSession = {
+      role: "MASTER_ADMIN",
+      userId: "master-admin-user",
+      email: "master-admin@test.local",
+      permissions: { billing: true },
+    };
+    const sessionSpy = vi
+      .spyOn(sessionModule, "getServerSession")
+      .mockResolvedValue(masterAdmin);
+
+    try {
+      await updateAutomationConfig({ global: { enabled: true, dryRunMode: true } });
+
+      const runResponse = await postAutomationRun(
+        new Request("http://localhost/api/admin/automation/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dryRun: true }),
+        }),
+      );
+
+      expect(runResponse.status).toBe(200);
+      const run = await runResponse.json();
+      expect(run.id).toBeTruthy();
+      expect(run.trigger).toBe("DRY_RUN");
+      expect(run.completedAt).toBeTruthy();
+
+      const historyResponse = await getAutomationRunsRoute(
+        new Request("http://localhost/api/admin/automation/runs?page=1&pageSize=20"),
+      );
+
+      expect(historyResponse.status).toBe(200);
+      const history = await historyResponse.json();
+      expect(history.runs.some((item: { id: string }) => item.id === run.id)).toBe(true);
+      runIds.push(run.id);
+    } finally {
+      sessionSpy.mockRestore();
+      resetAutomationConfigCacheForTests();
+    }
+  });
+
+  it("EC-BE-052: blocks manual non-dry runs when automations are disabled", async () => {
+    resetAutomationConfigCacheForTests();
+    await updateAutomationConfig({ global: { enabled: false, dryRunMode: false } });
+
+    const masterAdmin: MasterAdminSession = {
+      role: "MASTER_ADMIN",
+      userId: "master-admin-user",
+      email: "master-admin@test.local",
+      permissions: { billing: true },
+    };
+    const sessionSpy = vi
+      .spyOn(sessionModule, "getServerSession")
+      .mockResolvedValue(masterAdmin);
+
+    try {
+      const blockedResponse = await postAutomationRun(
+        new Request("http://localhost/api/admin/automation/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dryRun: false }),
+        }),
+      );
+
+      expect(blockedResponse.status).toBe(403);
+      await expect(blockedResponse.json()).resolves.toMatchObject({
+        message: expect.stringMatching(/disabled/i),
+      });
+
+      await expect(
+        runBillingAutomation({
+          trigger: "MANUAL",
+          dryRun: false,
+          triggeredByEmail: masterAdmin.email,
+        }),
+      ).rejects.toBeInstanceOf(AutomationRunBlockedError);
+
+      const previewResponse = await postAutomationRun(
+        new Request("http://localhost/api/admin/automation/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dryRun: true }),
+        }),
+      );
+
+      expect(previewResponse.status).toBe(200);
+      const previewRun = await previewResponse.json();
+      expect(previewRun.trigger).toBe("DRY_RUN");
+      runIds.push(previewRun.id);
+
+      const disabledConfig = await getAutomationConfig({ fresh: true });
+      expect(() =>
+        assertManualAutomationRunAllowed(disabledConfig, {
+          trigger: "MANUAL",
+          dryRun: false,
+        }),
+      ).toThrow(AutomationRunBlockedError);
+    } finally {
+      sessionSpy.mockRestore();
+      resetAutomationConfigCacheForTests();
+    }
   });
 });

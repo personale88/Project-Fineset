@@ -1,5 +1,9 @@
 import type { ApiErrorResponse } from "@/types";
 import { ApiError } from "@/types";
+import {
+  isAdminPortalPagePath,
+  redirectToSignInAfterUnauthorized,
+} from "@/lib/auth/client-session-guard";
 import { BILLING_RESTRICTED_CODE } from "@/lib/billing/constants";
 
 export async function apiFetch<T>(
@@ -30,6 +34,16 @@ export async function apiFetch<T>(
       body.code === BILLING_RESTRICTED_CODE
     ) {
       return { billingRestricted: true } as T;
+    }
+
+    if (
+      res.status === 401 &&
+      typeof window !== "undefined" &&
+      isAdminPortalPagePath(window.location.pathname)
+    ) {
+      redirectToSignInAfterUnauthorized(
+        `${window.location.pathname}${window.location.search}`,
+      );
     }
 
     throw new ApiError(res.status, body);

@@ -133,8 +133,6 @@ interface WorkQueueAccordionSectionProps {
   label: string;
   items: StaffWorkQueueItem[];
   displayCount: number;
-  isOpen: boolean;
-  onToggle: () => void;
   previewHint?: string;
   emptyPreview?: ReactNode;
   children: React.ReactNode;
@@ -145,12 +143,11 @@ function WorkQueueAccordionSection({
   label,
   items,
   displayCount,
-  isOpen,
-  onToggle,
   previewHint,
   emptyPreview,
   children,
 }: WorkQueueAccordionSectionProps) {
+  const [isOpen, setIsOpen] = useState(false);
   const sectionId = useId();
   const triggerId = `${sectionId}-${reason}-trigger`;
   const panelId = `${sectionId}-${reason}-panel`;
@@ -158,13 +155,14 @@ function WorkQueueAccordionSection({
   const priority = REASON_PRIORITY_STYLES[reason];
 
   return (
-    <div className="border-b border-border last:border-b-0">
+    <div className="border-b border-border last:border-b-0" data-testid={`work-queue-section-${reason}`}>
       <button
         type="button"
         id={triggerId}
         aria-expanded={isOpen}
         aria-controls={panelId}
-        onClick={onToggle}
+        onClick={() => setIsOpen((current) => !current)}
+        data-testid={`work-queue-section-${reason}-trigger`}
         className={cn(
           "flex w-full items-center justify-between gap-3 px-4 py-3 text-left sm:px-5",
           "transition-colors hover:bg-surface-secondary/40",
@@ -210,6 +208,7 @@ function WorkQueueAccordionSection({
           id={panelId}
           role="region"
           aria-labelledby={triggerId}
+          data-testid={`work-queue-section-${reason}-panel`}
           className="space-y-3 border-t border-border bg-surface-secondary/20 px-4 py-3 sm:px-5"
         >
           {previewHint ? (
@@ -347,15 +346,9 @@ export function StaffWorkQueue({
   const showQueueLoading = !isClient || ((isPending || isLoading) && !data);
   const callFlow = useStaffCallFlow(readOnly ? undefined : (callFlowStoreId ?? browseStoreId));
   const [mode, setMode] = useState<WorkQueueMode>("compact");
-  const [openSections, setOpenSections] = useState<Set<StaffWorkQueueReason>>(new Set());
   const periodOptions = buildPeriodSwitcherOptions(content.staff.period);
 
-  const periodKey = `${personalPeriod}|${effectiveStorePeriod}`;
-  const [prevPeriodKey, setPrevPeriodKey] = useState(periodKey);
-  if (periodKey !== prevPeriodKey) {
-    setPrevPeriodKey(periodKey);
-    setOpenSections(new Set());
-  }
+  const accordionScopeKey = `${personalPeriod}|${effectiveStorePeriod}|${workQueueStoreId ?? "portfolio"}`;
 
   const effectiveMode = readOnly ? "compact" : mode;
 
@@ -403,18 +396,6 @@ export function StaffWorkQueue({
           : (groups.get(reason)?.length ?? 0),
     })).filter((section) => section.displayCount > 0);
   }, [categoryTotals, copy.sections, data?.items, dataSource, sectionLabelOverrides]);
-
-  function toggleSection(reason: StaffWorkQueueReason) {
-    setOpenSections((current) => {
-      const next = new Set(current);
-      if (next.has(reason)) {
-        next.delete(reason);
-      } else {
-        next.add(reason);
-      }
-      return next;
-    });
-  }
 
   async function handleCallFromTask(
     followUpId: string,
@@ -570,7 +551,7 @@ export function StaffWorkQueue({
                     .replace("{total}", String(data.total))}
                 </p>
               ) : null}
-              <div>
+              <div key={accordionScopeKey}>
                 {groupedSections.map((section) => {
                   const previewCount = section.items.length;
                   const hasPartialPreview =
@@ -610,8 +591,6 @@ export function StaffWorkQueue({
                     label={section.label}
                     items={section.items}
                     displayCount={section.displayCount}
-                    isOpen={openSections.has(section.reason)}
-                    onToggle={() => toggleSection(section.reason)}
                     previewHint={previewHint}
                     emptyPreview={emptyPreview}
                   >

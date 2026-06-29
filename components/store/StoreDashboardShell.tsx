@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
+import { content } from "@/content/en";
 import { PortalShell } from "@/components/layout/PortalShell";
 import { BillingAccessBanner } from "@/components/billing/BillingAccessBanner";
 import { BillingAccessProvider } from "@/components/billing/BillingAccessProvider";
@@ -17,14 +18,14 @@ import { portalDashboardPath } from "@/lib/utils/store-dashboard-url";
 import { shouldHidePortalBottomNav } from "@/lib/utils/portal-bottom-nav";
 
 interface StoreDashboardShellProps {
-  title: string;
+  portalType: string;
   signOutLabel: string;
   portalRole?: "STORE_MANAGER" | "BUSINESS_OWNER";
   children: ReactNode;
 }
 
 export function StoreDashboardShell({
-  title,
+  portalType,
   signOutLabel,
   portalRole = "STORE_MANAGER",
   children,
@@ -41,7 +42,8 @@ export function StoreDashboardShell({
   return (
     <BillingAccessProvider storeId={storeId ?? undefined}>
       <PortalShell
-        title={title}
+        title={content.common.portalBrandTitle}
+        portalType={portalType}
         homeHref={homeHref}
         navItems={navItems}
         showDesktopNav={portalRole === "STORE_MANAGER"}

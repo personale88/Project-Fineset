@@ -24,6 +24,7 @@ interface LoginFormProps {
   localAuthBypass?: boolean;
   localBypassHint?: string;
   errorInvalid: string;
+  errorUnknownDevUser?: string;
   errorInactive: string;
   errorDeactivated: string;
   errorGeneric: string;
@@ -46,6 +47,7 @@ export function LoginForm(props: LoginFormProps) {
     subtitle,
     submitLabel,
     errorInvalid,
+    errorUnknownDevUser,
     errorInactive,
     errorDeactivated,
     errorGeneric,
@@ -125,6 +127,9 @@ export function LoginForm(props: LoginFormProps) {
           switch (result.code) {
             case "invalid_credentials":
               setError(errorInvalid);
+              break;
+            case "unknown_dev_user":
+              setError(errorUnknownDevUser ?? errorInvalid);
               break;
             case "inactive":
               setError(errorInactive);

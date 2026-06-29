@@ -1,7 +1,7 @@
 import { mergeStoreWhere } from "@/lib/db/store-scope";
 import { prisma } from "@/lib/db/prisma";
-import { cache } from "react";
 import { unstable_cache } from "next/cache";
+import { requestCache } from "@/lib/utils/request-cache";
 import type { AppSession, BusinessOwnerSession, StoreSession } from "@/types";
 import type { ManagerStoreOption } from "@/types";
 
@@ -72,7 +72,7 @@ export async function listAssignedStoreForManager(
   return store ? [store] : [];
 }
 
-export const listAccessibleStores = cache(
+export const listAccessibleStores = requestCache(
   async (session: StorePortalSession): Promise<ManagerStoreOption[]> => {
     if (session.role === "STORE_MANAGER") {
       return listAssignedStoreForManager(session.storeId);

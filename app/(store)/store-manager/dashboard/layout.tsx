@@ -32,7 +32,7 @@ export default async function StoreManagerLayout({
           assignedStoreId={session.storeId}
         >
           <StoreDashboardShell
-            title={content.store.managerShell.title}
+            portalType={content.store.managerShell.title}
             signOutLabel={content.common.signOut}
             portalRole="STORE_MANAGER"
           >

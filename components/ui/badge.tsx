@@ -12,6 +12,8 @@ const badgeVariants = cva(
         success: "border-transparent bg-status-success/10 text-status-success",
         warning: "border-transparent bg-status-warning/10 text-status-warning",
         error: "border-transparent bg-status-error/10 text-status-error",
+        running:
+          "border-brand-gold/50 bg-brand-gold/10 text-brand-gold ring-1 ring-inset ring-brand-gold/25",
         outline: "border-border text-text-secondary",
       },
     },

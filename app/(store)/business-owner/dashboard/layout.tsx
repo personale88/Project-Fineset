@@ -37,7 +37,7 @@ export default async function StoreLayout({
       >
         <BusinessOwnerPeriodProvider>
           <StoreDashboardShell
-            title={content.store.ownerShell.title}
+            portalType={content.store.ownerShell.title}
             signOutLabel={content.common.signOut}
             portalRole="BUSINESS_OWNER"
           >

@@ -19,12 +19,22 @@ describe("normalizeWhatsAppPhone", () => {
   it("returns null for invalid numbers", () => {
     expect(normalizeWhatsAppPhone("123")).toBeNull();
   });
+
+  it("uses a configured default country code for local numbers", () => {
+    expect(normalizeWhatsAppPhone("5551234567", "1")).toBe("15551234567");
+    expect(normalizeWhatsAppPhone("+1 555 123 4567", "1")).toBe("15551234567");
+  });
 });
 
 describe("buildWhatsAppUrl", () => {
   it("builds wa.me link with encoded message", () => {
     const url = buildWhatsAppUrl("9876543210", "Hello there");
     expect(url).toBe("https://wa.me/919876543210?text=Hello%20there");
+  });
+
+  it("builds wa.me link with a configured country code", () => {
+    const url = buildWhatsAppUrl("5551234567", "Hello there", "1");
+    expect(url).toBe("https://wa.me/15551234567?text=Hello%20there");
   });
 });
 

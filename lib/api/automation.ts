@@ -1,9 +1,9 @@
 import { apiFetch, buildQueryString } from "@/lib/api/client";
+import type { AutomationConfigPatchInput } from "@/lib/automation/config-schema";
 import type {
   AutomationRunLogDto,
   PlatformAutomationConfig,
 } from "@/lib/automation/types";
-import type { AutomationConfigPatchInput } from "@/lib/automation/config-schema";
 
 export async function fetchAutomationConfig(): Promise<PlatformAutomationConfig> {
   return apiFetch<PlatformAutomationConfig>("/api/admin/automation/config");
@@ -30,13 +30,8 @@ export async function fetchAutomationRuns(
 
 export async function runBillingAutomation(input?: {
   dryRun?: boolean;
-}): Promise<{
-  runId: string;
-  status: AutomationRunLogDto["status"];
-  summary: AutomationRunLogDto["summary"];
-  errors: string[];
-}> {
-  return apiFetch("/api/admin/automation/run", {
+}): Promise<AutomationRunLogDto> {
+  return apiFetch<AutomationRunLogDto>("/api/admin/automation/run", {
     method: "POST",
     body: JSON.stringify(input ?? {}),
   });

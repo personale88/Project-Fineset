@@ -1,13 +1,22 @@
 import { createBillingFollowUp } from "@/lib/services/billing-accounts";
 import { logAuthEvent } from "@/lib/auth/audit";
 import { getBillingCycleSettings } from "@/lib/automation/billing-cycle-settings";
+import { DEFAULT_PLATFORM_AUTOMATION_CONFIG } from "@/lib/automation/default-config";
+import {
+  deliverManualBillingWhatsAppReminder,
+  type BillingWhatsAppReminderDeliveryResult,
+} from "@/lib/automation/whatsapp-reminder-delivery";
+import {
+  formatNormalizedWhatsAppPhone,
+  resolveWhatsAppPhoneForBusiness,
+} from "@/lib/automation/whatsapp-phone";
+import { getAutomationConfig } from "@/lib/services/automation-config";
 import { getBusinessPaymentStatus } from "@/lib/utils/admin-portfolio-filters";
 import { getBillingPaymentStatusLabel } from "@/lib/utils/billing-status-labels";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 import { groupStoresByBusiness, resolveBusinessPhone } from "@/lib/utils/group-stores-by-business";
 import { getActiveBillingPricingConfig } from "@/lib/platform/billing-pricing";
 import { calculateBusinessMonthlyBilling, type BillingPricingConfig } from "@/lib/utils/store-billing-pricing";
-import { buildWhatsAppUrl } from "@/lib/utils/whatsapp-link";
 import { getAdminPortfolioStoreRows } from "@/lib/services/stores";
 import type { BusinessPortfolioRow } from "@/types";
 import type { BillingCycleSettings } from "@/lib/utils/billing-cycle";
@@ -84,7 +93,7 @@ export function buildBillingWhatsAppReminderMessage(
 export async function sendBillingWhatsAppReminder(
   businessKey: string,
   sentByEmail?: string | null,
-): Promise<{ whatsappUrl: string; phone: string; message: string }> {
+): Promise<BillingWhatsAppReminderDeliveryResult> {
   const business = await resolveBusiness(businessKey);
   if (!business) {
     throw new SendBillingWhatsAppReminderError("Business not found.", 404);
@@ -98,6 +107,18 @@ export async function sendBillingWhatsAppReminder(
     );
   }
 
+  const config = await getAutomationConfig().catch(() => null);
+  const countryCode =
+    config?.whatsApp.defaultCountryCode ??
+    DEFAULT_PLATFORM_AUTOMATION_CONFIG.whatsApp.defaultCountryCode;
+  const resolvedPhone = resolveWhatsAppPhoneForBusiness(business, countryCode);
+  if (!resolvedPhone) {
+    throw new SendBillingWhatsAppReminderError(
+      "The phone number on file is not valid for WhatsApp.",
+      400,
+    );
+  }
+
   const cycleSettings = await getBillingCycleSettings();
   const pricingConfig = await getActiveBillingPricingConfig();
   const message = buildBillingWhatsAppReminderMessage(
@@ -105,21 +126,13 @@ export async function sendBillingWhatsAppReminder(
     cycleSettings,
     pricingConfig,
   );
-  const whatsappUrl = buildWhatsAppUrl(phone, message);
-  if (!whatsappUrl) {
-    throw new SendBillingWhatsAppReminderError(
-      "The phone number on file is not valid for WhatsApp.",
-      400,
-    );
-  }
 
-  await createBillingFollowUp({
+  const result = await deliverManualBillingWhatsAppReminder({
     businessKey,
-    channel: "WHATSAPP",
-    outcome: "RESCHEDULED",
-    notes: `WhatsApp payment reminder prepared for ${phone}.\n\n${message}`,
-    createdByEmail: sentByEmail ?? null,
-    createdByName: null,
+    resolvedPhone,
+    countryCode,
+    message,
+    sentByEmail,
   });
 
   void logAuthEvent({
@@ -127,10 +140,11 @@ export async function sendBillingWhatsAppReminder(
     email: sentByEmail ?? null,
     metadata: {
       businessKey,
-      phone,
+      phone: formatNormalizedWhatsAppPhone(resolvedPhone.normalized),
       businessName: business.businessName,
+      delivery: result.delivery,
     },
   });
 
-  return { whatsappUrl, phone, message };
+  return result;
 }

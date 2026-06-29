@@ -3,6 +3,7 @@ import {
   createAutomationRunLog,
   completeAutomationRunLog,
   getAutomationConfig,
+  getAutomationRunById,
 } from "@/lib/services/automation-config";
 import { sendBusinessInvoice } from "@/lib/services/send-business-invoice";
 import { createBillingFollowUp, getBillingSummaries } from "@/lib/services/billing-accounts";
@@ -39,17 +40,24 @@ import {
   startOfCalendarDay,
 } from "@/lib/utils/billing-cycle";
 import { getBusinessPaymentStatus } from "@/lib/utils/admin-portfolio-filters";
-import { groupStoresByBusiness } from "@/lib/utils/group-stores-by-business";
+import { groupStoresByBusiness, resolveBusinessPhone } from "@/lib/utils/group-stores-by-business";
+import {
+  formatNormalizedWhatsAppPhone,
+  resolveWhatsAppPhoneForBusiness,
+} from "@/lib/automation/whatsapp-phone";
 import { getPlatformBranding } from "@/lib/platform/branding";
 import { getActiveBillingPricingConfig } from "@/lib/platform/billing-pricing";
 import { calculateBusinessMonthlyBilling } from "@/lib/utils/store-billing-pricing";
 import { getAdminPortfolioStoreRows } from "@/lib/services/stores";
 import { buildBillingWhatsAppReminderMessage } from "@/lib/services/send-billing-whatsapp-reminder";
+import { queueAutomationWhatsAppReminder } from "@/lib/automation/whatsapp-reminder-delivery";
 import type {
   AutomationRunDetail,
+  AutomationRunLogDto,
   AutomationRunSummary,
   PlatformAutomationConfig,
 } from "@/lib/automation/types";
+import { assertManualAutomationRunAllowed } from "@/lib/automation/run-request";
 import type { AutomationRunStatus, AutomationRunTrigger } from "@prisma/client";
 import type { BusinessPortfolioRow } from "@/types";
 
@@ -471,52 +479,46 @@ async function runPaymentReminderAutomation(
         cycleSettings,
         pricingConfig,
       );
-      const nextFollowUpAt = new Date(reference);
-      nextFollowUpAt.setDate(nextFollowUpAt.getDate() + 1);
-
-      if (dryRun) {
-        summary.whatsAppQueued += 1;
+      const resolvedPhone = resolveWhatsAppPhoneForBusiness(
+        business,
+        config.whatsApp.defaultCountryCode,
+      );
+      if (!resolvedPhone) {
+        if (!dryRun) {
+          await releaseAutomationDeliveryClaim(dedupeKey);
+        }
         addDetail(summary, {
           action: "whatsapp_reminder",
           businessKey: business.businessKey,
           businessName: business.businessName,
           channel: "WHATSAPP",
-          status: "queued",
-          message: "Would queue WhatsApp follow-up",
+          status: "skipped",
+          message: resolveBusinessPhone(business.stores)
+            ? "Phone number is not valid for WhatsApp with the configured country code"
+            : "No phone number on file for WhatsApp",
         });
-      } else {
-        try {
-          await createBillingFollowUp({
-            businessKey: business.businessKey,
-            channel: "WHATSAPP",
-            outcome: "RESCHEDULED",
-            notes: `[Automation] WhatsApp reminder queued. ${message.slice(0, 400)}`,
-            nextFollowUpAt,
-            createdByEmail: "automation@fineset.local",
-            createdByName: "Automation",
-          });
-          await recordAutomationDelivery({
-            businessKey: business.businessKey,
-            actionType: "WHATSAPP_REMINDER",
-            dedupeKey,
-            channel: "WHATSAPP",
-            status: "QUEUED",
-          });
-          summary.whatsAppQueued += 1;
-          addDetail(summary, {
-            action: "whatsapp_reminder",
-            businessKey: business.businessKey,
-            businessName: business.businessName,
-            channel: "WHATSAPP",
-            status: "success",
-            message: "Follow-up scheduled — send from Billing",
-          });
-        } catch (error) {
-          await releaseAutomationDeliveryClaim(dedupeKey);
-          const message =
-            error instanceof Error ? error.message : "WhatsApp queue failed";
-          errors.push(`${business.businessName}: ${message}`);
-        }
+        continue;
+      }
+      const formattedPhone = formatNormalizedWhatsAppPhone(resolvedPhone.normalized);
+      const nextFollowUpAt = new Date(reference);
+      nextFollowUpAt.setDate(nextFollowUpAt.getDate() + 1);
+
+      try {
+        const queued = await queueAutomationWhatsAppReminder({
+          businessKey: business.businessKey,
+          businessName: business.businessName,
+          formattedPhone,
+          message,
+          nextFollowUpAt,
+          dedupeKey,
+          dryRun,
+        });
+        summary.whatsAppQueued += queued.whatsAppQueued;
+        addDetail(summary, queued.detail);
+      } catch (error) {
+        const messageText =
+          error instanceof Error ? error.message : "WhatsApp queue failed";
+        errors.push(`${business.businessName}: ${messageText}`);
       }
     }
   }
@@ -929,18 +931,23 @@ async function runMonthlyReports(
   }
 }
 
+async function loadCompletedRun(runId: string): Promise<AutomationRunLogDto> {
+  const run = await getAutomationRunById(runId);
+  if (!run) {
+    throw new Error(`Automation run log ${runId} not found after completion`);
+  }
+  return run;
+}
+
 export async function runBillingAutomation(input: {
   trigger: AutomationRunTrigger;
   dryRun?: boolean;
   triggeredByEmail?: string | null;
-}): Promise<{
-  runId: string;
-  status: AutomationRunStatus;
-  summary: AutomationRunSummary;
-  errors: string[];
-}> {
+}): Promise<AutomationRunLogDto> {
   const config = await getAutomationConfig({ fresh: true });
   const dryRun = input.dryRun === true || config.global.dryRunMode;
+
+  assertManualAutomationRunAllowed(config, input);
 
   if (!config.global.enabled && !dryRun && input.trigger !== "MANUAL") {
     const summary: AutomationRunSummary = {
@@ -970,7 +977,7 @@ export async function runBillingAutomation(input: {
       status,
       summary,
     });
-    return { runId, status, summary, errors: [] };
+    return loadCompletedRun(runId);
   }
 
   const { id: runId } = await createAutomationRunLog({
@@ -1034,7 +1041,7 @@ export async function runBillingAutomation(input: {
     const status = resolveAutomationRunStatus(summary, errors);
 
     await completeAutomationRunLog(runId, { status, summary, errors });
-    return { runId, status, summary, errors };
+    return loadCompletedRun(runId);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Automation run failed";
     errors.push(message);
@@ -1044,7 +1051,7 @@ export async function runBillingAutomation(input: {
       summary,
       errors,
     });
-    return { runId, status, summary, errors };
+    return loadCompletedRun(runId);
   }
 }
 

@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { isValidIanaTimezone } from "@/lib/automation/timezone";
+import { AUTOMATION_TIME_FORMAT_MESSAGE } from "@/lib/utils/time-input";
+import { AUTOMATION_COUNTRY_CODE_MESSAGE } from "@/lib/automation/country-code";
 
 const dayOfMonth = z.number().int().min(1).max(28);
 const hourLocal = z.number().int().min(0).max(23);
 const positiveDays = z.array(z.number().int().min(0).max(90)).max(10);
-const timeString = z.string().regex(/^\d{2}:\d{2}$/);
+const timeString = z.string().regex(/^\d{2}:\d{2}$/, AUTOMATION_TIME_FORMAT_MESSAGE);
 const ianaTimezone = z
   .string()
   .min(1)
@@ -38,7 +40,12 @@ const paymentRemindersSchema = z.object({
   whatsAppEnabled: z.boolean().optional(),
   reminderDaysBeforeDue: positiveDays.optional(),
   reminderDaysAfterDue: positiveDays.optional(),
-  maxRemindersPerCycle: z.number().int().min(1).max(20).optional(),
+  maxRemindersPerCycle: z
+    .number()
+    .int()
+    .min(1, { message: "Enter a whole number between 1 and 20." })
+    .max(20, { message: "Enter a whole number between 1 and 20." })
+    .optional(),
   stopAfterPayment: z.boolean().optional(),
 });
 
@@ -71,7 +78,10 @@ const monthlyReportsSchema = z.object({
 
 const whatsAppSchema = z.object({
   enabled: z.boolean().optional(),
-  defaultCountryCode: z.string().regex(/^\d{1,4}$/).optional(),
+  defaultCountryCode: z
+    .string()
+    .regex(/^\d{1,4}$/, AUTOMATION_COUNTRY_CODE_MESSAGE)
+    .optional(),
   businessHoursOnly: z.boolean().optional(),
   businessHoursStart: timeString.optional(),
   businessHoursEnd: timeString.optional(),

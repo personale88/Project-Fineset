@@ -1,7 +1,11 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { evaluateProxyAuth } from "@/lib/auth/proxy-auth";
+import { applyExpiredSessionRedirectParams } from "@/lib/auth/redirect-to-sign-in";
 import { PROTECTED_PORTAL_ROUTES } from "@/lib/auth/routes";
-import { getSessionTokenFromRequest } from "@/lib/auth/session-cookie";
+import {
+  clearSessionCookieOnResponse,
+  getSessionTokenFromRequest,
+} from "@/lib/auth/session-cookie";
 import { getAppSessionRoleFromRequestToken } from "@/lib/auth/session-store";
 import type { UserRole } from "@/types";
 
@@ -38,7 +42,17 @@ export async function proxy(request: NextRequest) {
       ) {
         destination.search = search;
       }
-      return NextResponse.redirect(destination);
+      if (sessionToken && !role) {
+        applyExpiredSessionRedirectParams(destination, {
+          hadSessionToken: Boolean(sessionToken),
+          role,
+        });
+      }
+      const response = NextResponse.redirect(destination);
+      if (sessionToken && !role) {
+        clearSessionCookieOnResponse(response);
+      }
+      return response;
     }
   }
 }
