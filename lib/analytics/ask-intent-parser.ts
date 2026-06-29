@@ -54,7 +54,7 @@ const DIMENSION_KEYWORDS: Array<{ dimension: CohortPivotDimension; patterns: Reg
   { dimension: "valueTier", patterns: [/\bvalue tier\b/, /\bhigh value\b/, /\bprice band\b/] },
   { dimension: "purchaseStatus", patterns: [/\bpurchase\b/, /\bconversion\b/, /\bpurchased\b/] },
   { dimension: "sourceChannel", patterns: [/\bsource\b/, /\bchannel\b/, /\bwalk.?in\b/, /\breferral\b/] },
-  { dimension: "productCategory", patterns: [/\bproduct\b/, /\bjewelry\b/, /\bring\b/, /\bnecklace\b/] },
+  { dimension: "productCategory", patterns: [/\bproducts?\b/, /\bjewelry\b/, /\bring\b/, /\bnecklace\b/] },
   { dimension: "area", patterns: [/\blocation\b/, /\barea\b/, /\bcity\b/, /\bhyderabad\b/] },
   { dimension: "intentTier", patterns: [/\bintent\b/, /\bhot\b.*\bwarm\b/] },
   { dimension: "enrollmentOutcome", patterns: [/\benrollment\b/, /\bghs\b/, /\bgpp\b/, /\bscheme\b/] },

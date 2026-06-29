@@ -14,6 +14,7 @@ import {
 import { calculateDurationMins } from "@/lib/utils/formatters";
 import { resolveSchemeEnrollmentFlags } from "@/lib/services/scheme-enrollment";
 import { normalizeSchemesPitched } from "@/lib/validations/scheme.schema";
+import { notifyVisitsChanged } from "@/lib/analytics/refresh-visit-aggregate";
 import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
 import {
   applyTimeToCalendarDay,
@@ -28,6 +29,8 @@ interface CreateVisitParams extends CreateVisitInput {
   storeId: string;
   staffId: string;
   skipPortalSync?: boolean;
+  /** Set during bulk import — caller refreshes aggregate once at end. */
+  skipAggregateRefresh?: boolean;
 }
 
 export async function createVisit(params: CreateVisitParams): Promise<Visit> {
@@ -179,6 +182,9 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
   }).then((visit) => {
     if (!params.skipPortalSync) {
       notifyPortalDataChangeNow(storeId, ["visits", "customers", "followUps"]);
+    }
+    if (!params.skipAggregateRefresh) {
+      notifyVisitsChanged();
     }
     return visit;
   });

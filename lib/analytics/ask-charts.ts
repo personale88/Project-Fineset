@@ -3,6 +3,11 @@ import {
   pickAskChartHintsFromPrompt,
   buildAskWidgetContext,
 } from "@/lib/analytics/ask-widget-catalog";
+import {
+  pickChartTypesForScenario,
+  resolveAskChartMetric,
+  resolveAskChartScenario,
+} from "@/lib/analytics/ask-chart-scenarios";
 import type { ParsedAnalyticsAskIntent } from "@/lib/validations/admin-business-analytics-ask.schema";
 import type {
   AnalyticsAskChart,
@@ -10,11 +15,14 @@ import type {
   AnalyticsAskRadarPoint,
 } from "@/types/admin-business-analytics-ask";
 import type { AdminBusinessAnalytics } from "@/types/admin-business-analytics";
+import type { BreakdownRow } from "@/types/admin-business-analytics";
+
+const MAX_PIE_SLICES = 7;
 
 function getBreakdownRows(
   analytics: AdminBusinessAnalytics,
   dimension: CohortPivotDimension,
-): AdminBusinessAnalytics["breakdowns"]["customerType"] {
+): BreakdownRow[] {
   switch (dimension) {
     case "customerType":
       return analytics.breakdowns.customerType;
@@ -43,6 +51,14 @@ function getBreakdownRows(
     case "enrollmentOutcome":
       return analytics.breakdowns.enrollmentOutcome;
   }
+}
+
+function capPieBreakdown(rows: BreakdownRow[]): BreakdownRow[] {
+  const sorted = [...rows].sort((a, b) => b.count - a.count);
+  if (sorted.length <= MAX_PIE_SLICES) return sorted;
+  const top = sorted.slice(0, MAX_PIE_SLICES - 1);
+  const otherCount = sorted.slice(MAX_PIE_SLICES - 1).reduce((sum, row) => sum + row.count, 0);
+  return [...top, { label: "Other", count: otherCount }];
 }
 
 function buildRadarPoints(analytics: AdminBusinessAnalytics): AnalyticsAskRadarPoint[] {
@@ -100,79 +116,105 @@ function mergeIntentChartHints(
   return { ...intent, chartTypes: Array.from(merged) };
 }
 
-/**
- * Chooses chart types from data shape, with optional hints when the user names a chart.
- */
+/** @deprecated Use pickChartTypesForScenario via buildAskCharts */
 export function pickChartTypesFromData(
   analytics: AdminBusinessAnalytics,
   intent: ParsedAnalyticsAskIntent,
+  prompt = "",
 ): AnalyticsAskChartType[] {
-  const hints = intent.chartTypes;
-  const dimension = intent.breakdownDimension ?? "customerType";
-  const breakdown = getBreakdownRows(analytics, dimension);
-  const categoryCount = breakdown.length;
-  const hasTimeSeries = analytics.trends.length >= 2;
-  const isPeriodCompare = Boolean(analytics.comparison);
-  const dataPicks: AnalyticsAskChartType[] = [];
-
-  if (isPeriodCompare) {
-    dataPicks.push("comparison");
-    if (hasTimeSeries) dataPicks.push("line");
-    if (categoryCount >= 2) dataPicks.push(categoryCount <= 6 ? "pie" : "bar");
-    else dataPicks.push("bar");
-  } else if (intent.breakdownDimension === "purchaseStatus" || hints.includes("pie")) {
-    if (categoryCount >= 2) dataPicks.push(categoryCount <= 6 ? "pie" : "bar");
-    if (hasTimeSeries) dataPicks.push("line");
-  } else if (intent.breakdownDimension === "sourceChannel") {
-    if (categoryCount >= 2) {
-      dataPicks.push(categoryCount <= 6 ? "pie" : "bar");
-    }
-    if (hasTimeSeries && !dataPicks.includes("line")) dataPicks.push("line");
-  } else {
-    if (hasTimeSeries) dataPicks.push("line");
-    if (categoryCount >= 2) {
-      if (categoryCount <= 6) dataPicks.push("pie");
-      if (categoryCount > 4) dataPicks.push("bar");
-      else if (!hasTimeSeries) dataPicks.push("bar");
-    }
-    if (dataPicks.length === 0) {
-      dataPicks.push(hasTimeSeries ? "line" : "bar");
-    }
-    if (
-      dataPicks.length === 1 &&
-      analytics.summary.totalVisits > 0 &&
-      !hints.includes("radar")
-    ) {
-      dataPicks.push("radar");
-    }
-  }
-
-  if (hints.includes("radar") && !dataPicks.includes("radar")) {
-    dataPicks.push("radar");
-  }
-
-  return mergeChartTypes(dataPicks, hints).slice(0, 4);
+  const scenario = resolveAskChartScenario(intent, prompt, analytics);
+  return pickChartTypesForScenario(scenario, intent, analytics, prompt);
 }
 
-function mergeChartTypes(
-  dataPicks: AnalyticsAskChartType[],
-  hints: AnalyticsAskChartType[],
-): AnalyticsAskChartType[] {
-  const ordered: AnalyticsAskChartType[] = [];
-  const add = (type: AnalyticsAskChartType) => {
-    if (!ordered.includes(type)) ordered.push(type);
-  };
-  for (const type of hints) add(type);
-  for (const type of dataPicks) add(type);
-  return ordered;
-}
+function buildChartForType(
+  type: AnalyticsAskChartType,
+  enrichedIntent: ParsedAnalyticsAskIntent,
+  analytics: AdminBusinessAnalytics,
+  options: {
+    dimension: CohortPivotDimension;
+    breakdown: BreakdownRow[];
+    dimLabel: string;
+    metric: ReturnType<typeof resolveAskChartMetric>;
+    prompt: string;
+  },
+): AnalyticsAskChart | null {
+  const { dimension, breakdown, dimLabel, metric, prompt } = options;
 
-function lineChartTitle(intent: ParsedAnalyticsAskIntent, periodLabel: string): string {
-  const text = intent.chartTypes?.includes("line") ? "Trend" : "Revenue trend";
-  if (intent.breakdownDimension === "sourceChannel") {
-    return `Visit source trend · ${periodLabel}`;
+  switch (type) {
+    case "area":
+    case "line":
+      if (analytics.trends.length === 0) return null;
+      return {
+        type: "area",
+        title: metric === "revenue" ? `Revenue trend · ${analytics.period.label}` : `Visit trend · ${analytics.period.label}`,
+        description: `Cumulative ${metric === "revenue" ? "revenue" : "visits"} over ${analytics.period.label}`,
+        trend: analytics.trends,
+      };
+    case "groupedBar":
+      if (!analytics.comparison?.comparisonTrends.length) return null;
+      return {
+        type: "groupedBar",
+        title: "Year-on-year comparison",
+        description: `${metric === "revenue" ? "Revenue" : "Visits"} by day — ${analytics.period.label} vs ${analytics.comparison.period.label}`,
+        comparison: analytics.comparison.comparisonTrends,
+        periodALabel: analytics.period.label,
+        periodBLabel: analytics.comparison.period.label,
+        metric,
+      };
+    case "comparison":
+      if (!analytics.comparison?.comparisonTrends.length) return null;
+      return {
+        type: "comparison",
+        title: "Month-on-month comparison",
+        description: `${analytics.period.label} vs ${analytics.comparison.period.label}`,
+        comparison: analytics.comparison.comparisonTrends,
+        periodALabel: analytics.period.label,
+        periodBLabel: analytics.comparison.period.label,
+        metric,
+      };
+    case "pie":
+      if (breakdown.length === 0) return null;
+      return {
+        type: "pie",
+        title: `${dimLabel} distribution`,
+        description: `Share of visits by ${dimLabel.toLowerCase()} (max ${MAX_PIE_SLICES} categories)`,
+        breakdown: capPieBreakdown(breakdown),
+      };
+    case "rankedBar":
+      if (breakdown.length === 0) return null;
+      return {
+        type: "rankedBar",
+        title: `Top ${dimLabel.toLowerCase()}`,
+        description: `Ranked by visit count · ${analytics.period.label}`,
+        breakdown,
+      };
+    case "stackedBar":
+      if (breakdown.length === 0) return null;
+      return {
+        type: "stackedBar",
+        title: `${dimLabel} split`,
+        description: `Composition for ${analytics.period.label}`,
+        breakdown: capPieBreakdown(breakdown),
+        periodLabel: analytics.period.label,
+      };
+    case "bar":
+      if (breakdown.length === 0) return null;
+      return {
+        type: "rankedBar",
+        title: `${dimLabel} breakdown`,
+        description: `Visit counts by ${dimLabel.toLowerCase()}`,
+        breakdown,
+      };
+    case "radar":
+      return {
+        type: "radar",
+        title: "Customer segment profile",
+        description: "Normalized view of key metrics (0–100 scale)",
+        radar: buildRadarPoints(analytics),
+      };
+    default:
+      return null;
   }
-  return `${text} · ${periodLabel}`;
 }
 
 export function buildAskCharts(
@@ -180,69 +222,26 @@ export function buildAskCharts(
   analytics: AdminBusinessAnalytics,
   options?: { prompt?: string },
 ): AnalyticsAskChart[] {
-  const enrichedIntent = options?.prompt
-    ? mergeIntentChartHints(intent, options.prompt)
-    : intent;
+  const prompt = options?.prompt ?? "";
+  const enrichedIntent = prompt ? mergeIntentChartHints(intent, prompt) : intent;
   const dimension = enrichedIntent.breakdownDimension ?? "customerType";
   const breakdown = getBreakdownRows(analytics, dimension).slice(0, 12);
   const dimLabel = COHORT_PIVOT_LABELS[dimension];
-  const chartTypes = pickChartTypesFromData(analytics, enrichedIntent);
-  const charts: AnalyticsAskChart[] = [];
+  const metric = resolveAskChartMetric(prompt);
+  const scenario = resolveAskChartScenario(enrichedIntent, prompt, analytics);
+  const chartTypes = pickChartTypesForScenario(scenario, enrichedIntent, analytics, prompt);
 
+  const charts: AnalyticsAskChart[] = [];
   for (const type of chartTypes) {
-    switch (type) {
-      case "line":
-        if (!charts.some((c) => c.type === "line") && analytics.trends.length > 0) {
-          charts.push({
-            type: "line",
-            title: lineChartTitle(enrichedIntent, analytics.period.label),
-            description: `Daily visits and revenue for ${analytics.period.label}`,
-            trend: analytics.trends,
-          });
-        }
-        break;
-      case "comparison":
-        if (analytics.comparison && !charts.some((c) => c.type === "comparison")) {
-          charts.push({
-            type: "comparison",
-            title: "Period comparison",
-            description: `${analytics.period.label} vs ${analytics.comparison.period.label}`,
-            comparison: analytics.comparison.comparisonTrends,
-            periodALabel: analytics.period.label,
-            periodBLabel: analytics.comparison.period.label,
-          });
-        }
-        break;
-      case "bar":
-        if (!charts.some((c) => c.type === "bar") && breakdown.length > 0) {
-          charts.push({
-            type: "bar",
-            title: `${dimLabel} breakdown`,
-            description: `Visit counts by ${dimLabel.toLowerCase()}`,
-            breakdown,
-          });
-        }
-        break;
-      case "pie":
-        if (!charts.some((c) => c.type === "pie") && breakdown.length > 0) {
-          charts.push({
-            type: "pie",
-            title: `${dimLabel} mix`,
-            description: `Share of visits by ${dimLabel.toLowerCase()}`,
-            breakdown,
-          });
-        }
-        break;
-      case "radar":
-        if (!charts.some((c) => c.type === "radar")) {
-          charts.push({
-            type: "radar",
-            title: "Performance snapshot",
-            description: "Normalized view of key metrics (0–100 scale)",
-            radar: buildRadarPoints(analytics),
-          });
-        }
-        break;
+    const chart = buildChartForType(type, enrichedIntent, analytics, {
+      dimension,
+      breakdown,
+      dimLabel,
+      metric,
+      prompt,
+    });
+    if (chart && !charts.some((c) => c.type === chart.type)) {
+      charts.push(chart);
     }
   }
 

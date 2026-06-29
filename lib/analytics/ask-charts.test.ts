@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { pickChartTypesFromData, buildAskCharts } from "@/lib/analytics/ask-charts";
+import {
+  chartTypeForScenario,
+  pickChartTypesForScenario,
+  resolveAskChartScenario,
+} from "@/lib/analytics/ask-chart-scenarios";
 import { parseAnalyticsAskIntent } from "@/lib/analytics/ask-intent-parser";
-import { buildAnalyticsAskExamples } from "@/lib/analytics/ask-example-prompts";
+import { buildAskCharts, pickChartTypesFromData } from "@/lib/analytics/ask-charts";
 import type { AdminBusinessAnalytics } from "@/types/admin-business-analytics";
 
 function mockAnalytics(overrides?: Partial<AdminBusinessAnalytics>): AdminBusinessAnalytics {
   return {
     dateMode: "preset",
-    period: { start: "2026-01-01", end: "2026-06-01", label: "Last 30 days" },
+    period: { start: "2026-01-01", end: "2026-06-01", label: "Last 6 months" },
     summary: {
       totalVisits: 50,
       totalRevenue: 200000,
@@ -27,7 +31,7 @@ function mockAnalytics(overrides?: Partial<AdminBusinessAnalytics>): AdminBusine
         { label: "Repeat", count: 30 },
       ],
       valueTier: [],
-      intentTier: [{ label: "Hot", count: 10 }, { label: "Warm", count: 15 }],
+      intentTier: [],
       purchaseStatus: [
         { label: "Purchased", count: 14 },
         { label: "Not purchased", count: 36 },
@@ -41,31 +45,53 @@ function mockAnalytics(overrides?: Partial<AdminBusinessAnalytics>): AdminBusine
       area: [],
       visitType: [],
       budgetRange: [],
-      productsExplored: [],
+      productsExplored: [{ label: "Rings", count: 12 }],
       productsPurchased: [],
       schemeProduct: [],
       enrollmentOutcome: [],
       staff: [],
     },
-    aiInsights: {
-      available: false,
-      summary: null,
-      recommendations: [],
-    },
+    aiInsights: { available: false, summary: null, recommendations: [] },
     ...overrides,
   };
 }
 
-const exampleTemplates = [
-  { id: "compare", template: "Compare {currentPeriod} vs {priorYearPeriod} revenue" },
-  { id: "trend", template: "Last 30 days revenue trend by visit source" },
-  { id: "retained", template: "Retained customers last 6 months by customer type" },
-  { id: "conversion", template: "{currentPeriod} conversion and purchase status breakdown" },
-] as const;
-
-describe("pickChartTypesFromData", () => {
-  it("includes comparison chart when analytics has comparison data", () => {
+describe("resolveAskChartScenario", () => {
+  it("classifies year-on-year compare as yoyCompare", () => {
     const intent = parseAnalyticsAskIntent("Compare January 2026 vs January 2025 revenue");
+    expect(resolveAskChartScenario(intent, "Compare January 2026 vs January 2025 revenue", mockAnalytics())).toBe(
+      "yoyCompare",
+    );
+    expect(chartTypeForScenario("yoyCompare")).toBe("groupedBar");
+  });
+
+  it("classifies same-year month compare as momCompare", () => {
+    const intent = parseAnalyticsAskIntent("Compare January 2026 vs February 2026 visits");
+    expect(resolveAskChartScenario(intent, "Compare January 2026 vs February 2026 visits", mockAnalytics())).toBe(
+      "momCompare",
+    );
+    expect(chartTypeForScenario("momCompare")).toBe("comparison");
+  });
+
+  it("classifies revenue trend as salesOverTime", () => {
+    const intent = parseAnalyticsAskIntent("Last 6 months revenue trend");
+    expect(resolveAskChartScenario(intent, "Last 6 months revenue trend", mockAnalytics())).toBe(
+      "salesOverTime",
+    );
+  });
+
+  it("classifies customer type breakdown as customerTypeBreakdown", () => {
+    const intent = parseAnalyticsAskIntent("Last 6 months visits by customer type");
+    expect(resolveAskChartScenario(intent, "Last 6 months visits by customer type", mockAnalytics())).toBe(
+      "customerTypeBreakdown",
+    );
+  });
+});
+
+describe("pickChartTypesFromData / buildAskCharts", () => {
+  it("returns groupedBar only for YoY compare", () => {
+    const prompt = "Compare January 2026 vs January 2025 revenue";
+    const intent = parseAnalyticsAskIntent(prompt);
     const analytics = mockAnalytics({
       dateMode: "compare",
       comparison: {
@@ -76,8 +102,8 @@ describe("pickChartTypesFromData", () => {
           {
             day: 1,
             label: "1",
-            periodA: { visits: 1, revenue: 100 },
-            periodB: { visits: 2, revenue: 200 },
+            periodA: { visits: 10, revenue: 1000 },
+            periodB: { visits: 8, revenue: 800 },
           },
         ],
         deltas: {
@@ -90,31 +116,57 @@ describe("pickChartTypesFromData", () => {
         },
       },
     });
-    const types = pickChartTypesFromData(analytics, intent);
-    expect(types).toContain("comparison");
+    const types = pickChartTypesFromData(analytics, intent, prompt);
+    expect(types).toEqual(["groupedBar"]);
+    const charts = buildAskCharts(intent, analytics, { prompt });
+    expect(charts).toHaveLength(1);
+    expect(charts[0]?.type).toBe("groupedBar");
   });
 
-  it("prefers pie for conversion breakdown intent", () => {
-    const intent = parseAnalyticsAskIntent("Last 30 days conversion breakdown");
-    const types = pickChartTypesFromData(mockAnalytics(), intent);
-    expect(types).toContain("pie");
-  });
-});
-
-describe("buildAskCharts example prompts", () => {
-  const examples = buildAnalyticsAskExamples([...exampleTemplates]);
-
-  it("builds at least one chart for each sample business prompt", () => {
-    for (const example of examples) {
-      const intent = parseAnalyticsAskIntent(example.prompt);
-      const charts = buildAskCharts(intent, mockAnalytics(), { prompt: example.prompt });
-      expect(charts.length, example.id).toBeGreaterThan(0);
-    }
-  });
-
-  it("uses intent tier breakdown for intent tier example", () => {
-    const prompt = "June 2026 visits and conversion breakdown by intent tier";
+  it("returns comparison line only for MoM compare", () => {
+    const prompt = "Compare January 2026 vs February 2026 revenue";
     const intent = parseAnalyticsAskIntent(prompt);
-    expect(intent.breakdownDimension).toBe("intentTier");
+    const analytics = mockAnalytics({
+      dateMode: "compare",
+      comparison: {
+        period: { start: "2026-02-01", end: "2026-02-28", label: "February 2026" },
+        summary: mockAnalytics().summary,
+        trends: [],
+        comparisonTrends: [
+          {
+            day: 1,
+            label: "1",
+            periodA: { visits: 10, revenue: 1000 },
+            periodB: { visits: 12, revenue: 1200 },
+          },
+        ],
+        deltas: {
+          totalVisits: 5,
+          totalRevenue: 10,
+          conversionRate: 1,
+          uniqueCustomers: 3,
+          avgTransaction: 2,
+          fieldSalesCount: 0,
+        },
+      },
+    });
+    const types = pickChartTypesForScenario("momCompare", intent, analytics, prompt);
+    expect(types).toEqual(["comparison"]);
+  });
+
+  it("returns single area chart for revenue trend", () => {
+    const prompt = "Last 6 months revenue trend";
+    const intent = parseAnalyticsAskIntent(prompt);
+    const charts = buildAskCharts(intent, mockAnalytics(), { prompt });
+    expect(charts).toHaveLength(1);
+    expect(charts[0]?.type).toBe("area");
+  });
+
+  it("returns single pie for customer type breakdown without extra radar", () => {
+    const prompt = "Last 6 months visits by customer type";
+    const intent = parseAnalyticsAskIntent(prompt);
+    const charts = buildAskCharts(intent, mockAnalytics(), { prompt });
+    expect(charts).toHaveLength(1);
+    expect(charts[0]?.type).toBe("pie");
   });
 });

@@ -15,7 +15,11 @@ export type AskKpiMetricKey = (typeof ASK_KPI_METRICS)[number];
 
 export const ASK_CHART_TYPES = [
   "line",
+  "area",
   "bar",
+  "rankedBar",
+  "stackedBar",
+  "groupedBar",
   "pie",
   "comparison",
   "radar",
@@ -109,12 +113,12 @@ export function pickAskKpiMetrics(ctx: AskWidgetContext): AskKpiMetricKey[] {
 export function pickAskChartHintsFromContext(ctx: AskWidgetContext): AnalyticsAskChartType[] {
   const hints: AnalyticsAskChartType[] = [...(ctx.chartHints ?? [])];
 
-  if (ctx.hasComparison && !hints.includes("comparison")) {
+  if (ctx.hasComparison && !hints.includes("comparison") && !hints.includes("groupedBar")) {
     hints.unshift("comparison");
   }
 
-  if (ctx.isTrendQuestion && !hints.includes("line")) {
-    hints.push("line");
+  if (ctx.isTrendQuestion && !hints.includes("line") && !hints.includes("area")) {
+    hints.push("area");
   }
 
   if (ctx.isConversionFocus && !hints.includes("pie")) {
