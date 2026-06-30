@@ -72,7 +72,6 @@ export function AdminOverview({
       <AdminPageIntro
         title={admin.overview.title}
         subtitle={admin.overview.subtitle}
-        nav={admin.nav}
       />
 
       {overviewFailed ? (

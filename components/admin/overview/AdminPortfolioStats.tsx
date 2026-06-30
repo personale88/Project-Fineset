@@ -69,7 +69,7 @@ function PortfolioHero({
 
   return (
     <section className="overflow-hidden rounded-card border border-border bg-surface-card shadow-card">
-      <div className="border-b border-border bg-gradient-to-br from-brand-gold/8 via-surface-card to-surface-card px-5 py-6 sm:px-6 sm:py-7">
+      <div className="border-b border-border bg-gradient-to-br from-brand-gold/8 via-surface-card to-surface-card px-4 py-5 sm:px-6 sm:py-7">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-wider text-text-muted">
@@ -93,13 +93,13 @@ function PortfolioHero({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:gap-4">
+          <div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:gap-4">
             {quickStats.map((stat) => (
               <div
                 key={stat.label}
                 className="rounded-lg border border-border/80 bg-surface-card/80 px-3 py-2.5 backdrop-blur-sm"
               >
-                <p className="truncate text-[11px] font-medium uppercase tracking-wide text-text-muted">
+                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
                   {stat.label}
                 </p>
                 {isLoading ? (
@@ -186,7 +186,7 @@ function SubscriptionHealthBar({
           <h2 className="font-display text-sm font-semibold text-text-primary">
             {copy.subscription.title}
           </h2>
-          <p className="mt-0.5 text-xs text-text-muted">{copy.subscription.subtitle}</p>
+          <p className="mt-0.5 hidden text-xs text-text-muted lg:block">{copy.subscription.subtitle}</p>
         </div>
         <Link
           href="/admin/dashboard/billing"
@@ -220,7 +220,7 @@ function SubscriptionHealthBar({
         <p className="mt-4 text-sm text-text-muted">No businesses in portfolio yet.</p>
       )}
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="mt-4 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
         {segments.map((segment) => (
           <div
             key={segment.key}
@@ -231,7 +231,7 @@ function SubscriptionHealthBar({
                 className={cn("h-2 w-2 shrink-0 rounded-full", segment.color)}
                 aria-hidden
               />
-              <span className="truncate text-xs text-text-muted">{segment.label}</span>
+              <span className="text-xs leading-snug text-text-muted">{segment.label}</span>
             </div>
             {isLoading ? (
               <Skeleton className="mt-1.5 h-6 w-8" />
@@ -328,7 +328,7 @@ function AttentionPanel({
           <h2 className="font-display text-sm font-semibold text-text-primary">
             {copy.actions.title}
           </h2>
-          <p className="mt-0.5 text-xs text-text-muted">{copy.actions.subtitle}</p>
+          <p className="mt-0.5 hidden text-xs text-text-muted lg:block">{copy.actions.subtitle}</p>
         </div>
         {!isLoading && !isGrowthLoading ? (
           <span
@@ -344,7 +344,7 @@ function AttentionPanel({
         ) : null}
       </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mt-4 grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
         {items.map((item) => {
           const Icon = item.icon;
           const cardClassName = cn(
@@ -364,7 +364,7 @@ function AttentionPanel({
                 >
                   <Icon className="h-3.5 w-3.5" aria-hidden />
                 </span>
-                <span className="min-w-0 flex-1 truncate text-xs text-text-muted">
+                <span className="min-w-0 flex-1 text-xs leading-snug text-text-muted">
                   {item.label}
                 </span>
               </div>
@@ -423,7 +423,7 @@ function MetricPanel({
       <div className="mb-4">
         <h2 className="font-display text-sm font-semibold text-text-primary">{title}</h2>
         {subtitle ? (
-          <p className="mt-0.5 text-xs text-text-muted">{subtitle}</p>
+          <p className="mt-0.5 hidden text-xs text-text-muted lg:block">{subtitle}</p>
         ) : null}
       </div>
       {children}
@@ -471,7 +471,7 @@ function CompactMetric({
             {value}
           </p>
         )}
-        <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-text-muted">{hint}</p>
+        <p className="mt-1 hidden line-clamp-2 text-[11px] leading-snug text-text-muted lg:block">{hint}</p>
       </div>
     </div>
   );

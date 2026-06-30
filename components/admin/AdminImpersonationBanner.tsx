@@ -29,9 +29,9 @@ export function AdminImpersonationBanner({
   return (
     <div
       role="status"
-      className="border-b border-status-warning/40 bg-status-warning/10 px-page-x py-2"
+      className="border-b border-status-warning/40 bg-status-warning/10 py-2"
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+      <div className="flex w-full items-center justify-between gap-3">
         <p className="flex items-center gap-2 text-sm font-medium text-status-warning">
           <Eye className="h-4 w-4 shrink-0" aria-hidden />
           {label}

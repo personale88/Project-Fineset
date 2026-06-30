@@ -41,6 +41,11 @@
   --chart-series-6: #6d5348;
   --chart-series-7: #2e7d4a;
   --chart-series-8: #8e4585;
+
+  /* Typography scale (see docs/TYPOGRAPHY.md — text-xs = 12px) */
+  --font-size-xs: 0.75rem;
+  --line-height-xs: 1rem;
+  --line-height-xs-snug: 1.375;
 }
 
 @layer base {
@@ -90,17 +95,19 @@
 
   [data-analytics-page] {
     --analytics-composer-shadow: 0 -12px 32px -16px rgb(0 0 0 / 0.18);
-    --analytics-mobile-height: calc(100dvh - var(--portal-header-offset) - 1rem);
   }
 
-  @media (min-width: 1024px) {
-    [data-analytics-page] {
-      --analytics-mobile-height: auto;
-    }
-  }
-
-  [data-analytics-chat-scroll] {
+  [data-analytics-chat-scroll],
+  [data-testid="automation-center-scroll"],
+  [data-testid="settings-center-scroll"],
+  [data-testid="accounts-center-scroll"] {
     -webkit-overflow-scrolling: touch;
+  }
+
+  html.admin-portal-scroll-lock,
+  html.admin-portal-scroll-lock body {
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 }
 

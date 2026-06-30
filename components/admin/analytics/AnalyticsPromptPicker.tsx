@@ -18,6 +18,7 @@ import {
   Users,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { portalChildSideNavScrollClassName, portalChildSideNavBodyTextClassName, portalChildSideNavCategoryLabelClassName } from "@/components/layout/portal-side-nav-styles";
 import { useScrollChainAtEdges } from "@/hooks/useScrollChainAtEdges";
 import { cn } from "@/lib/utils/cn";
 import type { AnalyticsAskExample } from "@/lib/analytics/ask-example-prompts";
@@ -41,11 +42,6 @@ const EXAMPLE_ICONS = {
   overview: Radar,
 } as const;
 
-const scrollPanelClassName = cn(
-  "absolute inset-0 mt-0 overflow-y-auto overscroll-auto",
-  "lg:[scrollbar-width:thin] lg:[&::-webkit-scrollbar]:w-1.5 lg:[&::-webkit-scrollbar-thumb]:rounded-full lg:[&::-webkit-scrollbar-thumb]:bg-border",
-);
-
 interface AnalyticsPromptPickerProps {
   copy: AskCopy;
   examples: AnalyticsAskExample[];
@@ -55,9 +51,12 @@ interface AnalyticsPromptPickerProps {
   onTabChange: (tab: "recommendations" | "history") => void;
   isPending: boolean;
   outOfCredits: boolean;
+  scopeReady?: boolean;
   onSelectPrompt: (prompt: string) => void;
   className?: string;
   listClassName?: string;
+  /** Docked admin child panel vs sheet / inline embed. */
+  layout?: "panel" | "embedded";
 }
 
 export function AnalyticsPromptPicker({
@@ -69,15 +68,41 @@ export function AnalyticsPromptPicker({
   onTabChange,
   isPending,
   outOfCredits,
+  scopeReady = false,
   onSelectPrompt,
   className,
   listClassName,
+  layout = "embedded",
 }: AnalyticsPromptPickerProps) {
   const recommendationsScrollRef = useRef<HTMLDivElement>(null);
   const historyScrollRef = useRef<HTMLDivElement>(null);
+  const isPanel = layout === "panel";
 
-  useScrollChainAtEdges(recommendationsScrollRef, activeTab === "recommendations");
-  useScrollChainAtEdges(historyScrollRef, activeTab === "history");
+  useScrollChainAtEdges(recommendationsScrollRef, !isPanel && activeTab === "recommendations");
+  useScrollChainAtEdges(historyScrollRef, !isPanel && activeTab === "history");
+
+  const scrollPanelClassName = isPanel
+    ? cn(
+        "mt-0 min-h-0 flex-1 overflow-y-auto overscroll-y-contain data-[state=inactive]:hidden",
+        portalChildSideNavScrollClassName,
+      )
+    : cn(
+        "absolute inset-0 mt-0 overflow-y-auto overscroll-auto",
+        portalChildSideNavScrollClassName,
+      );
+
+  const promptTextClassName = scopeReady
+    ? "text-text-primary group-hover:text-text-primary"
+    : "text-text-muted group-hover:text-text-secondary";
+
+  const tabTriggerClassName = isPanel
+    ? "h-auto min-h-8 whitespace-normal px-1.5 py-1.5 text-center text-xs leading-tight text-text-muted data-[state=active]:text-text-primary"
+    : "h-auto min-h-8 whitespace-normal px-1.5 py-1.5 text-center text-[11px] leading-tight text-text-muted data-[state=active]:text-text-primary";
+
+  const bodyTextClassName = isPanel ? portalChildSideNavBodyTextClassName : "text-sm leading-snug";
+  const categoryLabelClassName = isPanel
+    ? portalChildSideNavCategoryLabelClassName
+    : "text-[11px] font-medium uppercase tracking-wider text-text-muted";
 
   return (
     <Tabs
@@ -93,19 +118,23 @@ export function AnalyticsPromptPicker({
       >
         <TabsTrigger
           value="recommendations"
-          className="h-auto min-h-8 whitespace-normal px-1.5 py-1.5 text-center text-[11px] leading-tight"
+          className={tabTriggerClassName}
         >
           {copy.examplesLabel}
         </TabsTrigger>
         <TabsTrigger
           value="history"
-          className="h-auto min-h-8 whitespace-normal px-1.5 py-1.5 text-center text-[11px] leading-tight"
+          className={tabTriggerClassName}
         >
           {copy.historyTabLabel}
         </TabsTrigger>
       </TabsList>
 
-      <div className="relative mt-3 min-h-0 flex-1">
+      <div
+        className={cn(
+          isPanel ? "mt-3 flex min-h-0 flex-1 flex-col" : "relative mt-3 min-h-0 flex-1",
+        )}
+      >
         <TabsContent
           ref={recommendationsScrollRef}
           value="recommendations"
@@ -143,11 +172,17 @@ export function AnalyticsPromptPicker({
                     </span>
                     <span className="min-w-0 flex-1">
                       {example.hint ? (
-                        <span className="block text-[11px] font-medium uppercase tracking-wider text-text-muted">
+                        <span className={cn("block", categoryLabelClassName)}>
                           {example.hint}
                         </span>
                       ) : null}
-                      <span className="mt-0.5 block text-sm leading-snug text-text-secondary transition-colors group-hover:text-text-primary">
+                      <span
+                        className={cn(
+                          "mt-0.5 block transition-colors",
+                          bodyTextClassName,
+                          promptTextClassName,
+                        )}
+                      >
                         {example.prompt}
                       </span>
                     </span>
@@ -165,7 +200,7 @@ export function AnalyticsPromptPicker({
           data-analytics-recommendations-scroll
         >
           {historyPrompts.length === 0 ? (
-            <p className="rounded-card border border-border bg-surface-secondary/30 px-3.5 py-3 text-sm text-text-muted">
+            <p className={cn("rounded-card border border-border bg-surface-secondary/30 px-3.5 py-3 text-text-muted", bodyTextClassName)}>
               {copy.historyEmpty}
             </p>
           ) : (
@@ -196,7 +231,13 @@ export function AnalyticsPromptPicker({
                       >
                         <Clock3 className="h-4 w-4" aria-hidden />
                       </span>
-                      <span className="min-w-0 flex-1 text-sm leading-snug text-text-secondary transition-colors group-hover:text-text-primary">
+                      <span
+                        className={cn(
+                          "min-w-0 flex-1 transition-colors",
+                          bodyTextClassName,
+                          promptTextClassName,
+                        )}
+                      >
                         {question}
                       </span>
                     </button>

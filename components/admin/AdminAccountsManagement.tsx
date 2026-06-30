@@ -10,10 +10,10 @@ import { generateSecurePassword } from "@/lib/auth/generate-password";
 import { getManagerLoginStatus } from "@/lib/api/stores";
 import { createStoreSchema, type CreateStoreInput } from "@/lib/validations/store.schema";
 import { useCreateStore } from "@/hooks/useStores";
-import { AdminPageIntro } from "@/components/admin/AdminPageIntro";
 import { AdminPortfolioList } from "@/components/admin/overview/AdminPortfolioList";
 import { DeletedStoresList } from "@/components/admin/DeletedStoresList";
 import {
+  AccountsMobileScopeNav,
   AccountsSidePanel,
   AccountsResultsHeader,
   scopeMeta,
@@ -25,6 +25,7 @@ import { useAdminPortal } from "@/components/admin/AdminPortalContext";
 import { usePlatformSettingsContext } from "@/components/admin/PlatformSettingsProvider";
 import { computeOnboardingDefaultDates } from "@/lib/platform/onboarding-dates";
 import { toast } from "@/hooks/useToast";
+import { cn } from "@/lib/utils";
 import { ApiError } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,11 @@ import { StoreCategorySelect } from "@/components/admin/StoreCategorySelect";
 import { storeCategoryChoiceToFormValue } from "@/lib/store-category/catalog";
 import type { Content } from "@/content/en";
 import type { AdminDashboardOverview } from "@/types";
+import {
+  ADMIN_SCOPED_CONTENT_CARD_CLASS,
+  ADMIN_SCOPED_CONTENT_SCROLL_CLASS,
+  ADMIN_SCOPED_PAGE_ROOT_CLASS,
+} from "@/lib/admin/admin-scoped-page-layout";
 
 type AdminContent = Content["admin"];
 type ErrorsContent = Content["errors"];
@@ -240,16 +246,17 @@ export function AdminAccountsManagement({
     ) : null;
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col space-y-6">
-      <AdminPageIntro
-        title={admin.accounts.title}
-        subtitle={admin.accounts.subtitle}
-        meta={admin.portfolio.periodHint}
-        nav={admin.nav}
+    <>
+      <AccountsSidePanel
+        copy={admin.accounts}
+        value={scope}
+        onChange={setScope}
+        showInternal={showInternalTeam}
+        pageMeta={admin.portfolio.periodHint}
       />
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
-        <AccountsSidePanel
+      <div className={ADMIN_SCOPED_PAGE_ROOT_CLASS} data-testid="accounts-center-root">
+        <AccountsMobileScopeNav
           copy={admin.accounts}
           value={scope}
           onChange={setScope}
@@ -257,18 +264,22 @@ export function AdminAccountsManagement({
         />
 
         <section
-          className="min-w-0 flex-1"
+          className={ADMIN_SCOPED_CONTENT_CARD_CLASS}
           role="tabpanel"
           aria-label={scopeTitle}
+          data-testid="accounts-center-content"
         >
-          <div className="rounded-card border border-border bg-surface-card p-4 shadow-card sm:p-5 lg:min-h-[520px]">
-            <AccountsResultsHeader
-              title={scopeTitle}
-              description={scopeDescription}
-              action={headerAction ?? undefined}
-            />
+          <AccountsResultsHeader
+            title={scopeTitle}
+            description={scopeDescription}
+            action={headerAction ?? undefined}
+          />
 
-            <div className="mt-4 min-w-0">
+          <div
+            className={cn(ADMIN_SCOPED_CONTENT_SCROLL_CLASS, "px-4 sm:px-5")}
+            data-testid="accounts-center-scroll"
+          >
+            <div className="min-w-0 pt-4">
               {scope === "clients" ? (
                 <AdminPortfolioList
                   admin={admin}
@@ -550,6 +561,6 @@ export function AdminAccountsManagement({
         onOpenChange={setInternalTeamModalOpen}
         errors={errors}
       />
-    </div>
+    </>
   );
 }

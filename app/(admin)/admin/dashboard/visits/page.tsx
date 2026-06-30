@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { content } from "@/content/en";
 import { AdminStoreSectionShell } from "@/components/admin/AdminStoreSectionShell";
 import { StoreVisitsLog } from "@/components/store/StoreVisitsLog";
@@ -15,11 +16,7 @@ export default async function AdminVisitsPage({
   const { storeId } = await searchParams;
 
   if (!storeId) {
-    return (
-      <p className="text-sm text-text-secondary">
-        {content.store.portfolio.selectStorePrompt}
-      </p>
-    );
+    redirect("/admin/dashboard/accounts");
   }
 
   let initialVisits: Awaited<ReturnType<typeof fetchInitialVisits>> = null;

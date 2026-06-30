@@ -12,6 +12,7 @@ import {
   Repeat,
 } from "lucide-react";
 import { AUTOMATION_MOBILE_SCOPE_SCROLL_CLASS } from "@/lib/automation/automation-center-layout";
+import { PortalChildSidePanel } from "@/components/layout/PortalChildSidePanel";
 import {
   AUTOMATION_SCOPE_PANEL_ID,
   automationScopeTabId,
@@ -168,7 +169,7 @@ function ScopeNavButton({
         <span
           className={cn(
             "block text-sm font-semibold",
-            active ? "text-brand-gold" : "text-text-primary",
+            active ? "text-brand-gold" : "text-text-secondary",
           )}
         >
           {option.label}
@@ -199,6 +200,8 @@ interface AutomationSidePanelProps {
   canEdit?: boolean;
   readOnlyHint?: string;
   className?: string;
+  /** Dock flush to the primary side nav on large screens. */
+  docked?: boolean;
 }
 
 export function AutomationSidePanel({
@@ -208,6 +211,7 @@ export function AutomationSidePanel({
   canEdit = true,
   readOnlyHint,
   className,
+  docked = true,
 }: AutomationSidePanelProps) {
   const options = buildScopeOptions(copy);
   const scopeKeys = options.map((option) => option.key);
@@ -255,10 +259,7 @@ export function AutomationSidePanel({
   }, [value]);
 
   return (
-    <div
-      className={cn("min-w-0 w-full max-w-full lg:w-72 lg:max-w-none lg:shrink-0", className)}
-      data-testid="automation-scope-panel"
-    >
+    <div className={cn("min-w-0 w-full max-w-full", className)} data-testid="automation-scope-panel">
       <div
         className="min-w-0 w-full max-w-full space-y-3 lg:hidden"
         data-testid="automation-scope-panel-mobile"
@@ -286,32 +287,59 @@ export function AutomationSidePanel({
         </div>
       </div>
 
-      <aside className="hidden lg:flex lg:w-72 lg:shrink-0 lg:flex-col">
-        <div
-          className="sticky top-4 space-y-4 rounded-card border border-border bg-surface-card p-4 shadow-card"
-          data-testid="automation-scope-panel-desktop"
+      {docked ? (
+        <PortalChildSidePanel
+          aria-label={copy.title}
+          pageTitle={copy.title}
+          pageSubtitle={copy.subtitle}
         >
-          {showReadOnlyHint ? <ScopeReadOnlyHint message={readOnlyHint!} /> : null}
-          <div
-            className="space-y-1.5"
-            role="tablist"
-            aria-orientation="vertical"
-            aria-label={copy.title}
-            onKeyDown={handleDesktopTabKeyDown}
-          >
-            {options.map((option) => (
-              <ScopeNavButton
-                key={option.key}
-                option={option}
-                active={value === option.key}
-                onSelect={() => onChange(option.key)}
-                layout="sidebar"
-                variant="desktop"
-              />
-            ))}
+          <div className="space-y-3 px-2 py-4" data-testid="automation-scope-panel-desktop">
+            {showReadOnlyHint ? <ScopeReadOnlyHint message={readOnlyHint!} /> : null}
+            <div
+              className="flex flex-col gap-1"
+              role="tablist"
+              aria-orientation="vertical"
+              aria-label={copy.title}
+              onKeyDown={handleDesktopTabKeyDown}
+            >
+              {options.map((option) => (
+                <ScopeNavButton
+                  key={option.key}
+                  option={option}
+                  active={value === option.key}
+                  onSelect={() => onChange(option.key)}
+                  layout="sidebar"
+                  variant="desktop"
+                />
+              ))}
+            </div>
           </div>
-        </div>
-      </aside>
+        </PortalChildSidePanel>
+      ) : (
+        <aside className="hidden lg:block lg:w-72">
+          <div className="space-y-3" data-testid="automation-scope-panel-desktop">
+            {showReadOnlyHint ? <ScopeReadOnlyHint message={readOnlyHint!} /> : null}
+            <div
+              className="flex flex-col gap-1"
+              role="tablist"
+              aria-orientation="vertical"
+              aria-label={copy.title}
+              onKeyDown={handleDesktopTabKeyDown}
+            >
+              {options.map((option) => (
+                <ScopeNavButton
+                  key={option.key}
+                  option={option}
+                  active={value === option.key}
+                  onSelect={() => onChange(option.key)}
+                  layout="sidebar"
+                  variant="desktop"
+                />
+              ))}
+            </div>
+          </div>
+        </aside>
+      )}
     </div>
   );
 }
@@ -331,7 +359,7 @@ export function AutomationResultsHeader({
     <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
       <div className="min-w-0">
         <h2 className="font-display text-lg font-semibold text-text-primary">{title}</h2>
-        <p className="mt-1 text-sm text-text-secondary">{description}</p>
+        <p className="mt-1 hidden text-sm text-text-muted lg:block">{description}</p>
       </div>
       {action ? <div className="w-full shrink-0 sm:w-auto">{action}</div> : null}
     </div>

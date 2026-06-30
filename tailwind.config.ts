@@ -58,6 +58,9 @@ const config: Config = {
         display: ["var(--font-playfair)", "Playfair Display", "Georgia", "serif"],
         numeric: ["var(--font-inter)", "Inter", "system-ui", "sans-serif"],
       },
+      fontSize: {
+        xs: ["var(--font-size-xs)", { lineHeight: "var(--line-height-xs)" }],
+      },
       borderRadius: {
         card: "12px",
         input: "8px",

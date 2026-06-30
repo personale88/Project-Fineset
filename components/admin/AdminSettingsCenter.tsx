@@ -12,12 +12,12 @@ import {
 } from "lucide-react";
 import { StoreCategoryEditDialog } from "@/components/admin/settings/StoreCategoryEditDialog";
 import {
+  SettingsMobileScopeNav,
   SettingsResultsHeader,
   SettingsSidePanel,
   scopeMeta,
   type SettingsScope,
 } from "@/components/admin/settings/SettingsSidePanel";
-import { AdminPageIntro } from "@/components/admin/AdminPageIntro";
 import { AdminLoadErrorBanner } from "@/components/admin/AdminLoadErrorBanner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,11 @@ import {
   useUpdateStoreCategory,
 } from "@/hooks/usePlatformSettings";
 import { toast } from "@/hooks/useToast";
+import {
+  ADMIN_SCOPED_CONTENT_CARD_CLASS,
+  ADMIN_SCOPED_CONTENT_SCROLL_CLASS,
+  ADMIN_SCOPED_PAGE_ROOT_CLASS,
+} from "@/lib/admin/admin-scoped-page-layout";
 import { DEFAULT_PLATFORM_SETTINGS } from "@/lib/platform/default-settings";
 import type { StoreCategoryChoice } from "@/lib/store-category/catalog";
 import type { PlatformSettings } from "@/lib/platform/types";
@@ -339,31 +344,32 @@ export function AdminSettingsCenter({ admin }: AdminSettingsCenterProps) {
       : copy.neverSaved;
 
   return (
-    <div className="space-y-6">
-      <AdminPageIntro
-        title={copy.title}
-        subtitle={copy.subtitle}
-        nav={admin.nav}
-      />
+    <>
+      <SettingsSidePanel copy={copy} value={scope} onChange={setScope} />
 
-      {isError ? (
-        <AdminLoadErrorBanner
-          message={copy.loadFailed}
-          retryLabel={copy.retry}
-          onRetry={() => void refetch()}
-        />
-      ) : null}
+      <div className={ADMIN_SCOPED_PAGE_ROOT_CLASS} data-testid="settings-center-root">
+        <SettingsMobileScopeNav copy={copy} value={scope} onChange={setScope} />
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        <SettingsSidePanel copy={copy} value={scope} onChange={setScope} />
+        {isError ? (
+          <AdminLoadErrorBanner
+            message={copy.loadFailed}
+            retryLabel={copy.retry}
+            onRetry={() => void refetch()}
+            className="shrink-0"
+          />
+        ) : null}
 
-        <div className="min-w-0 flex-1 overflow-hidden rounded-xl border border-border bg-surface-card">
+        <div className={ADMIN_SCOPED_CONTENT_CARD_CLASS} data-testid="settings-center-content">
           <SettingsResultsHeader
             title={title}
             description={description}
             meta={scope !== "integrations" && scope !== "categories" ? metaLine : undefined}
           />
 
+          <div
+            className={ADMIN_SCOPED_CONTENT_SCROLL_CLASS}
+            data-testid="settings-center-scroll"
+          >
           {scope === "general" ? (
             <ConfigSection
               canEdit={canEdit}
@@ -1005,6 +1011,7 @@ export function AdminSettingsCenter({ admin }: AdminSettingsCenterProps) {
               {copy.readOnlyHint}
             </p>
           ) : null}
+          </div>
         </div>
       </div>
 
@@ -1020,6 +1027,6 @@ export function AdminSettingsCenter({ admin }: AdminSettingsCenterProps) {
         onSave={(input) => void handleSaveCategoryEdit(input)}
         onDelete={(category) => void handleDeleteCategory(category)}
       />
-    </div>
+    </>
   );
 }

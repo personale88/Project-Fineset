@@ -90,6 +90,7 @@ describe("AutomationSidePanel ARIA tab semantics", () => {
         copy={content.admin.automation}
         value="billingCycle"
         onChange={() => undefined}
+        docked={false}
       />,
     );
 
@@ -156,6 +157,7 @@ describe("AutomationSidePanel ARIA tab semantics", () => {
         copy={content.admin.automation}
         value="invoices"
         onChange={onChange}
+        docked={false}
       />,
     );
 

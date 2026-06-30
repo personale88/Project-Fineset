@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import {
   BarChart3,
   CreditCard,
@@ -9,6 +10,13 @@ import {
   Shield,
   Sparkles,
 } from "lucide-react";
+import { PortalChildSidePanel } from "@/components/layout/PortalChildSidePanel";
+import { ADMIN_SCOPED_MOBILE_SCOPE_NAV_CLASS } from "@/lib/admin/admin-scoped-page-layout";
+import {
+  focusScopeTab,
+  handleScopeTabListKeyDown,
+  scopeTabId,
+} from "@/lib/admin/scope-tabs-a11y";
 import { cn } from "@/lib/utils";
 import type { Content } from "@/content/en";
 
@@ -22,6 +30,8 @@ export type SettingsScope =
   | "integrations";
 
 type SettingsCopy = Content["admin"]["settings"];
+
+const SETTINGS_SCOPE_PREFIX = "settings";
 
 interface ScopeOption {
   key: SettingsScope;
@@ -82,20 +92,24 @@ function ScopeNavButton({
   active,
   onSelect,
   layout,
+  id,
 }: {
   option: ScopeOption;
   active: boolean;
   onSelect: () => void;
   layout: "sidebar" | "compact";
+  id?: string;
 }) {
   const Icon = option.icon;
 
   if (layout === "compact") {
     return (
       <button
+        id={id}
         type="button"
         role="tab"
         aria-selected={active}
+        data-scope={option.key}
         onClick={onSelect}
         className={cn(
           "shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
@@ -111,6 +125,7 @@ function ScopeNavButton({
 
   return (
     <button
+      id={id}
       type="button"
       role="tab"
       aria-selected={active}
@@ -134,7 +149,7 @@ function ScopeNavButton({
         <span
           className={cn(
             "block text-sm font-semibold",
-            active ? "text-brand-gold" : "text-text-primary",
+            active ? "text-brand-gold" : "text-text-secondary",
           )}
         >
           {option.label}
@@ -147,49 +162,130 @@ function ScopeNavButton({
   );
 }
 
-interface SettingsSidePanelProps {
+interface SettingsMobileScopeNavProps {
   copy: SettingsCopy;
   value: SettingsScope;
   onChange: (value: SettingsScope) => void;
   className?: string;
 }
 
+/** Horizontal scope tabs for mobile — pinned above the scrolling settings card. */
+export function SettingsMobileScopeNav({
+  copy,
+  value,
+  onChange,
+  className,
+}: SettingsMobileScopeNavProps) {
+  const options = buildScopeOptions(copy);
+  const scopeKeys = options.map((option) => option.key);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const active = container.querySelector<HTMLElement>(`[data-scope="${value}"]`);
+    if (!active || typeof active.scrollIntoView !== "function") return;
+    active.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [value]);
+
+  return (
+    <div
+      ref={scrollRef}
+      className={cn(ADMIN_SCOPED_MOBILE_SCOPE_NAV_CLASS, className)}
+      data-testid="settings-scope-scroll"
+      role="tablist"
+      aria-label={copy.title}
+      aria-orientation="horizontal"
+      onKeyDown={(event) =>
+        handleScopeTabListKeyDown(
+          event,
+          scopeKeys,
+          value,
+          SETTINGS_SCOPE_PREFIX,
+          "mobile",
+          onChange,
+          "horizontal",
+        )
+      }
+    >
+      {options.map((option) => (
+        <ScopeNavButton
+          key={option.key}
+          id={scopeTabId(SETTINGS_SCOPE_PREFIX, option.key, "mobile")}
+          option={option}
+          active={value === option.key}
+          onSelect={() => onChange(option.key)}
+          layout="compact"
+        />
+      ))}
+    </div>
+  );
+}
+
+interface SettingsSidePanelProps {
+  copy: SettingsCopy;
+  value: SettingsScope;
+  onChange: (value: SettingsScope) => void;
+  className?: string;
+  /** Dock flush to the primary side nav on large screens. */
+  docked?: boolean;
+}
+
+/** Desktop child side panel for settings scopes. */
 export function SettingsSidePanel({
   copy,
   value,
   onChange,
   className,
+  docked = true,
 }: SettingsSidePanelProps) {
   const options = buildScopeOptions(copy);
+  const scopeKeys = options.map((option) => option.key);
+
+  const sidebarTabList = (
+    <div
+      className="flex flex-col gap-1"
+      role="tablist"
+      aria-label={copy.title}
+      aria-orientation="vertical"
+      onKeyDown={(event) =>
+        handleScopeTabListKeyDown(
+          event,
+          scopeKeys,
+          value,
+          SETTINGS_SCOPE_PREFIX,
+          "desktop",
+          onChange,
+          "vertical",
+        )
+      }
+    >
+      {options.map((option) => (
+        <ScopeNavButton
+          key={option.key}
+          id={scopeTabId(SETTINGS_SCOPE_PREFIX, option.key, "desktop")}
+          option={option}
+          active={value === option.key}
+          onSelect={() => onChange(option.key)}
+          layout="sidebar"
+        />
+      ))}
+    </div>
+  );
 
   return (
-    <div className={cn("space-y-3", className)}>
-      <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden">
-        {options.map((option) => (
-          <ScopeNavButton
-            key={option.key}
-            option={option}
-            active={value === option.key}
-            onSelect={() => onChange(option.key)}
-            layout="compact"
-          />
-        ))}
-      </div>
-      <div
-        className="hidden w-full shrink-0 flex-col gap-1 lg:flex lg:w-72"
-        role="tablist"
-        aria-orientation="vertical"
-      >
-        {options.map((option) => (
-          <ScopeNavButton
-            key={option.key}
-            option={option}
-            active={value === option.key}
-            onSelect={() => onChange(option.key)}
-            layout="sidebar"
-          />
-        ))}
-      </div>
+    <div className={className}>
+      {docked ? (
+        <PortalChildSidePanel
+          aria-label="Settings sections"
+          pageTitle={copy.title}
+          pageSubtitle={copy.subtitle}
+        >
+          <div className="px-2 py-4">{sidebarTabList}</div>
+        </PortalChildSidePanel>
+      ) : (
+        <div className="hidden w-72 shrink-0 flex-col gap-1 lg:flex">{sidebarTabList}</div>
+      )}
     </div>
   );
 }
@@ -204,10 +300,10 @@ export function SettingsResultsHeader({
   meta?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
+    <div className="flex shrink-0 flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
       <div className="min-w-0">
         <h2 className="font-display text-lg font-semibold text-text-primary">{title}</h2>
-        <p className="mt-1 text-sm text-text-secondary">{description}</p>
+        <p className="mt-1 hidden text-sm text-text-muted lg:block">{description}</p>
       </div>
       {meta ? <div className="shrink-0 text-xs text-text-muted">{meta}</div> : null}
     </div>
@@ -232,3 +328,5 @@ export function scopeMeta(
   };
   return map[scope];
 }
+
+export { focusScopeTab as focusSettingsScopeTab };

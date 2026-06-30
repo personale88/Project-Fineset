@@ -2393,6 +2393,7 @@ export const content = {
       allCategoriesLabel: "All categories",
       filtersLabel: "Scope filters",
       filtersEditLabel: "Edit scope",
+      filtersSubmitLabel: "Submit",
       filtersSheetDescription: "Choose city, category, and store for your analysis.",
       emptyBreakdown: "No breakdown data for this period.",
       credits: {
@@ -2449,7 +2450,7 @@ export const content = {
         howItWorksTitle: "How credits work",
         howItWorks: [
           "Each analysis uses 1 or more credits based on Gemini token usage.",
-          "Reports and charts always come from your live Tribly data — credits are not used to invent numbers.",
+          "Reports and charts always come from your live FineSet data — credits are not used to invent numbers.",
           "Keyword-only parsing (no Gemini key) still uses 1 credit per completed analysis.",
           "Low-confidence parses ask for confirmation before credits are spent.",
         ],
@@ -2473,7 +2474,7 @@ export const content = {
         uniqueCustomers: "Unique customers",
       },
       ask: {
-        title: "AI analytics",
+        title: "AI Analytics",
         chatPanelIntro: "Ask in plain language. Answers come from your live store data.",
         historyTabLabel: "History",
         historyEmpty: "Your recent questions will appear here.",
@@ -2481,11 +2482,26 @@ export const content = {
         promptPlaceholder:
           "e.g. Compare this month vs last year revenue by customer type for high value new customers",
         promptPlaceholderMobile: "Ask about revenue, visits, or trends…",
+        promptTooShort: "Enter at least 3 characters to analyze.",
         analyzeButton: "Analyze",
+        newAnalysisLabel: "New analysis",
+        newAnalysisHint: "Clear the current result and start a new question.",
+        rerunAnalysisButton: "Re-run analysis",
         chatEmptyTitle: "Start a conversation",
-        chatEmptyDescription: "Swipe suggestions below or type your question.",
+        chatEmptyDescription: "Select a store scope above, then swipe suggestions or type your question.",
         chatEmptyDescriptionDesktop:
-          "Ask about revenue, visits, segments, or trends. Your answer appears here with charts and a report.",
+          "Select a store or All stores above, then ask about revenue, visits, segments, or trends.",
+        selectScopeEmptyDescription:
+          "Choose All stores or a specific store in the scope filters before analyzing.",
+        selectScopeEmptyDescriptionDesktop:
+          "Use the scope filters above to pick All stores or a specific store, then ask your question.",
+        outOfCreditsEmptyDescription:
+          "You are out of AI credits. Recharge to run analyses — browse suggested prompts below for inspiration.",
+        generatingReport: "Generating report…",
+        analyticsDisabledTitle: "AI Analytics is disabled",
+        analyticsDisabledDescription:
+          "Turn on AI analytics under Admin → Settings, or contact your platform administrator.",
+        openScopeFilters: "Edit scope",
         promptsBrowseLabel: "Browse prompts",
         promptsSheetTitle: "Suggested questions",
         promptsMoreLabel: "More",
@@ -2561,7 +2577,7 @@ export const content = {
         interpretedLabel: "We understood",
         periodLabel: "Period",
         scopeLabel: "Analyzing for",
-        scopeChangedHint: "Filters updated — results refreshed for the new scope.",
+        scopeChangedHint: "Scope changed — re-run your last question to refresh results for the new scope.",
         aiPowered: "Analysis enhanced with Gemini.",
         rulePowered: "Analysis from server rules on your live data.",
         geminiNotConfigured: "Gemini key not set — using rule-based parser",
@@ -3193,7 +3209,6 @@ export const content = {
       addStore: "Add store",
       scope: {
         label: "Accounts view",
-        panelTitle: "View",
         clients: "Client accounts",
         clientsHint: "Browse businesses, add stores, and open store teams.",
         internal: "Internal team",

@@ -17,7 +17,7 @@ export function buildRuleBasedAskReport(
       summary: options.emptyMessage,
       highlights: [
         "No visit records matched your selected period and scope.",
-        "Charts and KPIs show zero because nothing was logged in Tribly for this window.",
+        "Charts and KPIs show zero because nothing was logged in FineSet for this window.",
       ],
       recommendations: [
         "Widen the date range or remove city/category/store filters.",

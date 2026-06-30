@@ -17,7 +17,6 @@ import { AutomationRunNowConfirmDialog } from "@/components/admin/automation/Aut
 import { AutomationTimezoneDriftBanner } from "@/components/admin/automation/AutomationTimezoneDriftBanner";
 import { AutomationCenterLoadingShell } from "@/components/admin/automation/AutomationCenterLoadingShell";
 import { AutomationCenterErrorShell } from "@/components/admin/automation/AutomationCenterErrorShell";
-import { AdminPageIntro } from "@/components/admin/AdminPageIntro";
 import { AdminLoadErrorBanner } from "@/components/admin/AdminLoadErrorBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,10 +55,8 @@ import {
   normalizeAutomationCountryCode,
 } from "@/lib/automation/country-code";
 import {
-  AUTOMATION_CENTER_BODY_CLASS,
   AUTOMATION_CENTER_CONTENT_CARD_CLASS,
-  AUTOMATION_CENTER_INTRO_CLASS,
-  AUTOMATION_CENTER_NAV_CLASS,
+  AUTOMATION_CENTER_CONTENT_SCROLL_CLASS,
   AUTOMATION_CENTER_ROOT_CLASS,
   AUTOMATION_MOBILE_ACTION_ROW_CLASS,
   AUTOMATION_MOBILE_FULL_WIDTH_BUTTON_CLASS,
@@ -1059,38 +1056,31 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
   }
 
   return (
-    <div
-      className={AUTOMATION_CENTER_ROOT_CLASS}
-      data-testid="automation-center-root"
-    >
-      <AdminPageIntro
-        title={copy.title}
-        subtitle={copy.subtitle}
-        nav={admin.nav}
-        introClassName={AUTOMATION_CENTER_INTRO_CLASS}
-        navClassName={AUTOMATION_CENTER_NAV_CLASS}
+    <>
+      <AutomationSidePanel
+        copy={copy}
+        value={scope}
+        onChange={setScope}
+        canEdit={canEdit}
+        readOnlyHint={copy.readOnlyHint}
       />
 
-      {configLoadFailed ? (
-        <AdminLoadErrorBanner
-          message={copy.loadFailed}
-          retryLabel={copy.retry}
-          retryDisabled={isRefetching}
-          onRetry={() => void handleConfigRetry()}
-          data-testid="automation-config-error-banner"
-        />
-      ) : null}
+      <div
+        className={AUTOMATION_CENTER_ROOT_CLASS}
+        data-testid="automation-center-root"
+      >
+        {configLoadFailed ? (
+          <AdminLoadErrorBanner
+            message={copy.loadFailed}
+            retryLabel={copy.retry}
+            retryDisabled={isRefetching}
+            onRetry={() => void handleConfigRetry()}
+            data-testid="automation-config-error-banner"
+            className="shrink-0"
+          />
+        ) : null}
 
-      {!canEdit ? <AdminReadOnlyBanner message={copy.readOnlyHint} /> : null}
-
-      <div className={AUTOMATION_CENTER_BODY_CLASS}>
-        <AutomationSidePanel
-          copy={copy}
-          value={scope}
-          onChange={setScope}
-          canEdit={canEdit}
-          readOnlyHint={copy.readOnlyHint}
-        />
+        {!canEdit ? <AdminReadOnlyBanner message={copy.readOnlyHint} className="shrink-0" /> : null}
 
         <div
           id={AUTOMATION_SCOPE_PANEL_ID}
@@ -1105,6 +1095,10 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
         >
           <AutomationResultsHeader title={title} description={description} />
 
+          <div
+            className={AUTOMATION_CENTER_CONTENT_SCROLL_CLASS}
+            data-testid="automation-center-scroll"
+          >
           {scope === "overview" ? (
             <ConfigSection
               canEdit={canEdit}
@@ -1965,6 +1959,7 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
               onRetryLoadMore={() => void handleLoadMoreHistory()}
             />
           ) : null}
+          </div>
         </div>
       </div>
 
@@ -1976,6 +1971,6 @@ export function AdminAutomationCenter({ admin }: AdminAutomationCenterProps) {
         isRunning={runInFlight}
         onConfirm={() => void handleRun(false)}
       />
-    </div>
+    </>
   );
 }

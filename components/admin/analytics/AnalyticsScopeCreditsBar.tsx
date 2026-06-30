@@ -1,6 +1,7 @@
 "use client";
 
 import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCredits } from "@/lib/analytics/credit-units";
 import { cn } from "@/lib/utils/cn";
@@ -21,6 +22,7 @@ interface AnalyticsScopeCreditsBarProps {
   isError?: boolean;
   onRetry?: () => void;
   onRecharge: () => void;
+  layout?: "stacked" | "inline";
 }
 
 function resolveCreditsChipState(
@@ -59,30 +61,30 @@ function chipToneClasses(state: CreditsChipState) {
     case "error":
     case "empty":
       return {
-        chip: "border-status-error/25 bg-status-error/[0.04] hover:bg-status-error/10",
+        chip: "border-status-error/25 bg-status-error/[0.04]",
         icon: "bg-status-error/10 text-status-error",
         label: "text-status-error",
         action: "text-status-error",
       };
     case "low":
       return {
-        chip: "border-status-warning/25 bg-status-warning/[0.04] hover:bg-status-warning/10",
+        chip: "border-status-warning/25 bg-status-warning/[0.04]",
         icon: "bg-status-warning/10 text-status-warning",
         label: "text-status-warning",
         action: "text-status-warning",
       };
     case "unknown":
       return {
-        chip: "border-border bg-surface-secondary/40 hover:bg-surface-secondary/60",
+        chip: "border-border bg-surface-secondary/40",
         icon: "bg-surface-secondary text-text-muted",
         label: "text-text-secondary",
         action: "text-text-secondary",
       };
     default:
       return {
-        chip: "border-border bg-surface-card hover:border-brand-gold/30 hover:bg-surface-secondary/40",
+        chip: "border-border bg-surface-card",
         icon: "bg-brand-gold/10 text-brand-gold",
-        label: "text-text-primary",
+        label: "text-text-secondary",
         action: "text-brand-gold",
       };
   }
@@ -99,7 +101,9 @@ export function AnalyticsScopeCreditsBar({
   isError,
   onRetry,
   onRecharge,
+  layout = "stacked",
 }: AnalyticsScopeCreditsBarProps) {
+  const isInline = layout === "inline";
   const showLoading = Boolean(isLoading || isFetching);
   const state = resolveCreditsChipState(showLoading, isError, balanceCredits, lowBalanceThreshold);
   const tone = chipToneClasses(state);
@@ -123,27 +127,28 @@ export function AnalyticsScopeCreditsBar({
   const actionLabel =
     state === "empty" ? copy.rechargeCta : state === "low" ? copy.topUpCta : null;
 
-  const mobileActionLabel = state === "empty" || state === "low" ? actionLabel : null;
-
-  const ariaLabel = actionLabel ? `${balanceLabel}. ${actionLabel}.` : balanceLabel;
-
   return (
-    <div className="flex shrink-0 items-center lg:flex-col lg:items-end lg:gap-1">
-      {periodLabel && periodCaption ? (
+    <div
+      className={cn(
+        "flex shrink-0 items-center gap-2",
+        !isInline && "lg:flex-col lg:items-end lg:gap-1",
+      )}
+    >
+      {!isInline && periodLabel && periodCaption ? (
         <p className="hidden min-w-0 truncate text-xs text-text-muted lg:block">
-          <span className="font-medium text-text-secondary">{periodCaption}:</span>{" "}
-          <span className="font-medium text-text-primary">{periodLabel}</span>
+          <span className="font-medium text-text-muted">{periodCaption}:</span>{" "}
+          <span className="font-medium text-text-secondary">{periodLabel}</span>
         </p>
       ) : null}
 
-      <div className="lg:pt-0.5">
+      <div className={cn("flex items-center gap-2", !isInline && "lg:pt-0.5")}>
         {state === "loading" ? (
           <Skeleton className="h-7 w-24 rounded-full lg:h-8 lg:w-36" aria-label={copy.balanceLabel} />
         ) : state === "error" ? (
           <button
             type="button"
             onClick={() => onRetry?.()}
-            aria-label={ariaLabel}
+            aria-label={balanceLabel}
             className={cn(
               "inline-flex h-7 max-w-[9.5rem] items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-[11px] font-medium shadow-sm transition-colors lg:h-8 lg:max-w-full lg:gap-2 lg:px-3 lg:text-xs",
               tone.chip,
@@ -161,43 +166,43 @@ export function AnalyticsScopeCreditsBar({
             <span className="truncate">{compactBalanceLabel}</span>
           </button>
         ) : (
-          <button
-            type="button"
-            onClick={onRecharge}
-            aria-label={ariaLabel}
-            className={cn(
-              "inline-flex h-7 max-w-[9.5rem] items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-[11px] shadow-sm transition-colors lg:h-8 lg:max-w-full lg:gap-2 lg:px-3 lg:text-xs",
-              tone.chip,
-            )}
-          >
-            <span
+          <>
+            <button
+              type="button"
+              onClick={onRecharge}
+              aria-label={`${balanceLabel}. ${copy.manageCredits}`}
               className={cn(
-                "flex h-4 w-4 shrink-0 items-center justify-center rounded-full lg:h-5 lg:w-5",
-                tone.icon,
+                "inline-flex h-7 max-w-[9.5rem] cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 text-[11px] shadow-sm transition-colors hover:border-brand-gold/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/50 lg:h-8 lg:max-w-full lg:gap-2 lg:px-3 lg:text-xs",
+                tone.chip,
               )}
             >
-              <Sparkles className="h-3 w-3 lg:h-3.5 lg:w-3.5" aria-hidden />
-            </span>
-            <span className={cn("truncate font-medium tabular-nums lg:hidden", tone.label)}>
-              {compactBalanceLabel}
-            </span>
-            <span className={cn("hidden font-medium tabular-nums lg:inline", tone.label)}>
-              {balanceLabel}
-            </span>
+              <span
+                className={cn(
+                  "flex h-4 w-4 shrink-0 items-center justify-center rounded-full lg:h-5 lg:w-5",
+                  tone.icon,
+                )}
+              >
+                <Sparkles className="h-3 w-3 lg:h-3.5 lg:w-3.5" aria-hidden />
+              </span>
+              <span className={cn("truncate font-medium tabular-nums lg:hidden", tone.label)}>
+                {compactBalanceLabel}
+              </span>
+              <span className={cn("hidden font-medium tabular-nums lg:inline", tone.label)}>
+                {balanceLabel}
+              </span>
+            </button>
             {actionLabel ? (
-              <>
-                <span className="hidden text-text-muted/70 lg:inline" aria-hidden>
-                  ·
-                </span>
-                <span className={cn("hidden font-semibold lg:inline", tone.action)}>
-                  {actionLabel}
-                </span>
-              </>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className={cn("h-7 shrink-0 px-2.5 text-[11px] lg:h-8 lg:text-xs", tone.action)}
+                onClick={onRecharge}
+              >
+                {actionLabel}
+              </Button>
             ) : null}
-            {mobileActionLabel ? (
-              <span className={cn("font-semibold lg:hidden", tone.action)}>{mobileActionLabel}</span>
-            ) : null}
-          </button>
+          </>
         )}
       </div>
     </div>
