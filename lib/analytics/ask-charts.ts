@@ -53,12 +53,33 @@ function getBreakdownRows(
   }
 }
 
-function capPieBreakdown(rows: BreakdownRow[]): BreakdownRow[] {
-  const sorted = [...rows].sort((a, b) => b.count - a.count);
+function capPieBreakdown(rows: BreakdownRow[], metric: ReturnType<typeof resolveAskChartMetric>): BreakdownRow[] {
+  const valueOf = (row: BreakdownRow) =>
+    metric === "revenue" ? (row.revenue ?? 0) : row.count;
+  const sorted = [...rows].sort((a, b) => valueOf(b) - valueOf(a));
   if (sorted.length <= MAX_PIE_SLICES) return sorted;
   const top = sorted.slice(0, MAX_PIE_SLICES - 1);
   const otherCount = sorted.slice(MAX_PIE_SLICES - 1).reduce((sum, row) => sum + row.count, 0);
-  return [...top, { label: "Other", count: otherCount }];
+  const otherRevenue = sorted
+    .slice(MAX_PIE_SLICES - 1)
+    .reduce((sum, row) => sum + (row.revenue ?? 0), 0);
+  return [...top, { label: "Other", count: otherCount, revenue: otherRevenue }];
+}
+
+function resolveBreakdownDimension(
+  intent: ParsedAnalyticsAskIntent,
+  prompt: string,
+  scenario: ReturnType<typeof resolveAskChartScenario>,
+): CohortPivotDimension {
+  if (intent.breakdownDimension) return intent.breakdownDimension;
+  const text = prompt.trim().toLowerCase();
+  if (scenario === "revenueDistribution" || scenario === "customerTypeBreakdown") {
+    if (/\bsource\b|\bchannel\b/i.test(text)) return "sourceChannel";
+    if (/\bcustomer type\b/i.test(text)) return "customerType";
+    if (/\brevenue\b|\bsales\b/i.test(text)) return "sourceChannel";
+    return "customerType";
+  }
+  return "customerType";
 }
 
 function buildRadarPoints(analytics: AdminBusinessAnalytics): AnalyticsAskRadarPoint[] {
@@ -147,7 +168,7 @@ function buildChartForType(
       return {
         type: "area",
         title: metric === "revenue" ? `Revenue trend · ${analytics.period.label}` : `Visit trend · ${analytics.period.label}`,
-        description: `Cumulative ${metric === "revenue" ? "revenue" : "visits"} over ${analytics.period.label}`,
+        description: `Daily ${metric === "revenue" ? "revenue" : "visits"} over ${analytics.period.label}`,
         trend: analytics.trends,
       };
     case "groupedBar":
@@ -177,8 +198,12 @@ function buildChartForType(
       return {
         type: "pie",
         title: `${dimLabel} distribution`,
-        description: `Share of visits by ${dimLabel.toLowerCase()} (max ${MAX_PIE_SLICES} categories)`,
-        breakdown: capPieBreakdown(breakdown),
+        description:
+          metric === "revenue"
+            ? `Share of revenue by ${dimLabel.toLowerCase()} (max ${MAX_PIE_SLICES} categories)`
+            : `Share of visits by ${dimLabel.toLowerCase()} (max ${MAX_PIE_SLICES} categories)`,
+        breakdown: capPieBreakdown(breakdown, metric),
+        metric,
       };
     case "rankedBar":
       if (breakdown.length === 0) return null;
@@ -194,7 +219,7 @@ function buildChartForType(
         type: "stackedBar",
         title: `${dimLabel} split`,
         description: `Composition for ${analytics.period.label}`,
-        breakdown: capPieBreakdown(breakdown),
+        breakdown: capPieBreakdown(breakdown, metric),
         periodLabel: analytics.period.label,
       };
     case "bar":
@@ -224,11 +249,11 @@ export function buildAskCharts(
 ): AnalyticsAskChart[] {
   const prompt = options?.prompt ?? "";
   const enrichedIntent = prompt ? mergeIntentChartHints(intent, prompt) : intent;
-  const dimension = enrichedIntent.breakdownDimension ?? "customerType";
+  const scenario = resolveAskChartScenario(enrichedIntent, prompt, analytics);
+  const dimension = resolveBreakdownDimension(enrichedIntent, prompt, scenario);
   const breakdown = getBreakdownRows(analytics, dimension).slice(0, 12);
   const dimLabel = COHORT_PIVOT_LABELS[dimension];
   const metric = resolveAskChartMetric(prompt);
-  const scenario = resolveAskChartScenario(enrichedIntent, prompt, analytics);
   const chartTypes = pickChartTypesForScenario(scenario, enrichedIntent, analytics, prompt);
 
   const charts: AnalyticsAskChart[] = [];
@@ -243,6 +268,21 @@ export function buildAskCharts(
     if (chart && !charts.some((c) => c.type === chart.type)) {
       charts.push(chart);
     }
+  }
+
+  if (
+    charts.length === 0 &&
+    chartTypes.includes("pie") &&
+    analytics.trends.length >= 2
+  ) {
+    const areaChart = buildChartForType("area", enrichedIntent, analytics, {
+      dimension,
+      breakdown,
+      dimLabel,
+      metric,
+      prompt,
+    });
+    if (areaChart) charts.push(areaChart);
   }
 
   return charts;

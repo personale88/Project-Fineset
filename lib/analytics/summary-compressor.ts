@@ -19,6 +19,7 @@ export interface CompressedSummary {
     avgTransaction: number;
     fieldSalesCount: number;
   };
+  dailyTrend?: Array<{ date: string; visits: number; revenue: number }>;
   comparison?: {
     period: { label: string; start: string; end: string };
     kpis: {
@@ -57,10 +58,17 @@ export function classifyDataAvailability(
   return "ok";
 }
 
+export interface CompressSummaryOptions {
+  includeDailyTrend?: boolean;
+}
+
 /**
  * Compresses a full AdminBusinessAnalytics object into ~150–200 token summary.
  */
-export function compressSummary(analytics: AdminBusinessAnalytics): CompressedSummary {
+export function compressSummary(
+  analytics: AdminBusinessAnalytics,
+  options?: CompressSummaryOptions,
+): CompressedSummary {
   const { summary, comparison, breakdowns, period, appliedFilters } = analytics;
 
   const dataAvailability = classifyDataAvailability(summary.totalVisits);
@@ -112,6 +120,14 @@ export function compressSummary(analytics: AdminBusinessAnalytics): CompressedSu
         avgTransaction: comparison.deltas.avgTransaction,
       },
     };
+  }
+
+  if (options?.includeDailyTrend && analytics.trends.length > 0) {
+    base.dailyTrend = analytics.trends.slice(-14).map((point) => ({
+      date: point.date,
+      visits: point.visits,
+      revenue: point.revenue,
+    }));
   }
 
   return base;

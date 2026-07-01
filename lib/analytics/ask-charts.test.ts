@@ -160,6 +160,7 @@ describe("pickChartTypesFromData / buildAskCharts", () => {
     const charts = buildAskCharts(intent, mockAnalytics(), { prompt });
     expect(charts).toHaveLength(1);
     expect(charts[0]?.type).toBe("area");
+    expect(charts[0]?.description).toContain("Daily revenue");
   });
 
   it("returns single pie for customer type breakdown without extra radar", () => {

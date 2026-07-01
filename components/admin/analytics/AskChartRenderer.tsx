@@ -101,6 +101,8 @@ export function AskChartRenderer({
                 title={chart.title}
                 description={chart.description}
                 data={chart.breakdown ?? []}
+                metric={chart.metric ?? "visits"}
+                revenueLabel={revenueLabel}
                 emptyMessage={emptyBreakdown}
               />
             );

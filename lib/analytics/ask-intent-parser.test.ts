@@ -68,6 +68,17 @@ describe("parseAnalyticsAskIntent", () => {
     expect(intent.dateMode).toBe("compare");
     expect(intent.compareBYear).toBe(intent.compareAYear! - 1);
   });
+
+  it("does not default breakdownDimension for metric-only revenue prompts", () => {
+    const intent = parseAnalyticsAskIntent("give last week revenue");
+    expect(intent.period).toBe("week");
+    expect(intent.breakdownDimension).toBeUndefined();
+  });
+
+  it("infers source channel for revenue distribution prompts", () => {
+    const intent = parseAnalyticsAskIntent("Revenue distribution last 6 months");
+    expect(intent.breakdownDimension).toBe("sourceChannel");
+  });
 });
 
 describe("describeParsedIntent rolling windows", () => {

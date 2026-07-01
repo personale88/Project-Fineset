@@ -29,9 +29,9 @@ function mockAnalytics(overrides?: Partial<AdminBusinessAnalytics>): AdminBusine
     appliedFilters: [],
     breakdowns: {
       customerType: [
-        { label: "New", count: 6991 },
-        { label: "Repeat", count: 6991 },
-        { label: "VIP", count: 6990 },
+        { label: "New", count: 6991, revenue: 200000000 },
+        { label: "Repeat", count: 6991, revenue: 300000000 },
+        { label: "VIP", count: 6990, revenue: 176291635 },
       ],
       valueTier: [
         { label: "High value", count: 30 },
@@ -44,8 +44,8 @@ function mockAnalytics(overrides?: Partial<AdminBusinessAnalytics>): AdminBusine
         { label: "Not purchased", count: 10972 },
       ],
       sourceChannel: [
-        { label: "Walk-in", count: 15000 },
-        { label: "Referral", count: 5972 },
+        { label: "Walk-in", count: 15000, revenue: 400000000 },
+        { label: "Referral", count: 5972, revenue: 276291635 },
       ],
       gender: [],
       ageGroup: [],
@@ -166,6 +166,18 @@ const QA_CHART_MATRIX = [
     expectedScenario: "summaryKpis",
     expectedChart: null,
   },
+  {
+    id: "CHART-11",
+    prompt: "give last week revenue",
+    expectedScenario: "salesOverTime",
+    expectedChart: "area",
+  },
+  {
+    id: "CHART-12",
+    prompt: "last week business performance",
+    expectedScenario: "salesOverTime",
+    expectedChart: "area",
+  },
 ] as const;
 
 describe("QA chart matrix (staging checklist)", () => {
@@ -266,6 +278,31 @@ describe("empty / sparse data safety", () => {
     const charts = buildAskCharts(intent, manyChannels, { prompt });
     expect(charts[0]?.type).toBe("pie");
     expect(charts[0]?.breakdown?.length).toBeLessThanOrEqual(7);
+  });
+
+  it("uses revenue values for revenue distribution pie (CHART-04)", () => {
+    const prompt = "Revenue by source channel";
+    const intent = parseAnalyticsAskIntent(prompt);
+    const charts = buildAskCharts(intent, mockAnalytics(), { prompt });
+    expect(charts[0]?.type).toBe("pie");
+    expect(charts[0]?.metric).toBe("revenue");
+    expect(charts[0]?.description).toContain("revenue");
+    const walkIn = charts[0]?.breakdown?.find((row) => row.label === "Walk-in");
+    expect(walkIn?.revenue).toBe(400000000);
+  });
+
+  it("falls back to area when pie breakdown is empty but trends exist", () => {
+    const prompt = "Last 6 months visits by customer type";
+    const intent = parseAnalyticsAskIntent(prompt);
+    const emptyBreakdown = mockAnalytics({
+      breakdowns: {
+        ...mockAnalytics().breakdowns,
+        customerType: [],
+      },
+    });
+    const charts = buildAskCharts(intent, emptyBreakdown, { prompt });
+    expect(charts).toHaveLength(1);
+    expect(charts[0]?.type).toBe("area");
   });
 });
 

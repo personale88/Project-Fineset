@@ -140,6 +140,17 @@ export function resolveAskChartScenario(
   }
 
   if (
+    !intent.breakdownDimension &&
+    !DISTRIBUTION_PATTERN.test(text) &&
+    !TYPE_SPLIT_PATTERN.test(text) &&
+    !TOP_RANKED_PATTERN.test(text) &&
+    analytics.trends.length >= 2 &&
+    /\b(revenue|visits?|sales|performance)\b/i.test(text)
+  ) {
+    return "salesOverTime";
+  }
+
+  if (
     intent.breakdownDimension === "customerType" &&
     !TREND_PATTERN.test(text) &&
     !TYPE_SPLIT_PATTERN.test(text)

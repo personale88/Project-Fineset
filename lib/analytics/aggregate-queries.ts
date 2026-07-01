@@ -341,15 +341,18 @@ export function buildBreakdownsFromAgg(rows: AggRow[]): {
     getKey: (r: AggRow) => K | null | undefined,
     labelMap: Record<string, string>,
   ): BreakdownRow[] => {
-    const counts = new Map<string, number>();
+    const buckets = new Map<string, { count: number; revenue: number }>();
     for (const row of rows) {
       const key = getKey(row);
       if (!key) continue;
       const label = labelMap[key] ?? key;
-      counts.set(label, (counts.get(label) ?? 0) + Number(row.total_visits));
+      const existing = buckets.get(label) ?? { count: 0, revenue: 0 };
+      existing.count += Number(row.total_visits);
+      existing.revenue += Number(row.total_revenue);
+      buckets.set(label, existing);
     }
-    return Array.from(counts.entries())
-      .map(([label, count]) => ({ label, count }))
+    return Array.from(buckets.entries())
+      .map(([label, { count, revenue }]) => ({ label, count, revenue }))
       .sort((a, b) => b.count - a.count);
   };
 

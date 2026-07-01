@@ -1,6 +1,7 @@
 export interface BreakdownRow {
   label: string;
   count: number;
+  revenue?: number;
 }
 
 export interface StaffBreakdownRow {

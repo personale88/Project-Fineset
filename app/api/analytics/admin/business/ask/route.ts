@@ -265,6 +265,10 @@ export async function POST(req: Request) {
             ? []
             : buildAskCharts(intent, analytics, { prompt: body.prompt });
 
+        const includeDailyTrend = charts.some(
+          (chart) => chart.type === "area" || chart.type === "line",
+        );
+
         const kpiCards = buildAskKpis(intent, analytics.summary, {
           prompt: body.prompt,
           deltas: analytics.comparison?.deltas ?? null,
@@ -314,7 +318,9 @@ export async function POST(req: Request) {
           if (apiKey) {
             // Stream AI report with sparse-data warning injected
             let accumulated = "";
-            const generator = streamAiReport(analytics, body.prompt, apiKey);
+            const generator = streamAiReport(analytics, body.prompt, apiKey, {
+              includeDailyTrend,
+            });
             while (true) {
               const { value, done } = await generator.next();
               if (done) {
@@ -352,7 +358,9 @@ export async function POST(req: Request) {
           if (apiKey) {
             // Full AI streaming report
             let accumulated = "";
-            const generator = streamAiReport(analytics, body.prompt, apiKey);
+            const generator = streamAiReport(analytics, body.prompt, apiKey, {
+              includeDailyTrend,
+            });
             while (true) {
               const { value, done } = await generator.next();
               if (done) {

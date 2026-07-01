@@ -33,6 +33,7 @@ Rules:
 - If a requested metric has no data (null or 0), say so honestly rather than speculating.
 - Keep language clear, concise, and professional — no marketing fluff.
 - If the DATA QUALITY block shows totalVisits < 10, your summary MUST begin with a caveat about insufficient data.
+- If dailyTrend is present in the JSON, use those daily figures when answering trend or over-time questions.
 
 Return ONLY a valid JSON object with this exact shape:
 {
@@ -56,12 +57,19 @@ export const AI_REPORT_PARSE_FALLBACK_SUMMARY =
  * @yields Raw text tokens from Gemini (partial JSON strings)
  * @returns The accumulated full text after the generator is exhausted
  */
+export interface StreamAiReportOptions {
+  includeDailyTrend?: boolean;
+}
+
 export async function* streamAiReport(
   analytics: AdminBusinessAnalytics,
   userQuestion: string,
   apiKey: string,
+  options?: StreamAiReportOptions,
 ): AsyncGenerator<string, TokenUsage | null> {
-  const compressed = compressSummary(analytics);
+  const compressed = compressSummary(analytics, {
+    includeDailyTrend: options?.includeDailyTrend,
+  });
   const honestyContext = buildHonestyContext(analytics);
   const summaryJson = serializeSummary(compressed);
 

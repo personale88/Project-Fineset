@@ -17,6 +17,8 @@ interface AnalyticsPieChartProps {
   description?: string;
   data: BreakdownRow[];
   emptyMessage: string;
+  metric?: "visits" | "revenue";
+  revenueLabel?: string;
 }
 
 export function AnalyticsPieChart({
@@ -24,6 +26,8 @@ export function AnalyticsPieChart({
   description,
   data,
   emptyMessage,
+  metric = "visits",
+  revenueLabel = "Revenue",
 }: AnalyticsPieChartProps) {
   if (data.length === 0) {
     return (
@@ -35,7 +39,7 @@ export function AnalyticsPieChart({
 
   const pieData = data.map((row, index) => ({
     name: row.label,
-    value: row.count,
+    value: metric === "revenue" ? (row.revenue ?? 0) : row.count,
     fill: getChartSeriesColor(index),
   }));
 
