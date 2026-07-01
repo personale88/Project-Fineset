@@ -73,7 +73,7 @@ function buildMockAccess(
     ...details.access,
     canReadData: inGrace || details.access.canReadData,
     isGracePeriod: inGrace,
-    billingRestricted: !inGrace,
+    billingRestricted: false,
     metricsBlurred: !inGrace,
     isPaidForCurrentCycle: false,
     consecutiveUnpaidPeriods: 1,
@@ -198,7 +198,7 @@ export function buildDevBillingAccessPatch(
   return {
     paymentStatus: "UNPAID",
     isGracePeriod: inGrace,
-    billingRestricted: !inGrace,
+    billingRestricted: false,
     metricsBlurred: !inGrace,
     canReadData: inGrace,
     consecutiveUnpaidPeriods: 1,

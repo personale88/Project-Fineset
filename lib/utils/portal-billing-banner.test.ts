@@ -17,7 +17,7 @@ describe("resolvePortalBillingBanner", () => {
   it("shows staff info banner when leaders restricted but staff is not", () => {
     const banner = resolvePortalBillingBanner({
       role: "STAFF",
-      billingRestricted: false,
+      metricsBlurred: false,
       restrictionTier: "LEADERS_RESTRICTED_STAFF_OK",
       consecutiveUnpaidPeriods: 2,
       paymentDeadlineLabel: "Jun 18",
@@ -32,7 +32,7 @@ describe("resolvePortalBillingBanner", () => {
   it("escalates owner banner after two overdue periods", () => {
     const banner = resolvePortalBillingBanner({
       role: "BUSINESS_OWNER",
-      billingRestricted: true,
+      metricsBlurred: true,
       restrictionTier: "LEADERS_RESTRICTED_STAFF_OK",
       consecutiveUnpaidPeriods: 2,
       paymentDeadlineLabel: "Jun 18",

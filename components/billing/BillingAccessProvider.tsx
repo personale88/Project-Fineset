@@ -39,7 +39,7 @@ export function BillingAccessProvider({
         access,
         isLoading,
         isError,
-        isRestricted: Boolean(access?.billingRestricted),
+        isRestricted: Boolean(access?.metricsBlurred),
         metricsBlurred: Boolean(access?.metricsBlurred),
         refetch: () => {
           void refetch();

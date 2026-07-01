@@ -310,7 +310,10 @@ export function PortalProfileBilling({ copy }: PortalProfileBillingProps) {
   }
 
   const access: PortalBillingAccessSnapshot = details.access;
-  const isRestricted = access.billingRestricted ?? contextRestricted;
+  const isRestricted =
+    access.metricsBlurred ??
+    access.billingRestricted ??
+    contextRestricted;
   const paymentDeadline = contextAccess?.paymentDeadline
     ? safeFormatDate(contextAccess.paymentDeadline, copy.deadlineFallback)
     : safeFormatDate(access.paymentDeadline, access.paymentDeadlineFallback || copy.deadlineFallback);
