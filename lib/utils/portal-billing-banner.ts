@@ -13,7 +13,7 @@ export interface PortalBillingBannerCopy {
 
 interface ResolvePortalBillingBannerParams {
   role: AppSession["role"];
-  billingRestricted: boolean;
+  metricsBlurred: boolean;
   restrictionTier: PortalBillingRestrictionTier;
   consecutiveUnpaidPeriods: number;
   paymentDeadlineLabel: string;
@@ -37,7 +37,7 @@ export function resolvePortalBillingBanner(
 ): PortalBillingBannerCopy {
   const {
     role,
-    billingRestricted,
+    metricsBlurred,
     restrictionTier,
     consecutiveUnpaidPeriods,
     paymentDeadlineLabel,
@@ -47,7 +47,7 @@ export function resolvePortalBillingBanner(
   } = params;
 
   if (
-    !billingRestricted &&
+    !metricsBlurred &&
     restrictionTier === "LEADERS_RESTRICTED_STAFF_OK" &&
     role === "STAFF"
   ) {
@@ -61,7 +61,7 @@ export function resolvePortalBillingBanner(
     };
   }
 
-  if (!billingRestricted) {
+  if (!metricsBlurred) {
     return {
       showRestrictionBanner: false,
       showStaffInfoBanner: false,

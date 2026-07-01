@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { withAuthQuery } from "@/lib/api/route-handler";
-import { isPortalDataReadBlockedForSession, billingRestrictedEmptyList } from "@/lib/auth/billing-access-guard";
 import { resolveAnalyticsStoreId } from "@/lib/auth/resolve-manager-store-id";
 import { createPerfTimer, logPerf } from "@/lib/perf/timing";
 import {
@@ -19,14 +18,6 @@ export const GET = withAuthQuery(
     const storeId = await resolveAnalyticsStoreId(session, query.storeId);
     if (storeId instanceof NextResponse) return storeId;
     timer.mark("resolveStore");
-
-    if (await isPortalDataReadBlockedForSession(session, storeId)) {
-      return billingRestrictedEmptyList({
-        period: query.period,
-        storeId,
-        billingRestricted: true,
-      });
-    }
 
     const bundle =
       session.role === "MASTER_ADMIN"

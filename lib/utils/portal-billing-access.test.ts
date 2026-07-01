@@ -62,6 +62,54 @@ describe("resolvePortalBillingAccess (activation-based)", () => {
     expect(result.canReadData).toBe(true);
     expect(result.reason).toBe("UNPAID_AFTER_DUE");
   });
+
+  it("allows access on the due date itself", () => {
+    const result = resolvePortalBillingAccess(
+      {
+        paymentStatus: "UNPAID",
+        paidAt: null,
+        billingAnchorAt: ANCHOR,
+        restrictPortalOnOverdue: true,
+      },
+      new Date("2026-01-25T12:00:00.000Z"),
+    );
+    expect(result.canReadData).toBe(true);
+    expect(result.reason).toBe("WITHIN_DUE_WINDOW");
+    expect(result.isGracePeriod).toBe(true);
+    expect(result.restrictionTier).toBe("NONE");
+  });
+
+  it("restricts access the day after due until payment", () => {
+    const base = resolvePortalBillingAccess(
+      {
+        paymentStatus: "UNPAID",
+        paidAt: null,
+        billingAnchorAt: ANCHOR,
+        restrictPortalOnOverdue: true,
+      },
+      new Date("2026-01-26T12:00:00.000Z"),
+    );
+    expect(base.canReadData).toBe(false);
+    expect(base.reason).toBe("UNPAID_AFTER_DUE");
+    expect(base.restrictionTier).toBe("METRICS_BLURRED_ALL");
+
+    const manager = applyPortalBillingAccessForRole(base, "STORE_MANAGER");
+    expect(manager.metricsBlurred).toBe(true);
+    expect(manager.billingRestricted).toBe(false);
+    expect(manager.canReadData).toBe(true);
+
+    const paid = resolvePortalBillingAccess(
+      {
+        paymentStatus: "PAID",
+        paidAt: "2026-01-20T00:00:00.000Z",
+        billingAnchorAt: ANCHOR,
+        restrictPortalOnOverdue: true,
+      },
+      new Date("2026-01-26T12:00:00.000Z"),
+    );
+    expect(paid.canReadData).toBe(true);
+    expect(paid.reason).toBe("PAID");
+  });
 });
 
 describe("applyPortalBillingAccessForRole", () => {
@@ -77,9 +125,10 @@ describe("applyPortalBillingAccessForRole", () => {
     expect(staff.metricsBlurred).toBe(false);
     expect(staff.billingRestricted).toBe(false);
 
-    expect(owner.canReadData).toBe(false);
+    expect(owner.canReadData).toBe(true);
     expect(owner.metricsBlurred).toBe(true);
-    expect(owner.billingRestricted).toBe(true);
+    expect(owner.billingRestricted).toBe(false);
+    expect(owner.canReadData).toBe(true);
   });
 
   it("blocks staff during first overdue period", () => {
@@ -89,6 +138,7 @@ describe("applyPortalBillingAccessForRole", () => {
     );
     const staff = applyPortalBillingAccessForRole(base, "STAFF");
     expect(staff.metricsBlurred).toBe(true);
-    expect(staff.billingRestricted).toBe(true);
+    expect(staff.billingRestricted).toBe(false);
+    expect(staff.canReadData).toBe(true);
   });
 });
