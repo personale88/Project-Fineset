@@ -5,23 +5,26 @@ import type { AdminBusinessAnalytics } from "@/types/admin-business-analytics";
 function mockAnalytics(): AdminBusinessAnalytics {
   return {
     dateMode: "preset",
-    period: { start: "2026-06-25", end: "2026-07-01", label: "Last 7 days" },
+    period: { start: "2026-01-01", end: "2026-06-01", label: "Last 6 months" },
     summary: {
-      totalVisits: 100,
-      totalRevenue: 500000,
-      conversionRate: 40,
-      uniqueCustomers: 80,
-      avgTransaction: 5000,
-      fieldSalesCount: 0,
+      totalVisits: 50,
+      totalRevenue: 200000,
+      conversionRate: 28,
+      uniqueCustomers: 40,
+      avgTransaction: 8000,
+      fieldSalesCount: 5,
     },
     trends: [
-      { date: "2026-06-25", visits: 20, revenue: 100000 },
-      { date: "2026-06-26", visits: 30, revenue: 150000 },
+      { date: "2026-05-01", visits: 2, revenue: 1000 },
+      { date: "2026-05-02", visits: 3, revenue: 2000 },
     ],
     appliedFilters: [],
     breakdowns: {
-      customerType: [{ label: "New", count: 60, revenue: 300000 }],
-      valueTier: [],
+      customerType: [{ label: "New", count: 20 }],
+      valueTier: [
+        { label: "High", count: 10 },
+        { label: "Low", count: 5 },
+      ],
       intentTier: [],
       purchaseStatus: [],
       sourceChannel: [],
@@ -30,7 +33,7 @@ function mockAnalytics(): AdminBusinessAnalytics {
       area: [],
       visitType: [],
       budgetRange: [],
-      productsExplored: [],
+      productsExplored: [{ label: "NOSE_PIN", count: 8 }],
       productsPurchased: [],
       schemeProduct: [],
       enrollmentOutcome: [],
@@ -41,16 +44,22 @@ function mockAnalytics(): AdminBusinessAnalytics {
 }
 
 describe("compressSummary", () => {
-  it("omits dailyTrend by default", () => {
-    const compressed = compressSummary(mockAnalytics());
-    expect(compressed.dailyTrend).toBeUndefined();
+  it("includes topProducts when requested", () => {
+    const compressed = compressSummary(mockAnalytics(), { includeProducts: true });
+    expect(compressed.topProducts).toEqual([{ label: "NOSE_PIN", count: 8 }]);
   });
 
-  it("includes compact dailyTrend when requested", () => {
-    const compressed = compressSummary(mockAnalytics(), { includeDailyTrend: true });
-    expect(compressed.dailyTrend).toEqual([
-      { date: "2026-06-25", visits: 20, revenue: 100000 },
-      { date: "2026-06-26", visits: 30, revenue: 150000 },
+  it("includes valueTier when requested", () => {
+    const compressed = compressSummary(mockAnalytics(), { includeValueTier: true });
+    expect(compressed.valueTier).toEqual([
+      { label: "High", count: 10 },
+      { label: "Low", count: 5 },
     ]);
+  });
+
+  it("omits optional breakdowns by default", () => {
+    const compressed = compressSummary(mockAnalytics());
+    expect(compressed.topProducts).toBeUndefined();
+    expect(compressed.valueTier).toBeUndefined();
   });
 });

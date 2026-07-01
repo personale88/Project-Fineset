@@ -1,4 +1,5 @@
 import { COHORT_PIVOT_LABELS, type CohortPivotDimension } from "@/lib/analytics/cohort-pivot";
+import { formatProductCategoryLabel } from "@/lib/constants/product-categories";
 import {
   pickAskChartHintsFromPrompt,
   buildAskWidgetContext,
@@ -82,7 +83,36 @@ function resolveBreakdownDimension(
   return "customerType";
 }
 
-function buildRadarPoints(analytics: AdminBusinessAnalytics): AnalyticsAskRadarPoint[] {
+function formatBreakdownLabels(
+  rows: BreakdownRow[],
+  dimension: CohortPivotDimension,
+): BreakdownRow[] {
+  if (dimension !== "productCategory") return rows;
+  return rows.map((row) => ({
+    ...row,
+    label: formatProductCategoryLabel(row.label),
+  }));
+}
+
+function buildBreakdownRadarPoints(rows: BreakdownRow[]): AnalyticsAskRadarPoint[] {
+  if (rows.length === 0) return [];
+  const maxCount = Math.max(...rows.map((row) => row.count), 1);
+  return rows.slice(0, 6).map((row) => ({
+    label: row.label,
+    value: Math.round((row.count / maxCount) * 100),
+    fullMark: 100,
+  }));
+}
+
+function wantsValueTierRadar(
+  dimension: CohortPivotDimension,
+  intent: ParsedAnalyticsAskIntent,
+  prompt: string,
+): boolean {
+  if (dimension === "valueTier" || intent.breakdownDimension === "valueTier") return true;
+  return /\bvalue tier\b/i.test(prompt);
+}
+function buildStoreKpiRadarPoints(analytics: AdminBusinessAnalytics): AnalyticsAskRadarPoint[] {
   const { summary } = analytics;
   const maxVisits = Math.max(summary.totalVisits, 1);
   const maxRevenue = Math.max(summary.totalRevenue, 1);
@@ -160,6 +190,7 @@ function buildChartForType(
   },
 ): AnalyticsAskChart | null {
   const { dimension, breakdown, dimLabel, metric, prompt } = options;
+  const displayBreakdown = formatBreakdownLabels(breakdown, dimension);
 
   switch (type) {
     case "area":
@@ -170,6 +201,7 @@ function buildChartForType(
         title: metric === "revenue" ? `Revenue trend · ${analytics.period.label}` : `Visit trend · ${analytics.period.label}`,
         description: `Daily ${metric === "revenue" ? "revenue" : "visits"} over ${analytics.period.label}`,
         trend: analytics.trends,
+        metric,
       };
     case "groupedBar":
       if (!analytics.comparison?.comparisonTrends.length) return null;
@@ -194,7 +226,7 @@ function buildChartForType(
         metric,
       };
     case "pie":
-      if (breakdown.length === 0) return null;
+      if (displayBreakdown.length === 0) return null;
       return {
         type: "pie",
         title: `${dimLabel} distribution`,
@@ -202,41 +234,51 @@ function buildChartForType(
           metric === "revenue"
             ? `Share of revenue by ${dimLabel.toLowerCase()} (max ${MAX_PIE_SLICES} categories)`
             : `Share of visits by ${dimLabel.toLowerCase()} (max ${MAX_PIE_SLICES} categories)`,
-        breakdown: capPieBreakdown(breakdown, metric),
+        breakdown: capPieBreakdown(displayBreakdown, metric),
         metric,
       };
     case "rankedBar":
-      if (breakdown.length === 0) return null;
+      if (displayBreakdown.length === 0) return null;
       return {
         type: "rankedBar",
         title: `Top ${dimLabel.toLowerCase()}`,
         description: `Ranked by visit count · ${analytics.period.label}`,
-        breakdown,
+        breakdown: displayBreakdown,
       };
     case "stackedBar":
-      if (breakdown.length === 0) return null;
+      if (displayBreakdown.length === 0) return null;
       return {
         type: "stackedBar",
         title: `${dimLabel} split`,
         description: `Composition for ${analytics.period.label}`,
-        breakdown: capPieBreakdown(breakdown, metric),
+        breakdown: capPieBreakdown(displayBreakdown, metric),
         periodLabel: analytics.period.label,
       };
     case "bar":
-      if (breakdown.length === 0) return null;
+      if (displayBreakdown.length === 0) return null;
       return {
         type: "rankedBar",
         title: `${dimLabel} breakdown`,
         description: `Visit counts by ${dimLabel.toLowerCase()}`,
-        breakdown,
+        breakdown: displayBreakdown,
       };
-    case "radar":
+    case "radar": {
+      const valueTierRows = analytics.breakdowns.valueTier;
+      if (wantsValueTierRadar(dimension, enrichedIntent, prompt) && valueTierRows.length > 0) {
+        return {
+          type: "radar",
+          title: "Customer value tier profile",
+          description: "Share of visits by value tier (0–100 scale)",
+          radar: buildBreakdownRadarPoints(valueTierRows),
+        };
+      }
       return {
         type: "radar",
         title: "Customer segment profile",
         description: "Normalized view of key metrics (0–100 scale)",
-        radar: buildRadarPoints(analytics),
+        radar: buildStoreKpiRadarPoints(analytics),
       };
+    }
     default:
       return null;
   }

@@ -127,6 +127,36 @@ function withOptionalBreakdown(
   return breakdownDimension !== undefined ? { breakdownDimension } : {};
 }
 
+const TYPE_SPLIT_PERIOD_PATTERN =
+  /\bby customer type over time\b|\bcustomer type over time\b|\btype split\b|\bover time by type\b/i;
+
+/** When Gemini re-parses, keep safer rules-based period for over-time-by-type prompts. */
+export function mergeParsedIntentWithRules(
+  ruleIntent: ParsedAnalyticsAskIntent,
+  parsedIntent: ParsedAnalyticsAskIntent,
+  prompt: string,
+): ParsedAnalyticsAskIntent {
+  const text = prompt.toLowerCase().trim();
+  if (!TYPE_SPLIT_PERIOD_PATTERN.test(text)) return parsedIntent;
+
+  const keepPeriod =
+    ruleIntent.period === "last6months" ||
+    ruleIntent.period === "last30days" ||
+    ruleIntent.period === "last3months";
+
+  if (!keepPeriod) return parsedIntent;
+
+  return {
+    ...parsedIntent,
+    dateMode: "preset",
+    period: ruleIntent.period,
+    month: undefined,
+    year: undefined,
+    rollingMonths: undefined,
+    rollingDays: undefined,
+  };
+}
+
 function extractFilters(text: string): Partial<ParsedAnalyticsAskIntent> {
   const activeFilters: string[] = [];
   const filters: Partial<ParsedAnalyticsAskIntent> = {};
@@ -399,6 +429,17 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       dateMode: "month",
       month: singleMonth.month,
       year: singleMonth.year,
+      chartTypes,
+      ...withOptionalBreakdown(breakdownDimension),
+      activeFilters: filterPart.activeFilters ?? [],
+      ...filterPart,
+    };
+  }
+
+  if (TYPE_SPLIT_PERIOD_PATTERN.test(text)) {
+    return {
+      dateMode: "preset",
+      period: "last6months",
       chartTypes,
       ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],

@@ -42,6 +42,8 @@ export interface CompressedSummary {
     sourceChannel: Array<{ label: string; count: number }>;
     topStaff: Array<{ label: string; visits: number; revenue: number }>;
   };
+  topProducts?: Array<{ label: string; count: number }>;
+  valueTier?: Array<{ label: string; count: number }>;
   dataAvailability: "ok" | "sparse" | "empty";
   appliedScope: string[];
 }
@@ -60,6 +62,8 @@ export function classifyDataAvailability(
 
 export interface CompressSummaryOptions {
   includeDailyTrend?: boolean;
+  includeProducts?: boolean;
+  includeValueTier?: boolean;
 }
 
 /**
@@ -127,6 +131,20 @@ export function compressSummary(
       date: point.date,
       visits: point.visits,
       revenue: point.revenue,
+    }));
+  }
+
+  if (options?.includeProducts) {
+    base.topProducts = (breakdowns.productsExplored ?? []).slice(0, 5).map((row) => ({
+      label: row.label,
+      count: row.count,
+    }));
+  }
+
+  if (options?.includeValueTier) {
+    base.valueTier = (breakdowns.valueTier ?? []).slice(0, 5).map((row) => ({
+      label: row.label,
+      count: row.count,
     }));
   }
 

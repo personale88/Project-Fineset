@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   describeParsedIntent,
+  mergeParsedIntentWithRules,
   parseAnalyticsAskIntent,
 } from "@/lib/analytics/ask-intent-parser";
 import { scoreRuleParseConfidence } from "@/lib/analytics/ask-confidence";
@@ -78,6 +79,23 @@ describe("parseAnalyticsAskIntent", () => {
   it("infers source channel for revenue distribution prompts", () => {
     const intent = parseAnalyticsAskIntent("Revenue distribution last 6 months");
     expect(intent.breakdownDimension).toBe("sourceChannel");
+  });
+
+  it("defaults last6months for visits by customer type over time", () => {
+    const intent = parseAnalyticsAskIntent("Visits by customer type over time");
+    expect(intent.period).toBe("last6months");
+    expect(intent.breakdownDimension).toBe("customerType");
+  });
+});
+
+describe("mergeParsedIntentWithRules", () => {
+  it("restores last6months when Gemini overrides to month", () => {
+    const prompt = "Visits by customer type over time";
+    const ruleIntent = parseAnalyticsAskIntent(prompt);
+    const geminiIntent = { ...ruleIntent, period: "month" as const, month: 6, year: 2026 };
+    const merged = mergeParsedIntentWithRules(ruleIntent, geminiIntent, prompt);
+    expect(merged.period).toBe("last6months");
+    expect(merged.month).toBeUndefined();
   });
 });
 

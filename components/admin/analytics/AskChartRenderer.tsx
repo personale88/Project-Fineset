@@ -37,6 +37,7 @@ export function AskChartRenderer({
                 description={chart.description}
                 data={chart.trend ?? []}
                 revenueLabel={revenueLabel}
+                metric={chart.metric ?? "revenue"}
               />
             );
           case "groupedBar":

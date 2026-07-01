@@ -170,4 +170,48 @@ describe("pickChartTypesFromData / buildAskCharts", () => {
     expect(charts).toHaveLength(1);
     expect(charts[0]?.type).toBe("pie");
   });
+
+  it("sets visits metric on area chart for visit trend prompts", () => {
+    const prompt = "last week visits";
+    const intent = parseAnalyticsAskIntent(prompt);
+    const charts = buildAskCharts(intent, mockAnalytics(), { prompt });
+    expect(charts).toHaveLength(1);
+    expect(charts[0]?.type).toBe("area");
+    expect(charts[0]?.metric).toBe("visits");
+    expect(charts[0]?.description).toContain("Daily visits");
+  });
+
+  it("builds value tier radar from breakdown rows, not store KPIs", () => {
+    const prompt = "Customer value tier profile";
+    const intent = parseAnalyticsAskIntent(prompt);
+    const analytics = mockAnalytics({
+      breakdowns: {
+        ...mockAnalytics().breakdowns,
+        valueTier: [
+          { label: "High", count: 30 },
+          { label: "Mid", count: 15 },
+          { label: "Low", count: 5 },
+        ],
+      },
+    });
+    const charts = buildAskCharts(intent, analytics, { prompt });
+    expect(charts[0]?.type).toBe("radar");
+    expect(charts[0]?.title).toBe("Customer value tier profile");
+    expect(charts[0]?.radar?.map((p) => p.label)).toEqual(["High", "Mid", "Low"]);
+    expect(charts[0]?.radar?.[0]?.value).toBe(100);
+  });
+
+  it("formats product category labels on ranked bar charts", () => {
+    const prompt = "Top products explored last 6 months";
+    const intent = parseAnalyticsAskIntent(prompt);
+    const analytics = mockAnalytics({
+      breakdowns: {
+        ...mockAnalytics().breakdowns,
+        productsExplored: [{ label: "NOSE_PIN", count: 12 }],
+      },
+    });
+    const charts = buildAskCharts(intent, analytics, { prompt });
+    expect(charts[0]?.type).toBe("rankedBar");
+    expect(charts[0]?.breakdown?.[0]?.label).toBe("Nose pin");
+  });
 });

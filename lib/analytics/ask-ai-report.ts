@@ -34,6 +34,8 @@ Rules:
 - Keep language clear, concise, and professional — no marketing fluff.
 - If the DATA QUALITY block shows totalVisits < 10, your summary MUST begin with a caveat about insufficient data.
 - If dailyTrend is present in the JSON, use those daily figures when answering trend or over-time questions.
+- If topProducts is present, use it when answering product exploration questions.
+- If valueTier is present, use it when answering value tier profile questions.
 
 Return ONLY a valid JSON object with this exact shape:
 {
@@ -59,6 +61,8 @@ export const AI_REPORT_PARSE_FALLBACK_SUMMARY =
  */
 export interface StreamAiReportOptions {
   includeDailyTrend?: boolean;
+  includeProducts?: boolean;
+  includeValueTier?: boolean;
 }
 
 export async function* streamAiReport(
@@ -69,6 +73,8 @@ export async function* streamAiReport(
 ): AsyncGenerator<string, TokenUsage | null> {
   const compressed = compressSummary(analytics, {
     includeDailyTrend: options?.includeDailyTrend,
+    includeProducts: options?.includeProducts,
+    includeValueTier: options?.includeValueTier,
   });
   const honestyContext = buildHonestyContext(analytics);
   const summaryJson = serializeSummary(compressed);
