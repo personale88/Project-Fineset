@@ -190,7 +190,7 @@ export function StoreDetailOverview({
         deltaPeriod={store.deltaPeriod}
         kpis={kpis}
         deltas={deltas}
-        purchaseStatusBreakdown={overview?.kpis.purchaseStatusBreakdown}
+        purchaseStatusBreakdown={overview?.kpis?.purchaseStatusBreakdown}
         isLoading={loading}
       />
 

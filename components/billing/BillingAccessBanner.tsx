@@ -19,7 +19,7 @@ export function BillingAccessBanner() {
 
   const banner = resolvePortalBillingBanner({
     role: access.viewerRole,
-    billingRestricted: access.billingRestricted,
+    metricsBlurred: access.metricsBlurred,
     restrictionTier: access.restrictionTier as "NONE" | "METRICS_BLURRED_ALL" | "LEADERS_RESTRICTED_STAFF_OK",
     consecutiveUnpaidPeriods: access.consecutiveUnpaidPeriods,
     paymentDeadlineLabel: deadline,

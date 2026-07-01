@@ -225,10 +225,11 @@ export function applyPortalBillingAccessForRole(
     };
   }
 
+  // Blur metrics in the UI but keep pages and read APIs working.
   return {
     ...access,
     metricsBlurred: true,
-    billingRestricted: true,
-    canReadData: false,
+    billingRestricted: false,
+    canReadData: true,
   };
 }
