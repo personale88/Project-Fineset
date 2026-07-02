@@ -157,6 +157,21 @@ async function main(): Promise<void> {
     });
 
     console.log(`Dev user ready: ${spec.email} (${spec.role}) password ${DEV_PASSWORD}`);
+
+    if (spec.role === "MASTER_ADMIN") {
+      const user = await prisma.appUser.findUnique({
+        where: { email: spec.email },
+        select: { id: true },
+      });
+      if (user) {
+        const { grantAnalyticsCredits } = await import("../lib/services/analytics-credits");
+        await grantAnalyticsCredits({
+          appUserId: user.id,
+          credits: 50,
+          description: "Bootstrap grant for master admin",
+        });
+      }
+    }
   }
 }
 

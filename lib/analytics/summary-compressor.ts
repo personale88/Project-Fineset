@@ -19,6 +19,7 @@ export interface CompressedSummary {
     avgTransaction: number;
     fieldSalesCount: number;
   };
+  dailyTrend?: Array<{ date: string; visits: number; revenue: number }>;
   comparison?: {
     period: { label: string; start: string; end: string };
     kpis: {
@@ -41,6 +42,8 @@ export interface CompressedSummary {
     sourceChannel: Array<{ label: string; count: number }>;
     topStaff: Array<{ label: string; visits: number; revenue: number }>;
   };
+  topProducts?: Array<{ label: string; count: number }>;
+  valueTier?: Array<{ label: string; count: number }>;
   dataAvailability: "ok" | "sparse" | "empty";
   appliedScope: string[];
 }
@@ -57,10 +60,19 @@ export function classifyDataAvailability(
   return "ok";
 }
 
+export interface CompressSummaryOptions {
+  includeDailyTrend?: boolean;
+  includeProducts?: boolean;
+  includeValueTier?: boolean;
+}
+
 /**
  * Compresses a full AdminBusinessAnalytics object into ~150–200 token summary.
  */
-export function compressSummary(analytics: AdminBusinessAnalytics): CompressedSummary {
+export function compressSummary(
+  analytics: AdminBusinessAnalytics,
+  options?: CompressSummaryOptions,
+): CompressedSummary {
   const { summary, comparison, breakdowns, period, appliedFilters } = analytics;
 
   const dataAvailability = classifyDataAvailability(summary.totalVisits);
@@ -112,6 +124,28 @@ export function compressSummary(analytics: AdminBusinessAnalytics): CompressedSu
         avgTransaction: comparison.deltas.avgTransaction,
       },
     };
+  }
+
+  if (options?.includeDailyTrend && analytics.trends.length > 0) {
+    base.dailyTrend = analytics.trends.slice(-14).map((point) => ({
+      date: point.date,
+      visits: point.visits,
+      revenue: point.revenue,
+    }));
+  }
+
+  if (options?.includeProducts) {
+    base.topProducts = (breakdowns.productsExplored ?? []).slice(0, 5).map((row) => ({
+      label: row.label,
+      count: row.count,
+    }));
+  }
+
+  if (options?.includeValueTier) {
+    base.valueTier = (breakdowns.valueTier ?? []).slice(0, 5).map((row) => ({
+      label: row.label,
+      count: row.count,
+    }));
   }
 
   return base;

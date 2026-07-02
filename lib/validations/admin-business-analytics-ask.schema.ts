@@ -5,7 +5,11 @@ import { adminAnalyticsPeriodSchema } from "@/lib/validations/admin-analytics-pe
 
 export const analyticsAskChartTypeSchema = z.enum([
   "line",
+  "area",
   "bar",
+  "rankedBar",
+  "stackedBar",
+  "groupedBar",
   "pie",
   "comparison",
   "radar",

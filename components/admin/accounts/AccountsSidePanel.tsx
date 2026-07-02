@@ -1,12 +1,21 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Building2, Trash2, Users } from "lucide-react";
+import { PortalChildSidePanel } from "@/components/layout/PortalChildSidePanel";
+import { ADMIN_SCOPED_MOBILE_SCOPE_NAV_CLASS } from "@/lib/admin/admin-scoped-page-layout";
+import {
+  handleScopeTabListKeyDown,
+  scopeTabId,
+} from "@/lib/admin/scope-tabs-a11y";
 import { cn } from "@/lib/utils";
 import type { Content } from "@/content/en";
 
 export type AccountsScope = "clients" | "internal" | "deleted";
 
 type AccountsCopy = Content["admin"]["accounts"];
+
+const ACCOUNTS_SCOPE_PREFIX = "accounts";
 
 interface ScopeOption {
   key: AccountsScope;
@@ -15,12 +24,23 @@ interface ScopeOption {
   icon: typeof Building2;
 }
 
-interface AccountsSidePanelProps {
+interface AccountsMobileScopeNavProps {
   copy: AccountsCopy;
   value: AccountsScope;
   onChange: (value: AccountsScope) => void;
   showInternal: boolean;
   className?: string;
+}
+
+interface AccountsSidePanelProps {
+  copy: AccountsCopy;
+  value: AccountsScope;
+  onChange: (value: AccountsScope) => void;
+  showInternal: boolean;
+  pageMeta?: string;
+  className?: string;
+  /** Dock flush to the primary side nav on large screens. */
+  docked?: boolean;
 }
 
 function buildScopeOptions(copy: AccountsCopy, showInternal: boolean): ScopeOption[] {
@@ -55,20 +75,24 @@ function ScopeNavButton({
   active,
   onSelect,
   layout,
+  id,
 }: {
   option: ScopeOption;
   active: boolean;
   onSelect: () => void;
   layout: "sidebar" | "compact";
+  id?: string;
 }) {
   const Icon = option.icon;
 
   if (layout === "compact") {
     return (
       <button
+        id={id}
         type="button"
         role="tab"
         aria-selected={active}
+        data-scope={option.key}
         onClick={onSelect}
         className={cn(
           "shrink-0 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
@@ -84,6 +108,7 @@ function ScopeNavButton({
 
   return (
     <button
+      id={id}
       type="button"
       role="tab"
       aria-selected={active}
@@ -107,7 +132,7 @@ function ScopeNavButton({
         <span
           className={cn(
             "block text-sm font-semibold",
-            active ? "text-brand-gold" : "text-text-primary",
+            active ? "text-brand-gold" : "text-text-secondary",
           )}
         >
           {option.label}
@@ -118,68 +143,119 @@ function ScopeNavButton({
   );
 }
 
-export function AccountsSidePanel({
+/** Horizontal scope tabs for mobile — pinned above the scrolling accounts card. */
+export function AccountsMobileScopeNav({
   copy,
   value,
   onChange,
   showInternal,
   className,
-}: AccountsSidePanelProps) {
+}: AccountsMobileScopeNavProps) {
   const options = buildScopeOptions(copy, showInternal);
+  const scopeKeys = options.map((option) => option.key);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const active = container.querySelector<HTMLElement>(`[data-scope="${value}"]`);
+    if (!active || typeof active.scrollIntoView !== "function") return;
+    active.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }, [value]);
 
   return (
-    <>
-      {/* Mobile: compact horizontal tabs */}
-      <div
-        className={cn(
-          "flex gap-2 overflow-x-auto overscroll-x-contain pb-1 lg:hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
-          className,
-        )}
-        role="tablist"
-        aria-label={copy.scope.label}
-      >
-        {options.map((option) => (
-          <ScopeNavButton
-            key={option.key}
-            option={option}
-            active={value === option.key}
-            onSelect={() => onChange(option.key)}
-            layout="compact"
-          />
-        ))}
-      </div>
+    <div
+      ref={scrollRef}
+      className={cn(ADMIN_SCOPED_MOBILE_SCOPE_NAV_CLASS, className)}
+      data-testid="accounts-scope-scroll"
+      role="tablist"
+      aria-label={copy.scope.label}
+      aria-orientation="horizontal"
+      onKeyDown={(event) =>
+        handleScopeTabListKeyDown(
+          event,
+          scopeKeys,
+          value,
+          ACCOUNTS_SCOPE_PREFIX,
+          "mobile",
+          onChange,
+          "horizontal",
+        )
+      }
+    >
+      {options.map((option) => (
+        <ScopeNavButton
+          key={option.key}
+          id={scopeTabId(ACCOUNTS_SCOPE_PREFIX, option.key, "mobile")}
+          option={option}
+          active={value === option.key}
+          onSelect={() => onChange(option.key)}
+          layout="compact"
+        />
+      ))}
+    </div>
+  );
+}
 
-      {/* Desktop: sticky sidebar */}
-      <aside
-        className={cn(
-          "hidden lg:flex lg:w-[260px] lg:shrink-0 lg:flex-col lg:gap-4",
-          className,
-        )}
-      >
-        <div
-          className="sticky top-4 space-y-4 rounded-card border border-border bg-surface-card p-4 shadow-card"
-          role="tablist"
+/** Desktop child side panel for accounts scopes. */
+export function AccountsSidePanel({
+  copy,
+  value,
+  onChange,
+  showInternal,
+  pageMeta,
+  className,
+  docked = true,
+}: AccountsSidePanelProps) {
+  const options = buildScopeOptions(copy, showInternal);
+  const scopeKeys = options.map((option) => option.key);
+
+  const sidebarTabList = (
+    <div
+      className="flex flex-col gap-1"
+      role="tablist"
+      aria-label={copy.scope.label}
+      aria-orientation="vertical"
+      onKeyDown={(event) =>
+        handleScopeTabListKeyDown(
+          event,
+          scopeKeys,
+          value,
+          ACCOUNTS_SCOPE_PREFIX,
+          "desktop",
+          onChange,
+          "vertical",
+        )
+      }
+    >
+      {options.map((option) => (
+        <ScopeNavButton
+          key={option.key}
+          id={scopeTabId(ACCOUNTS_SCOPE_PREFIX, option.key, "desktop")}
+          option={option}
+          active={value === option.key}
+          onSelect={() => onChange(option.key)}
+          layout="sidebar"
+        />
+      ))}
+    </div>
+  );
+
+  return (
+    <div className={className}>
+      {docked ? (
+        <PortalChildSidePanel
           aria-label={copy.scope.label}
+          pageTitle={copy.title}
+          pageSubtitle={copy.subtitle}
+          pageMeta={pageMeta}
         >
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-text-muted">
-              {copy.scope.panelTitle}
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            {options.map((option) => (
-              <ScopeNavButton
-                key={option.key}
-                option={option}
-                active={value === option.key}
-                onSelect={() => onChange(option.key)}
-                layout="sidebar"
-              />
-            ))}
-          </div>
-        </div>
-      </aside>
-    </>
+          <div className="px-2 py-4">{sidebarTabList}</div>
+        </PortalChildSidePanel>
+      ) : (
+        <aside className="hidden lg:block lg:w-72">{sidebarTabList}</aside>
+      )}
+    </div>
   );
 }
 
@@ -193,10 +269,10 @@ export function AccountsResultsHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex shrink-0 flex-col gap-3 border-b border-border px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5">
       <div className="min-w-0">
         <h2 className="font-display text-lg font-semibold text-text-primary">{title}</h2>
-        <p className="mt-1 text-sm text-text-secondary">{description}</p>
+        <p className="mt-1 hidden text-sm text-text-muted lg:block">{description}</p>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </div>

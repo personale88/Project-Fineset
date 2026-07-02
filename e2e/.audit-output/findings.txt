@@ -1,0 +1,10 @@
+/admin/dashboard: Last content card extends to y=2012 (bottom nav at y=779)
+/admin/dashboard: main pb=76px, admin overflow=auto, scroll 772/772
+/admin/dashboard/accounts: Last content card extends to y=947 (bottom nav at y=779)
+/admin/dashboard/accounts: main pb=76px, admin overflow=auto, scroll 772/772
+/admin/dashboard/billing: main pb=76px, admin overflow=auto, scroll 772/772
+/admin/dashboard/automation?scope=overview: main pb=76px, admin overflow=hidden, scroll 772/772
+/admin/dashboard/settings: main pb=76px, admin overflow=auto, scroll 772/772
+/admin/dashboard/analytics: main pb=0px, admin overflow=hidden, scroll 772/772
+Settings: no mobile scope navigation — users cannot switch settings sections on mobile
+Accounts: no mobile scope navigation visible

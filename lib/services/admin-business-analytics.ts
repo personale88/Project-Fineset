@@ -17,6 +17,7 @@ import type {
   AggRowPublic,
   ArrayVisitRowPublic,
 } from "@/lib/analytics/aggregate-queries";
+import { refreshVisitAggregate } from "@/lib/analytics/refresh-visit-aggregate";
 import {
   getCachedSummary,
   setCachedSummary,
@@ -566,6 +567,13 @@ function buildSummary(
   };
 }
 
+async function countVisitsForRange(
+  query: AdminBusinessAnalyticsQuery,
+  range: ResolvedDateRange,
+): Promise<number> {
+  return prisma.visit.count({ where: buildVisitWhere(query, range) });
+}
+
 async function fetchVisitsForRange(
   query: AdminBusinessAnalyticsQuery,
   range: ResolvedDateRange,
@@ -871,6 +879,43 @@ export async function getAdminBusinessAnalytics(
     const summaryA = buildSummaryFromAgg(aggRowsA, fieldSalesA);
     const summaryB = buildSummaryFromAgg(aggRowsB, fieldSalesB);
 
+    let resolvedSummaryA = summaryA;
+    let resolvedSummaryB = summaryB;
+    let trendsA = buildTrendsFromAgg(aggRowsA);
+    let trendsB = buildTrendsFromAgg(aggRowsB);
+    let breakdownsA = buildCombinedBreakdowns(aggRowsA, arrayRowsA, staffNameMap);
+    let breakdownsB = buildCombinedBreakdowns(aggRowsB, arrayRowsB, staffNameMap);
+    let staleAggregate = false;
+
+    if (summaryA.totalVisits === 0) {
+      const rawCount = await countVisitsForRange(query, resolved.rangeA);
+      if (rawCount > 0) {
+        staleAggregate = true;
+        const visitsA = await fetchVisitsForRange(query, resolved.rangeA);
+        resolvedSummaryA = buildSummary(visitsA, fieldSalesA);
+        trendsA = buildTrends(visitsA);
+        breakdownsA = buildBreakdowns(visitsA);
+      }
+    }
+
+    if (summaryB.totalVisits === 0) {
+      const rawCount = await countVisitsForRange(query, resolved.rangeB);
+      if (rawCount > 0) {
+        staleAggregate = true;
+        const visitsB = await fetchVisitsForRange(query, resolved.rangeB);
+        resolvedSummaryB = buildSummary(visitsB, fieldSalesB);
+        trendsB = buildTrends(visitsB);
+        breakdownsB = buildBreakdowns(visitsB);
+      }
+    }
+
+    if (staleAggregate) {
+      console.warn(
+        "[admin-business-analytics] visit_daily_aggregate stale; served compare from raw Visit rows",
+      );
+      void refreshVisitAggregate();
+    }
+
     const compareResult: AdminBusinessAnalytics = {
       dateMode: "compare",
       period: {
@@ -878,25 +923,25 @@ export async function getAdminBusinessAnalytics(
         end: resolved.rangeA.end.toISOString(),
         label: resolved.rangeA.label,
       },
-      summary: summaryA,
-      trends: buildTrendsFromAgg(aggRowsA),
-      breakdowns: buildCombinedBreakdowns(aggRowsA, arrayRowsA, staffNameMap),
+      summary: resolvedSummaryA,
+      trends: trendsA,
+      breakdowns: breakdownsA,
       comparison: {
         period: {
           start: resolved.rangeB.start.toISOString(),
           end: resolved.rangeB.end.toISOString(),
           label: resolved.rangeB.label,
         },
-        summary: summaryB,
-        trends: buildTrendsFromAgg(aggRowsB),
+        summary: resolvedSummaryB,
+        trends: trendsB,
         comparisonTrends: buildComparisonTrendsFromAgg(aggRowsA, aggRowsB),
         deltas: {
-          totalVisits: percentDelta(summaryA.totalVisits, summaryB.totalVisits),
-          totalRevenue: percentDelta(summaryA.totalRevenue, summaryB.totalRevenue),
-          conversionRate: percentDelta(summaryA.conversionRate, summaryB.conversionRate),
-          uniqueCustomers: percentDelta(summaryA.uniqueCustomers, summaryB.uniqueCustomers),
-          avgTransaction: percentDelta(summaryA.avgTransaction, summaryB.avgTransaction),
-          fieldSalesCount: percentDelta(summaryA.fieldSalesCount, summaryB.fieldSalesCount),
+          totalVisits: percentDelta(resolvedSummaryA.totalVisits, resolvedSummaryB.totalVisits),
+          totalRevenue: percentDelta(resolvedSummaryA.totalRevenue, resolvedSummaryB.totalRevenue),
+          conversionRate: percentDelta(resolvedSummaryA.conversionRate, resolvedSummaryB.conversionRate),
+          uniqueCustomers: percentDelta(resolvedSummaryA.uniqueCustomers, resolvedSummaryB.uniqueCustomers),
+          avgTransaction: percentDelta(resolvedSummaryA.avgTransaction, resolvedSummaryB.avgTransaction),
+          fieldSalesCount: percentDelta(resolvedSummaryA.fieldSalesCount, resolvedSummaryB.fieldSalesCount),
         },
       },
       appliedFilters,
@@ -913,6 +958,24 @@ export async function getAdminBusinessAnalytics(
     countFieldSalesForRange(query, resolved.range),
   ]);
 
+  let summary = buildSummaryFromAgg(aggRows, fieldSalesCount);
+  let trends = buildTrendsFromAgg(aggRows);
+  let breakdowns = buildCombinedBreakdowns(aggRows, arrayRows, staffNameMap);
+
+  if (summary.totalVisits === 0) {
+    const rawCount = await countVisitsForRange(query, resolved.range);
+    if (rawCount > 0) {
+      console.warn(
+        "[admin-business-analytics] visit_daily_aggregate stale; served from raw Visit rows",
+      );
+      void refreshVisitAggregate();
+      const visits = await fetchVisitsForRange(query, resolved.range);
+      summary = buildSummary(visits, fieldSalesCount);
+      trends = buildTrends(visits);
+      breakdowns = buildBreakdowns(visits);
+    }
+  }
+
   const singleResult: AdminBusinessAnalytics = {
     dateMode,
     period: {
@@ -920,9 +983,9 @@ export async function getAdminBusinessAnalytics(
       end: resolved.range.end.toISOString(),
       label: resolved.range.label,
     },
-    summary: buildSummaryFromAgg(aggRows, fieldSalesCount),
-    trends: buildTrendsFromAgg(aggRows),
-    breakdowns: buildCombinedBreakdowns(aggRows, arrayRows, staffNameMap),
+    summary,
+    trends,
+    breakdowns,
     appliedFilters,
     aiInsights: { available: false, summary: null, recommendations: [] },
   };

@@ -17,7 +17,7 @@ export function isOutOfScopeAnalyticsPrompt(prompt: string): boolean {
 
 export function outOfScopeMessage(): string {
   return (
-    "This question is outside what Tribly analytics can answer. " +
+    "This question is outside what FineSet analytics can answer. " +
     "Ask about visits, revenue, conversion, customer segments, visit sources, " +
     "or trends for a period and store scope you select above."
   );

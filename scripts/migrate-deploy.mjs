@@ -29,3 +29,9 @@ try {
   );
   throw error;
 }
+
+try {
+  execSync("node scripts/refresh-visit-aggregate.mjs", { stdio: "inherit" });
+} catch (error) {
+  console.warn("[migrate] visit_daily_aggregate refresh failed (non-fatal).", error);
+}

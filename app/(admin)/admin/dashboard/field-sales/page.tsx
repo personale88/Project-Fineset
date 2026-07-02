@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { content } from "@/content/en";
 import { AdminStoreSectionShell } from "@/components/admin/AdminStoreSectionShell";
 import { PortalFieldSalesLog } from "@/components/portal/PortalFieldSalesLog";
@@ -12,6 +13,11 @@ export default async function AdminFieldSalesPage({
   searchParams,
 }: AdminFieldSalesPageProps) {
   const { storeId } = await searchParams;
+
+  if (!storeId) {
+    redirect("/admin/dashboard/accounts");
+  }
+
   const initial = await fetchInitialFieldSales(storeId);
 
   const log = (
@@ -25,12 +31,10 @@ export default async function AdminFieldSalesPage({
       initialStoreId={storeId}
       initialFieldSales={initial?.data}
       initialFieldSalesParams={initial?.params}
-      backHref={storeId ? adminStoreDetailPath(storeId) : undefined}
+      backHref={adminStoreDetailPath(storeId)}
       backLabel={content.common.back}
     />
   );
-
-  if (!storeId) return log;
 
   return (
     <AdminStoreSectionShell admin={content.admin} storeId={storeId} section="field-sales">

@@ -54,7 +54,7 @@ const DIMENSION_KEYWORDS: Array<{ dimension: CohortPivotDimension; patterns: Reg
   { dimension: "valueTier", patterns: [/\bvalue tier\b/, /\bhigh value\b/, /\bprice band\b/] },
   { dimension: "purchaseStatus", patterns: [/\bpurchase\b/, /\bconversion\b/, /\bpurchased\b/] },
   { dimension: "sourceChannel", patterns: [/\bsource\b/, /\bchannel\b/, /\bwalk.?in\b/, /\breferral\b/] },
-  { dimension: "productCategory", patterns: [/\bproduct\b/, /\bjewelry\b/, /\bring\b/, /\bnecklace\b/] },
+  { dimension: "productCategory", patterns: [/\bproducts?\b/, /\bjewelry\b/, /\bring\b/, /\bnecklace\b/] },
   { dimension: "area", patterns: [/\blocation\b/, /\barea\b/, /\bcity\b/, /\bhyderabad\b/] },
   { dimension: "intentTier", patterns: [/\bintent\b/, /\bhot\b.*\bwarm\b/] },
   { dimension: "enrollmentOutcome", patterns: [/\benrollment\b/, /\bghs\b/, /\bgpp\b/, /\bscheme\b/] },
@@ -110,7 +110,51 @@ function extractDimension(text: string): CohortPivotDimension | undefined {
   for (const { dimension, patterns } of DIMENSION_KEYWORDS) {
     if (patterns.some((p) => p.test(text))) return dimension;
   }
+
+  // Distribution/share prompts without explicit "by X" — infer a sensible dimension.
+  if (/\bdistribution\b|\bshare\b|\bmix\b|\bbreakdown\b/i.test(text)) {
+    if (/\bsource\b|\bchannel\b/i.test(text)) return "sourceChannel";
+    if (/\bcustomer type\b/i.test(text)) return "customerType";
+    if (/\brevenue\b|\bsales\b/i.test(text)) return "sourceChannel";
+  }
+
   return undefined;
+}
+
+function withOptionalBreakdown(
+  breakdownDimension: CohortPivotDimension | undefined,
+): Pick<ParsedAnalyticsAskIntent, "breakdownDimension"> | Record<string, never> {
+  return breakdownDimension !== undefined ? { breakdownDimension } : {};
+}
+
+const TYPE_SPLIT_PERIOD_PATTERN =
+  /\bby customer type over time\b|\bcustomer type over time\b|\btype split\b|\bover time by type\b/i;
+
+/** When Gemini re-parses, keep safer rules-based period for over-time-by-type prompts. */
+export function mergeParsedIntentWithRules(
+  ruleIntent: ParsedAnalyticsAskIntent,
+  parsedIntent: ParsedAnalyticsAskIntent,
+  prompt: string,
+): ParsedAnalyticsAskIntent {
+  const text = prompt.toLowerCase().trim();
+  if (!TYPE_SPLIT_PERIOD_PATTERN.test(text)) return parsedIntent;
+
+  const keepPeriod =
+    ruleIntent.period === "last6months" ||
+    ruleIntent.period === "last30days" ||
+    ruleIntent.period === "last3months";
+
+  if (!keepPeriod) return parsedIntent;
+
+  return {
+    ...parsedIntent,
+    dateMode: "preset",
+    period: ruleIntent.period,
+    month: undefined,
+    year: undefined,
+    rollingMonths: undefined,
+    rollingDays: undefined,
+  };
 }
 
 function extractFilters(text: string): Partial<ParsedAnalyticsAskIntent> {
@@ -211,7 +255,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       chartTypes: chartTypes.includes("comparison")
         ? chartTypes
         : ["comparison", ...chartTypes],
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       segment: filterPart.segment,
       valueTier: filterPart.valueTier,
@@ -236,7 +280,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       chartTypes: chartTypes.includes("comparison")
         ? chartTypes
         : ["comparison", ...chartTypes],
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -259,7 +303,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       chartTypes: chartTypes.includes("comparison")
         ? chartTypes
         : ["comparison", ...chartTypes],
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -272,7 +316,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       month: m.month,
       year: m.year,
       chartTypes,
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -283,7 +327,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       dateMode: "preset",
       period: "last30days",
       chartTypes,
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -294,7 +338,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       dateMode: "preset",
       period: "month",
       chartTypes,
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -305,7 +349,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       dateMode: "preset",
       period: "week",
       chartTypes,
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -316,7 +360,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       dateMode: "preset",
       period: "last3months",
       chartTypes,
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -327,7 +371,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       dateMode: "preset",
       period: "last6months",
       chartTypes,
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -339,7 +383,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       dateMode: "preset",
       rollingMonths: clampRollingMonths(Number(rollingMonthsMatch[1])),
       chartTypes,
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -351,7 +395,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       dateMode: "preset",
       rollingDays: clampRollingDays(Number(rollingDaysMatch[1])),
       chartTypes,
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -362,7 +406,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       dateMode: "preset",
       period: "yesterday",
       chartTypes,
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -373,7 +417,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       dateMode: "preset",
       period: "today",
       chartTypes,
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -386,7 +430,18 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
       month: singleMonth.month,
       year: singleMonth.year,
       chartTypes,
-      breakdownDimension: breakdownDimension ?? "customerType",
+      ...withOptionalBreakdown(breakdownDimension),
+      activeFilters: filterPart.activeFilters ?? [],
+      ...filterPart,
+    };
+  }
+
+  if (TYPE_SPLIT_PERIOD_PATTERN.test(text)) {
+    return {
+      dateMode: "preset",
+      period: "last6months",
+      chartTypes,
+      ...withOptionalBreakdown(breakdownDimension),
       activeFilters: filterPart.activeFilters ?? [],
       ...filterPart,
     };
@@ -396,7 +451,7 @@ export function parseAnalyticsAskIntent(prompt: string): ParsedAnalyticsAskInten
     dateMode: "preset",
     period: "last30days",
     chartTypes,
-    breakdownDimension: breakdownDimension ?? "customerType",
+    ...withOptionalBreakdown(breakdownDimension),
     activeFilters: filterPart.activeFilters ?? [],
     ...filterPart,
   };

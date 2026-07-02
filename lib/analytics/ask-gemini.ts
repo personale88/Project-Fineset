@@ -23,7 +23,7 @@ Return a single JSON object matching this shape:
   "compareAMonth", "compareAYear", "compareBMonth", "compareBYear" (optional, for compare mode),
   "rollingMonths": 1-24 (optional, for "last N months" e.g. last 10 months),
   "rollingDays": 1-366 (optional, for "last N days" e.g. last 45 days),
-  "chartTypes": optional array of "line"|"bar"|"pie"|"comparison"|"radar" — only when the user names a chart; otherwise [],
+  "chartTypes": optional array of "line"|"area"|"bar"|"rankedBar"|"stackedBar"|"groupedBar"|"pie"|"comparison"|"radar" — only when the user names a chart; otherwise [],
   "breakdownDimension": one of customerType|valueTier|intentTier|purchaseStatus|sourceChannel|gender|ageGroup|area|visitType|budgetRange|productCategory|schemeProduct|enrollmentOutcome,
   "activeFilters": string[],
   "segment": "ALL"|"NEW"|"RETAINED"|"PURCHASED"|"NOT_PURCHASED" (optional),

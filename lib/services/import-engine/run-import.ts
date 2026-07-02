@@ -5,6 +5,7 @@ import {
   SourceChannel,
   type VisitType,
 } from "@prisma/client";
+import { refreshVisitAggregate } from "@/lib/analytics/refresh-visit-aggregate";
 import { notifyPortalDataChangeNow, importSyncEntities } from "@/lib/sync/notify-change";
 import { IMPORT_CONFIG, chunkSizeForRowCount } from "@/lib/import-engine/config";
 import { getSchemaConfig } from "@/lib/import-engine/schema-configs";
@@ -192,6 +193,7 @@ async function importVisitRow(
     customerName,
     customerPhone,
     skipPortalSync: true,
+    skipAggregateRefresh: true,
     customerType: resolveCustomerType(row),
     visitType: (visitType === "APPOINTMENT" ? "APPOINTMENT" : "WALK_IN") as VisitType,
     sourceChannel: asSourceChannel(row.transformedData.sourceChannel),
@@ -289,6 +291,7 @@ async function importCallLogRow(
       customerName,
       customerPhone,
       skipPortalSync: true,
+      skipAggregateRefresh: true,
       customerType: row.customerType === "repeat" ? CustomerType.REPEAT : CustomerType.NEW,
       visitType: "WALK_IN",
       sourceChannel: SourceChannel.PHONE,
@@ -423,6 +426,10 @@ export async function runImport(params: RunImportParams): Promise<ImportResult> 
 
   notifyPortalDataChangeNow(params.storeId, importSyncEntities(params.featureKey));
 
+  if (params.featureKey === "visit_log" && totals.successCount > 0) {
+    await refreshVisitAggregate().catch(() => undefined);
+  }
+
   return {
     ...chunkResult,
     totalProcessed: totals.totalProcessed,
@@ -480,6 +487,10 @@ export async function rollbackImport(
   });
 
   notifyPortalDataChangeNow(history.storeId, importSyncEntities(history.featureKey));
+
+  if (history.featureKey === "visit_log" && deletedVisitLogs.count > 0) {
+    await refreshVisitAggregate().catch(() => undefined);
+  }
 
   return {
     deletedVisitLogs: deletedVisitLogs.count,

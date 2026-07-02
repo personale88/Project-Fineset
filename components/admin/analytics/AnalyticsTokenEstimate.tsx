@@ -35,7 +35,7 @@ export function AnalyticsTokenEstimate({
   if (usage) {
     return (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
-        <span className="inline-flex items-center gap-1.5 font-medium text-text-secondary">
+        <span className="inline-flex items-center gap-1.5 font-medium text-text-muted">
           <Coins className="h-3.5 w-3.5 text-brand-gold" aria-hidden />
           {copy.actualTitle}
         </span>
@@ -48,7 +48,7 @@ export function AnalyticsTokenEstimate({
         <span>
           {copy.total}: {formatTokenCount(usage.totalTokens)}
         </span>
-        <span className="font-medium text-text-secondary">
+        <span className="font-medium text-text-muted">
           {copy.cost}: {formatUsdCost(usage.estimatedCostUsd)}
         </span>
         <span className="text-text-muted/80">({usage.model})</span>
@@ -60,7 +60,7 @@ export function AnalyticsTokenEstimate({
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-muted">
-      <span className="inline-flex items-center gap-1.5 font-medium text-text-secondary">
+      <span className="inline-flex items-center gap-1.5 font-medium text-text-muted">
         <Coins className="h-3.5 w-3.5 text-brand-gold" aria-hidden />
         {copy.estimateTitle}
       </span>
@@ -73,7 +73,7 @@ export function AnalyticsTokenEstimate({
       <span>
         {copy.total}: ~{formatTokenCount(estimate.totalTokensBudget)}
       </span>
-      <span className="font-medium text-text-secondary">
+      <span className="font-medium text-text-muted">
         {copy.cost}: ~{formatUsdCost(estimate.estimatedCostUsd)}
       </span>
       <span className="text-text-muted/80">({estimate.model})</span>

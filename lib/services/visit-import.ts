@@ -1,3 +1,4 @@
+import { refreshVisitAggregate } from "@/lib/analytics/refresh-visit-aggregate";
 import { prisma } from "@/lib/db/prisma";
 import { createVisit } from "@/lib/services/visits";
 import { createVisitSchema } from "@/lib/validations/visit.schema";
@@ -224,6 +225,7 @@ export async function importVisitsFromCsv(params: {
         ...parsed.data,
         storeId: params.storeId,
         staffId,
+        skipAggregateRefresh: true,
       });
 
       const visitDate = parseDate(pickValue(csvRow, "visitdate", "date"));
@@ -241,6 +243,10 @@ export async function importVisitsFromCsv(params: {
         message: error instanceof Error ? error.message : "Failed to import row",
       });
     }
+  }
+
+  if (createdCount > 0) {
+    await refreshVisitAggregate().catch(() => undefined);
   }
 
   return {

@@ -1,13 +1,16 @@
 /** Shared layout classes for Automation Center (375px-safe mobile). */
 
 export const AUTOMATION_CENTER_ROOT_CLASS =
-  "mx-auto flex min-w-0 w-full max-w-7xl flex-col space-y-6 overflow-x-hidden";
+  "flex min-h-0 min-w-0 w-full flex-1 flex-col gap-4 overflow-x-hidden lg:gap-6";
 
-export const AUTOMATION_CENTER_BODY_CLASS =
-  "flex min-w-0 w-full flex-col gap-4 lg:flex-row lg:items-start lg:gap-6";
+export const AUTOMATION_CENTER_BODY_CLASS = "w-full min-w-0";
 
 export const AUTOMATION_CENTER_CONTENT_CARD_CLASS =
-  "min-w-0 flex-1 overflow-hidden rounded-card border border-border bg-surface-card shadow-card";
+  "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-card border border-border bg-surface-card shadow-card";
+
+/** Scrollable main column inside the content card (header stays pinned above). */
+export const AUTOMATION_CENTER_CONTENT_SCROLL_CLASS =
+  "min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain max-lg:pb-8 lg:pb-5";
 
 /** Full-bleed admin tab nav inside portal main padding on small screens. */
 export const AUTOMATION_CENTER_NAV_CLASS =

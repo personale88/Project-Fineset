@@ -47,9 +47,35 @@ export async function getOrCreateAnalyticsCreditAccount(appUserId: string) {
   });
 }
 
+export const WELCOME_CREDITS_DESCRIPTION = "Welcome credits for new admin account";
+
+async function ensureWelcomeCredits(appUserId: string): Promise<void> {
+  const settings = await getPlatformSettings();
+  const welcomeCredits = settings.analytics.welcomeCreditsForNewAdmins;
+  if (welcomeCredits <= 0) return;
+
+  const account = await getOrCreateAnalyticsCreditAccount(appUserId);
+  const existingWelcome = await prisma.analyticsCreditLedger.findFirst({
+    where: {
+      accountId: account.id,
+      type: "GRANT",
+      description: WELCOME_CREDITS_DESCRIPTION,
+    },
+    select: { id: true },
+  });
+  if (existingWelcome) return;
+
+  await grantAnalyticsCredits({
+    appUserId,
+    credits: welcomeCredits,
+    description: WELCOME_CREDITS_DESCRIPTION,
+  });
+}
+
 export async function getAnalyticsCreditsSnapshot(
   appUserId: string,
 ): Promise<AnalyticsCreditsSnapshot> {
+  await ensureWelcomeCredits(appUserId);
   const account = await getOrCreateAnalyticsCreditAccount(appUserId);
   const policy = await getAnalyticsCreditPolicy();
   const settings = await getPlatformSettings();

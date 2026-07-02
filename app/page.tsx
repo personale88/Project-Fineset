@@ -1,10 +1,7 @@
 import { LoginScreen } from "@/components/auth/LoginScreen";
 import { getAppSession } from "@/lib/auth/get-app-session";
 import { getRedirectForRole } from "@/lib/auth/routes";
-import {
-  clearSessionCookie,
-  getSessionTokenFromCookies,
-} from "@/lib/auth/session-cookie";
+import { getSessionTokenFromCookies } from "@/lib/auth/session-cookie";
 import { redirect } from "next/navigation";
 
 export default async function HomePage() {
@@ -14,7 +11,7 @@ export default async function HomePage() {
     redirect(getRedirectForRole(session.role));
   }
   if (token) {
-    await clearSessionCookie();
+    redirect("/api/auth/clear-stale-session");
   }
 
   return (

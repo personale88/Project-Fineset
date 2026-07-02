@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { content } from "@/content/en";
 import { AdminStoreSectionShell } from "@/components/admin/AdminStoreSectionShell";
 import { StaffCallList } from "@/components/staff/StaffCallList";
@@ -14,11 +15,7 @@ export default async function AdminCallsPage({ searchParams }: AdminCallsPagePro
   const storeId = typeof resolved.storeId === "string" ? resolved.storeId : undefined;
 
   if (!storeId) {
-    return (
-      <p className="text-sm text-text-secondary">
-        {content.store.portfolio.selectStorePrompt}
-      </p>
-    );
+    redirect("/admin/dashboard/accounts");
   }
 
   const urlFilters = parseStaffCallsSearchParams(resolved);

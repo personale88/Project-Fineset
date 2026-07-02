@@ -1,4 +1,7 @@
 import { content } from "@/content/en";
+import { AdminDashboardContent } from "@/components/admin/AdminDashboardContent";
+import { AdminBottomNav } from "@/components/admin/AdminBottomNav";
+import { AdminDashboardNav } from "@/components/admin/AdminDashboardNav";
 import { AdminPortalExtras } from "@/components/admin/AdminPortalExtras";
 import { PortalShell } from "@/components/layout/PortalShell";
 import { RealtimeSyncProvider } from "@/components/layout/RealtimeSyncProvider";
@@ -49,27 +52,32 @@ export default async function AdminLayout({
   const platformSettings = await getPlatformSettings();
 
   return (
-    <PortalShell
-      title={content.common.portalBrandTitle}
-      portalType={content.admin.shell.title}
-      signOutLabel={content.common.signOut}
-    >
-      <RealtimeSyncProvider>
-        <AdminPortalProvider role={adminSession.role} permissions={adminSession.permissions}>
-          <BillingCycleSettingsProvider settings={billingCycleSettings}>
-            <PlatformSettingsProvider settings={platformSettings}>
-              <AdminPortalExtras
-              session={adminSession}
-              impersonationCopy={content.admin.impersonation}
-              impersonatedStoreName={impersonatedStoreName}
+    <RealtimeSyncProvider>
+      <AdminPortalProvider role={adminSession.role} permissions={adminSession.permissions}>
+        <BillingCycleSettingsProvider settings={billingCycleSettings}>
+          <PlatformSettingsProvider settings={platformSettings}>
+            <PortalShell
+              title={content.common.portalBrandTitle}
+              portalType={content.admin.shell.title}
+              signOutLabel={content.common.signOut}
+              homeHref="/admin/dashboard"
+              sideNav={<AdminDashboardNav labels={content.admin.nav} />}
+              bottomNav={<AdminBottomNav labels={content.admin.nav} />}
             >
-              {children}
-            </AdminPortalExtras>
-            <RoleOnboardingModalGate role="MASTER_ADMIN" />
-            </PlatformSettingsProvider>
-          </BillingCycleSettingsProvider>
-        </AdminPortalProvider>
-      </RealtimeSyncProvider>
-    </PortalShell>
+              <AdminDashboardContent>
+                <AdminPortalExtras
+                  session={adminSession}
+                  impersonationCopy={content.admin.impersonation}
+                  impersonatedStoreName={impersonatedStoreName}
+                >
+                  {children}
+                </AdminPortalExtras>
+              </AdminDashboardContent>
+              <RoleOnboardingModalGate role="MASTER_ADMIN" />
+            </PortalShell>
+          </PlatformSettingsProvider>
+        </BillingCycleSettingsProvider>
+      </AdminPortalProvider>
+    </RealtimeSyncProvider>
   );
 }

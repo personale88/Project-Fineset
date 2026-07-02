@@ -20,7 +20,7 @@ describe("ask guardrails", () => {
   });
 
   it("returns honest out-of-scope guidance", () => {
-    expect(outOfScopeMessage()).toMatch(/outside what Tribly analytics can answer/i);
+    expect(outOfScopeMessage()).toMatch(/outside what FineSet analytics can answer/i);
   });
 
   it("classifies data availability", () => {

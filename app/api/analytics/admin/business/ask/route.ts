@@ -22,7 +22,7 @@ import {
 } from "@/lib/analytics/ask-confidence";
 import { isOutOfScopeAnalyticsPrompt, outOfScopeMessage, assessDataAvailability } from "@/lib/analytics/ask-guardrails";
 import { isGeminiConfigured, parseIntentWithGemini } from "@/lib/analytics/ask-gemini";
-import { describeParsedIntent, parseAnalyticsAskIntent } from "@/lib/analytics/ask-intent-parser";
+import { describeParsedIntent, mergeParsedIntentWithRules, parseAnalyticsAskIntent } from "@/lib/analytics/ask-intent-parser";
 import { buildAskCharts } from "@/lib/analytics/ask-charts";
 import { buildAskKpis } from "@/lib/analytics/ask-kpis";
 import { buildRuleBasedAskReport } from "@/lib/analytics/ask-report";
@@ -183,13 +183,13 @@ export async function POST(req: Request) {
           const cachedIntent = await getCachedIntent(promptHash);
 
           if (cachedIntent) {
-            intent = cachedIntent;
+            intent = mergeParsedIntentWithRules(ruleIntent, cachedIntent, body.prompt);
             parseSource = "gemini";
             parseConfidence = "high";
           } else if (isGeminiConfigured()) {
             try {
               const geminiResult = await parseIntentWithGemini(body.prompt);
-              intent = geminiResult.intent;
+              intent = mergeParsedIntentWithRules(ruleIntent, geminiResult.intent, body.prompt);
               parseSource = "gemini";
               parseConfidence = "high";
               parseTokenUsage = geminiResult.tokenUsage;
@@ -265,6 +265,18 @@ export async function POST(req: Request) {
             ? []
             : buildAskCharts(intent, analytics, { prompt: body.prompt });
 
+        const includeDailyTrend = charts.some(
+          (chart) => chart.type === "area" || chart.type === "line",
+        );
+        const includeProducts = charts.some((chart) => chart.type === "rankedBar");
+        const includeValueTier = charts.some((chart) => chart.type === "radar");
+
+        const reportCompressOptions = {
+          includeDailyTrend,
+          includeProducts,
+          includeValueTier,
+        };
+
         const kpiCards = buildAskKpis(intent, analytics.summary, {
           prompt: body.prompt,
           deltas: analytics.comparison?.deltas ?? null,
@@ -314,7 +326,7 @@ export async function POST(req: Request) {
           if (apiKey) {
             // Stream AI report with sparse-data warning injected
             let accumulated = "";
-            const generator = streamAiReport(analytics, body.prompt, apiKey);
+            const generator = streamAiReport(analytics, body.prompt, apiKey, reportCompressOptions);
             while (true) {
               const { value, done } = await generator.next();
               if (done) {
@@ -352,7 +364,7 @@ export async function POST(req: Request) {
           if (apiKey) {
             // Full AI streaming report
             let accumulated = "";
-            const generator = streamAiReport(analytics, body.prompt, apiKey);
+            const generator = streamAiReport(analytics, body.prompt, apiKey, reportCompressOptions);
             while (true) {
               const { value, done } = await generator.next();
               if (done) {

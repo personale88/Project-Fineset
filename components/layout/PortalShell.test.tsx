@@ -73,4 +73,22 @@ describe("PortalShell header", () => {
     expect(screen.getByTestId("portal-brand-title")).toHaveTextContent("My Store");
     expect(screen.queryByTestId("portal-type-label")).not.toBeInTheDocument();
   });
+
+  it("offsets header and main when sideNav is provided", () => {
+    render(
+      <PortalShell
+        title={content.common.portalBrandTitle}
+        portalType={content.admin.shell.title}
+        signOutLabel={content.common.signOut}
+        sideNav={<aside data-testid="mock-side-nav">Nav</aside>}
+      >
+        <div>Page content</div>
+      </PortalShell>,
+    );
+
+    expect(screen.getByTestId("mock-side-nav")).toBeInTheDocument();
+    const shellColumn = screen.getByTestId("portal-shell").querySelector(".lg\\:pl-20");
+    expect(shellColumn).toBeTruthy();
+    expect(screen.getByRole("link", { name: /admin dashboard home/i })).toBeInTheDocument();
+  });
 });

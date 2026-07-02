@@ -71,42 +71,69 @@ interface ArrayVisitRow {
 // WHERE clause builder for the materialized view
 // ---------------------------------------------------------------------------
 
-function buildAggWhere(
+function pushEnumCondition(
+  conditions: string[],
+  params: unknown[],
+  idxRef: { idx: number },
+  column: string,
+  enumType: string,
+  value: string,
+): void {
+  conditions.push(`${column} = $${idxRef.idx}::"${enumType}"`);
+  params.push(value);
+  idxRef.idx += 1;
+}
+
+export function buildAggWhere(
   query: AdminBusinessAnalyticsQuery,
   start: Date,
   end: Date,
 ): { sql: string; params: unknown[] } {
   const conditions: string[] = [`date >= $1`, `date <= $2`];
   const params: unknown[] = [start, end];
-  let idx = 3;
+  const idxRef = { idx: 3 };
 
   const pushCondition = (sql: string, value: unknown) => {
-    conditions.push(sql.replace("$?", `$${idx}`));
+    conditions.push(sql.replace("$?", `$${idxRef.idx}`));
     params.push(value);
-    idx += 1;
+    idxRef.idx += 1;
   };
 
   if (isAnalyticsFilterActive(query, "customerType") && query.customerType) {
-    pushCondition(`customer_type = $?`, query.customerType);
+    pushEnumCondition(conditions, params, idxRef, "customer_type", "CustomerType", query.customerType);
   }
   if (isAnalyticsFilterActive(query, "purchaseStatus") && query.purchaseStatus) {
-    pushCondition(`purchase_status = $?`, query.purchaseStatus);
+    pushEnumCondition(
+      conditions,
+      params,
+      idxRef,
+      "purchase_status",
+      "PurchaseStatus",
+      query.purchaseStatus,
+    );
   }
   if (isAnalyticsFilterActive(query, "sourceChannel") && query.sourceChannel) {
-    pushCondition(`source_channel = $?`, query.sourceChannel);
+    pushEnumCondition(
+      conditions,
+      params,
+      idxRef,
+      "source_channel",
+      "SourceChannel",
+      query.sourceChannel,
+    );
   }
   if (isAnalyticsFilterActive(query, "intentTier") && query.intentTier) {
     if (query.intentTier === ANALYTICS_FILTER_NA) {
       conditions.push(`intent_tier IS NULL`);
     } else {
-      pushCondition(`intent_tier = $?`, query.intentTier);
+      pushEnumCondition(conditions, params, idxRef, "intent_tier", "IntentTier", query.intentTier);
     }
   }
   if (isAnalyticsFilterActive(query, "budgetRange") && query.budgetRange) {
     if (query.budgetRange === ANALYTICS_FILTER_NA) {
       conditions.push(`budget_stated IS NULL`);
     } else {
-      pushCondition(`budget_stated = $?`, query.budgetRange);
+      pushEnumCondition(conditions, params, idxRef, "budget_stated", "BudgetRange", query.budgetRange);
     }
   }
   if (isAnalyticsFilterActive(query, "staffId") && query.staffId) {
@@ -117,16 +144,25 @@ function buildAggWhere(
   if (isAnalyticsFilterActive(query, "segment") && query.segment && query.segment !== "ALL") {
     switch (query.segment) {
       case "NEW":
-        pushCondition(`customer_type = $?`, "NEW");
+        pushEnumCondition(conditions, params, idxRef, "customer_type", "CustomerType", "NEW");
         break;
       case "RETAINED":
-        conditions.push(`customer_type IN ('REPEAT', 'VIP')`);
+        conditions.push(
+          `customer_type IN ('REPEAT'::"CustomerType", 'VIP'::"CustomerType")`,
+        );
         break;
       case "PURCHASED":
-        pushCondition(`purchase_status = $?`, "PURCHASED");
+        pushEnumCondition(conditions, params, idxRef, "purchase_status", "PurchaseStatus", "PURCHASED");
         break;
       case "NOT_PURCHASED":
-        pushCondition(`purchase_status = $?`, "NOT_PURCHASED");
+        pushEnumCondition(
+          conditions,
+          params,
+          idxRef,
+          "purchase_status",
+          "PurchaseStatus",
+          "NOT_PURCHASED",
+        );
         break;
     }
   }
@@ -305,15 +341,18 @@ export function buildBreakdownsFromAgg(rows: AggRow[]): {
     getKey: (r: AggRow) => K | null | undefined,
     labelMap: Record<string, string>,
   ): BreakdownRow[] => {
-    const counts = new Map<string, number>();
+    const buckets = new Map<string, { count: number; revenue: number }>();
     for (const row of rows) {
       const key = getKey(row);
       if (!key) continue;
       const label = labelMap[key] ?? key;
-      counts.set(label, (counts.get(label) ?? 0) + Number(row.total_visits));
+      const existing = buckets.get(label) ?? { count: 0, revenue: 0 };
+      existing.count += Number(row.total_visits);
+      existing.revenue += Number(row.total_revenue);
+      buckets.set(label, existing);
     }
-    return Array.from(counts.entries())
-      .map(([label, count]) => ({ label, count }))
+    return Array.from(buckets.entries())
+      .map(([label, { count, revenue }]) => ({ label, count, revenue }))
       .sort((a, b) => b.count - a.count);
   };
 

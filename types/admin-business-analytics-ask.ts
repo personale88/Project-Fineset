@@ -6,18 +6,22 @@ import type {
 import type { ParseConfidence, ParseSource } from "@/lib/analytics/ask-confidence";
 import type { TokenUsage } from "@/lib/analytics/token-estimate";
 
-export type AnalyticsAskChartType =
-  | "line"
-  | "bar"
-  | "pie"
-  | "comparison"
-  | "radar";
-
 export interface AnalyticsAskRadarPoint {
   label: string;
   value: number;
   fullMark: number;
 }
+
+export type AnalyticsAskChartType =
+  | "line"
+  | "area"
+  | "bar"
+  | "rankedBar"
+  | "stackedBar"
+  | "groupedBar"
+  | "pie"
+  | "comparison"
+  | "radar";
 
 export interface AnalyticsAskChart {
   type: AnalyticsAskChartType;
@@ -28,6 +32,8 @@ export interface AnalyticsAskChart {
   comparison?: ComparisonTrendPoint[];
   periodALabel?: string;
   periodBLabel?: string;
+  periodLabel?: string;
+  metric?: "visits" | "revenue";
   radar?: AnalyticsAskRadarPoint[];
 }
 

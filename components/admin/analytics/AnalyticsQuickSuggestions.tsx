@@ -10,7 +10,7 @@ interface AnalyticsQuickSuggestionsProps {
   examples: AnalyticsAskExample[];
   activePrompt: string | null;
   isPending: boolean;
-  outOfCredits: boolean;
+  runDisabled: boolean;
   onSelect: (prompt: string) => void;
   onBrowse: () => void;
   className?: string;
@@ -22,7 +22,7 @@ export function AnalyticsQuickSuggestions({
   examples,
   activePrompt,
   isPending,
-  outOfCredits,
+  runDisabled,
   onSelect,
   onBrowse,
   className,
@@ -42,23 +42,25 @@ export function AnalyticsQuickSuggestions({
           >
             {examples.map((example) => {
               const isActive = activePrompt === example.prompt;
+              const chipLabel = example.hint ?? example.prompt;
 
               return (
                 <button
                   key={example.id}
                   type="button"
                   role="listitem"
-                  disabled={isPending || outOfCredits}
+                  aria-label={example.prompt}
+                  disabled={isPending || runDisabled}
                   onClick={() => onSelect(example.prompt)}
                   className={cn(
                     "shrink-0 snap-start whitespace-nowrap rounded-full border px-2.5 py-1 text-left text-xs font-medium transition-colors",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-gold/45 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60",
                     isActive
                       ? "border-brand-gold/50 bg-brand-gold/10 text-text-primary"
-                      : "border-border/80 bg-surface-secondary/50 text-text-secondary hover:border-brand-gold/35 hover:bg-surface-secondary/80 hover:text-text-primary",
+                      : "border-border/80 bg-surface-secondary/50 text-text-muted hover:border-brand-gold/35 hover:bg-surface-secondary/80 hover:text-text-secondary",
                   )}
                 >
-                  {example.prompt}
+                  {chipLabel}
                 </button>
               );
             })}

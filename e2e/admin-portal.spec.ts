@@ -9,7 +9,7 @@ test.describe("Admin portal", () => {
   test("main nav tabs are reachable", async ({ page }) => {
     const tabs = [
       { href: "/admin/dashboard", heading: /Business Portfolio/i },
-      { href: "/admin/dashboard/analytics", heading: /AI analytics/i },
+      { href: "/admin/dashboard/analytics", heading: /AI Analytics/i },
       { href: "/admin/dashboard/accounts", heading: /accounts/i },
       { href: "/admin/dashboard/billing", heading: /billing & payments/i },
       { href: "/admin/dashboard/automation", heading: /automation center/i },

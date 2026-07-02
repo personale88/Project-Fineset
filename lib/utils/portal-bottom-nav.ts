@@ -1,4 +1,5 @@
 import {
+  ADMIN_DASHBOARD_PATH,
   STAFF_DASHBOARD_PATH,
   STORE_MANAGER_DASHBOARD_PATH,
 } from "@/lib/auth/routes";
@@ -9,6 +10,7 @@ const HIDE_BOTTOM_NAV_PREFIXES = [
   `${STAFF_DASHBOARD_PATH}/log-field-sale`,
   `${STORE_MANAGER_DASHBOARD_PATH}/log-visit`,
   `${STORE_MANAGER_DASHBOARD_PATH}/log-field-sale`,
+  `${ADMIN_DASHBOARD_PATH}/analytics`,
 ] as const;
 
 export function shouldHidePortalBottomNav(pathname: string): boolean {

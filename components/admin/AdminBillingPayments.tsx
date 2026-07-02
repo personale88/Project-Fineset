@@ -280,12 +280,11 @@ export function AdminBillingPayments({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-lg:pb-8">
       <AdminPageIntro
         title={admin.billing.title}
         subtitle={admin.billing.subtitle}
         meta={formatPricingTiersSummary(billingPricing, Math.round(billingPricing.gstRate * 100))}
-        nav={admin.nav}
       />
 
       {!canManageBilling ? (

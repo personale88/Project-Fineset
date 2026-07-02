@@ -19,7 +19,6 @@ import { formatDateTimeInTimezone } from "@/lib/automation/timezone";
 import { seedAutomationRunHistoryCache } from "@/lib/automation/runs-query";
 import { AUTOMATION_CONFIG_SCOPES } from "@/lib/utils/automation-scope-url";
 import {
-  AUTOMATION_CENTER_NAV_CLASS,
   AUTOMATION_CENTER_ROOT_CLASS,
   AUTOMATION_MOBILE_FULL_WIDTH_BUTTON_CLASS,
 } from "@/lib/automation/automation-center-layout";
@@ -55,14 +54,27 @@ const navigationMocks = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
   searchParams: new URLSearchParams(""),
+  rerender: null as (() => void) | null,
 }));
+
+function syncNavigationFromHref(href: string) {
+  const url = new URL(href, "http://localhost:3000");
+  navigationMocks.searchParams = new URLSearchParams(url.search);
+  navigationMocks.rerender?.();
+}
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/admin/dashboard/automation",
   useSearchParams: () => navigationMocks.searchParams,
   useRouter: () => ({
-    push: navigationMocks.push,
-    replace: navigationMocks.replace,
+    push: (href: string, options?: { scroll?: boolean }) => {
+      navigationMocks.push(href, options);
+      syncNavigationFromHref(href);
+    },
+    replace: (href: string, options?: { scroll?: boolean }) => {
+      navigationMocks.replace(href, options);
+      syncNavigationFromHref(href);
+    },
   }),
 }));
 
@@ -115,11 +127,17 @@ const server = setupServer(
 beforeAll(() => server.listen());
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   server.resetHandlers();
   navigationMocks.push.mockReset();
   navigationMocks.replace.mockReset();
   navigationMocks.searchParams = new URLSearchParams("");
+  navigationMocks.rerender = null;
   platformSettingsResponse = structuredClone(defaultPlatformSettingsResponse);
+  Object.defineProperty(navigator, "onLine", {
+    configurable: true,
+    value: true,
+  });
 });
 afterAll(() => server.close());
 
@@ -129,21 +147,24 @@ function buildAutomationCenterTree(
   platformSettings = DEFAULT_PLATFORM_SETTINGS,
 ) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <PlatformSettingsProvider settings={platformSettings}>
-        <AdminPortalProvider
-          role={role}
-          permissions={{
-            billing: true,
-            portfolio: true,
-            accounts: true,
-            analytics: true,
-          }}
-        >
-          <AdminAutomationCenter admin={content.admin} />
-        </AdminPortalProvider>
-      </PlatformSettingsProvider>
-    </QueryClientProvider>
+    <>
+      <div data-testid="portal-shell" />
+      <QueryClientProvider client={queryClient}>
+        <PlatformSettingsProvider settings={platformSettings}>
+          <AdminPortalProvider
+            role={role}
+            permissions={{
+              billing: true,
+              portfolio: true,
+              accounts: true,
+              analytics: true,
+            }}
+          >
+            <AdminAutomationCenter admin={content.admin} />
+          </AdminPortalProvider>
+        </PlatformSettingsProvider>
+      </QueryClientProvider>
+    </>
   );
 }
 
@@ -169,9 +190,14 @@ function renderAutomationCenter(
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     });
 
+  const view = render(buildAutomationCenterTree(client, role, platformSettings));
+  navigationMocks.rerender = () => {
+    view.rerender(buildAutomationCenterTree(client, role, platformSettings));
+  };
+
   return {
     queryClient: client,
-    ...render(buildAutomationCenterTree(client, role, platformSettings)),
+    ...view,
   };
 }
 
@@ -190,20 +216,28 @@ async function confirmAutomationLiveRun(user: ReturnType<typeof userEvent.setup>
 }
 
 describe("AutomationCenterLoadingShell", () => {
-  it("renders page chrome, spinner, and loading label", () => {
+  it("renders page chrome, spinner, and loading label", async () => {
     render(
-      <AutomationCenterLoadingShell
-        admin={content.admin}
-        loadingLabel={content.admin.automation.loading}
-      />,
+      <>
+        <div data-testid="portal-shell" />
+        <AutomationCenterLoadingShell
+          admin={content.admin}
+          loadingLabel={content.admin.automation.loading}
+        />
+      </>,
     );
 
     expect(screen.getByTestId("automation-center-loading")).toHaveAttribute("aria-busy", "true");
+    await waitFor(() => {
+      expect(screen.getByTestId("portal-child-side-panel")).toBeInTheDocument();
+    });
     expect(
-      screen.getByRole("heading", { name: /automation center/i, level: 1 }),
+      within(screen.getByTestId("portal-child-side-panel")).getByRole("heading", {
+        name: /automation center/i,
+        level: 1,
+      }),
     ).toBeInTheDocument();
     expect(screen.getByText(content.admin.automation.loading)).toBeInTheDocument();
-    expect(screen.getByRole("navigation")).toBeInTheDocument();
   });
 });
 
@@ -213,18 +247,27 @@ describe("AutomationCenterErrorShell", () => {
     const onRetry = vi.fn();
 
     render(
-      <AutomationCenterErrorShell
-        admin={content.admin}
-        message={content.admin.automation.loadFailed}
-        retryLabel={content.admin.automation.retry}
-        onRetry={onRetry}
-      />,
+      <>
+        <div data-testid="portal-shell" />
+        <AutomationCenterErrorShell
+          admin={content.admin}
+          message={content.admin.automation.loadFailed}
+          retryLabel={content.admin.automation.retry}
+          onRetry={onRetry}
+        />
+      </>,
     );
 
     const errorShell = screen.getByTestId("automation-center-error");
     expect(errorShell).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("portal-child-side-panel")).toBeInTheDocument();
+    });
     expect(
-      within(errorShell).getByRole("heading", { name: /automation center/i, level: 1 }),
+      within(screen.getByTestId("portal-child-side-panel")).getByRole("heading", {
+        name: /automation center/i,
+        level: 1,
+      }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("automation-config-error-banner")).toHaveTextContent(
       content.admin.automation.loadFailed,
@@ -248,8 +291,14 @@ describe("AdminAutomationCenter config load failures", () => {
     await waitFor(() => {
       expect(screen.getByTestId("automation-center-error")).toBeInTheDocument();
     });
+    await waitFor(() => {
+      expect(screen.getByTestId("portal-child-side-panel")).toBeInTheDocument();
+    });
     expect(
-      screen.getByRole("heading", { name: /automation center/i, level: 1 }),
+      within(screen.getByTestId("portal-child-side-panel")).getByRole("heading", {
+        name: /automation center/i,
+        level: 1,
+      }),
     ).toBeInTheDocument();
     expect(screen.getByTestId("automation-config-error-banner")).toHaveTextContent(
       content.admin.automation.loadFailed,
@@ -1190,7 +1239,6 @@ describe("AdminAutomationCenter post-save UI sync", () => {
 
     await waitFor(() => expect(updateSpy).toHaveBeenCalled());
 
-    navigationMocks.searchParams = new URLSearchParams("scope=billingCycle");
     await user.click(
       screen.getAllByRole("tab", { name: content.admin.automation.scope.billingCycle })[0]!,
     );
@@ -3100,7 +3148,7 @@ describe("AdminAutomationCenter mobile layout (375px)", () => {
     });
   });
 
-  it("applies overflow-safe root and full-bleed nav classes on overview", async () => {
+  it("applies overflow-safe root classes on overview", async () => {
     renderAutomationCenter();
 
     await waitFor(() => {
@@ -3110,10 +3158,8 @@ describe("AdminAutomationCenter mobile layout (375px)", () => {
     expect(screen.getByTestId("automation-center-root")).toHaveClass(
       ...AUTOMATION_CENTER_ROOT_CLASS.split(" "),
     );
-    expect(screen.getByRole("navigation", { name: "Admin dashboard" })).toHaveClass(
-      ...AUTOMATION_CENTER_NAV_CLASS.split(" "),
-    );
     expect(screen.getByTestId("automation-center-content")).toBeInTheDocument();
+    expect(screen.getByTestId("automation-center-scroll")).toHaveClass("overflow-y-auto");
   });
 
   it.each(allScopes)("renders the %s tab with mobile-safe layout shell", async (scope) => {
