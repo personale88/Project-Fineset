@@ -52,12 +52,21 @@ const onboardingSchema = z.object({
   defaultRenewalMonths: z.number().int().min(1).max(120),
 });
 
+const fieldForceSchema = z.object({
+  requireGpsForFieldSales: z.boolean(),
+  requireGpsForVisits: z.boolean(),
+  maxAccuracyMeters: z.number().int().min(5).max(5000),
+  allowSubmitWithoutGps: z.boolean(),
+  maxLocationAgeSeconds: z.number().int().min(30).max(600),
+});
+
 export const platformSettingsSchema = z.object({
   general: generalSchema,
   billing: billingSchema,
   security: securitySchema,
   analytics: analyticsSchema,
   onboarding: onboardingSchema,
+  fieldForce: fieldForceSchema,
 });
 
 export const platformSettingsPatchSchema = z
@@ -67,6 +76,7 @@ export const platformSettingsPatchSchema = z
     security: securitySchema.partial().optional(),
     analytics: analyticsSchema.partial().optional(),
     onboarding: onboardingSchema.partial().optional(),
+    fieldForce: fieldForceSchema.partial().optional(),
   })
   .refine(
     (value) =>
@@ -74,7 +84,8 @@ export const platformSettingsPatchSchema = z
       value.billing !== undefined ||
       value.security !== undefined ||
       value.analytics !== undefined ||
-      value.onboarding !== undefined,
+      value.onboarding !== undefined ||
+      value.fieldForce !== undefined,
     { message: "At least one settings section must be provided." },
   );
 

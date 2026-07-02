@@ -659,6 +659,14 @@ export interface FieldSaleListItem {
   followUpNeeded: boolean;
   followUpDate: string | null;
   staffNotes: string | null;
+  submissionLatitude?: number | null;
+  submissionLongitude?: number | null;
+  locationAccuracyMeters?: number | null;
+  locationCapturedAt?: string | null;
+  locationStatus?: string | null;
+  locationAddress?: string | null;
+  distanceFromStoreMeters?: number | null;
+  outsideApprovedArea?: boolean | null;
 }
 
 export interface FieldSaleListFilters {
@@ -688,6 +696,8 @@ export interface GetFieldSalesListParams {
   personalScope?: boolean;
   enrollmentOutcome?: string;
   activityType?: string;
+  locationStatus?: string;
+  outsideApprovedArea?: boolean;
 }
 
 export interface AnalyticsData {

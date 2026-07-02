@@ -4,6 +4,10 @@ import type { z } from "zod";
 import type { AppSession } from "@/types";
 import { captureServerError } from "@/lib/monitoring/capture-error";
 import {
+  runWithTenantRlsContext,
+  tenantRlsContextFromSession,
+} from "@/lib/db/tenant-rls";
+import {
   badRequest,
   forbidden,
   getServerSession,
@@ -13,6 +17,13 @@ import {
 } from "@/lib/auth/session";
 
 type Role = AppSession["role"];
+
+async function runWithSessionTenantContext<T>(
+  session: AppSession,
+  handler: () => Promise<T>,
+): Promise<T> {
+  return runWithTenantRlsContext(tenantRlsContextFromSession(session), handler);
+}
 
 export function handleRouteError(error: unknown): NextResponse {
   if (error instanceof Prisma.PrismaClientInitializationError) {
@@ -101,7 +112,9 @@ export async function withAuth<T extends Role>(
       const session = await getServerSession();
       if (!session) return unauthorized();
       if (!requireRole(session, allowed)) return forbidden();
-      return await handler(session as Extract<AppSession, { role: T }>, req);
+      return await runWithSessionTenantContext(session, () =>
+        handler(session as Extract<AppSession, { role: T }>, req),
+      );
     } catch (error) {
       return handleRouteError(error);
     }

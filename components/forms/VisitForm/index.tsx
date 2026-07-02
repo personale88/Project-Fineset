@@ -13,6 +13,14 @@ import { Button } from "@/components/ui/button";
 import { ProgressIndicator } from "./FormSection";
 import { VisitFormSections } from "./VisitFormSections";
 import { VisitFormSuccess } from "./VisitFormSuccess";
+import { LocationVerificationPanel } from "@/components/field-force/LocationVerificationPanel";
+import { LocationExceptionBanner } from "@/components/field-force/LocationExceptionBanner";
+import {
+  isLocationCaptureSubmittable,
+  useGeolocationCapture,
+} from "@/hooks/useGeolocationCapture";
+import { useActiveLocationException } from "@/hooks/useLocationExceptions";
+import { DEFAULT_PLATFORM_SETTINGS } from "@/lib/platform/default-settings";
 import { buildClientVisitFormValues, clearVisitDraft, loadVisitDraft, useVisitDraft } from "./useVisitDraft";
 import { buildPortalFormSuccessPaths, type PortalFormSuccessPaths } from "@/lib/utils/portal-form-paths";
 import {
@@ -23,11 +31,26 @@ import {
   type VisitFormValues,
 } from "./VisitForm.types";
 
-export function VisitForm({ copy, common, errors, successPaths }: VisitFormProps) {
+export function VisitForm({
+  copy,
+  common,
+  errors,
+  successPaths,
+  fieldForceSettings = DEFAULT_PLATFORM_SETTINGS.fieldForce,
+}: VisitFormProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [lastSubmittedFollowUp, setLastSubmittedFollowUp] = useState(false);
+
+  const locationCapture = useGeolocationCapture({
+    maxAccuracyMeters: fieldForceSettings.maxAccuracyMeters,
+  });
+  const { data: activeException } = useActiveLocationException("VISIT");
+
+  useEffect(() => {
+    void locationCapture.captureLocation();
+  }, [locationCapture.captureLocation]);
 
   const form = useForm<VisitFormValues>({
     resolver: zodResolver(createVisitSchema),
@@ -49,6 +72,12 @@ export function VisitForm({ copy, common, errors, successPaths }: VisitFormProps
 
   const activeSection = sections[stepIndex]?.id;
   const isLastStep = stepIndex >= sections.length - 1;
+  const canSubmitWithLocation = isLocationCaptureSubmittable(
+    locationCapture,
+    fieldForceSettings.requireGpsForVisits,
+    fieldForceSettings.allowSubmitWithoutGps,
+    activeException?.id,
+  );
 
   useEffect(() => {
     if (stepIndex >= sections.length) {
@@ -91,9 +120,26 @@ export function VisitForm({ copy, common, errors, successPaths }: VisitFormProps
   async function onSubmit(_values: VisitFormValues) {
     setSubmitError(null);
     const values = getValues();
+    const freshLocation = await locationCapture.captureLocation();
+
+    if (
+      !isLocationCaptureSubmittable(
+        freshLocation,
+        fieldForceSettings.requireGpsForVisits,
+        fieldForceSettings.allowSubmitWithoutGps,
+        activeException?.id,
+      )
+    ) {
+      setSubmitError(copy.location.submitBlocked);
+      return;
+    }
 
     try {
-      await createVisitMutation.mutateAsync(buildFollowUpSubmitPayload(values));
+      await createVisitMutation.mutateAsync({
+        ...buildFollowUpSubmitPayload(values),
+        locationCapture: activeException ? undefined : (freshLocation.capture ?? undefined),
+        locationExceptionId: activeException?.id,
+      });
       clearVisitDraft();
       setLastSubmittedFollowUp(Boolean(values.followUpNeeded && values.followUpDate));
       toast({ title: copy.actions.successTitle, description: copy.actions.successMessage });
@@ -167,6 +213,22 @@ export function VisitForm({ copy, common, errors, successPaths }: VisitFormProps
           total={sections.length}
         />
 
+        <LocationVerificationPanel
+          copy={copy.location}
+          result={locationCapture}
+          onRetry={() => {
+            void locationCapture.captureLocation();
+          }}
+          isDetecting={locationCapture.state === "detecting"}
+        />
+
+        {activeException ? (
+          <LocationExceptionBanner
+            copy={copy.location.exception}
+            expiresAt={activeException.expiresAt}
+          />
+        ) : null}
+
         <div className="lg:hidden">
           <VisitFormSections
             copy={copy}
@@ -207,7 +269,7 @@ export function VisitForm({ copy, common, errors, successPaths }: VisitFormProps
               <Button
                 type="button"
                 className="flex-1"
-                disabled={createVisitMutation.isPending}
+                disabled={createVisitMutation.isPending || (isLastStep && !canSubmitWithLocation)}
                 onClick={() => void handleMobilePrimaryAction()}
               >
                 {createVisitMutation.isPending
@@ -222,7 +284,7 @@ export function VisitForm({ copy, common, errors, successPaths }: VisitFormProps
               type="button"
               onClick={() => void handleSubmit(onSubmit)()}
               className="hidden w-full lg:inline-flex lg:w-auto lg:min-w-[200px]"
-              disabled={createVisitMutation.isPending}
+              disabled={createVisitMutation.isPending || !canSubmitWithLocation}
             >
               {createVisitMutation.isPending
                 ? copy.actions.saving

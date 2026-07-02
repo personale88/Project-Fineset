@@ -16,6 +16,9 @@ import {
 } from "@/lib/auth/resolve-staff";
 import { createFieldSale, listFieldSales } from "@/lib/services/field-sales";
 import { isPortalDataReadBlockedForSession } from "@/lib/auth/billing-access-guard";
+import { resolveLocationEvidenceForSubmit } from "@/lib/field-force/resolve-location-evidence";
+import { getStoreGeofence } from "@/lib/field-force/get-store-geofence";
+import { FIELD_SALE_LOCATION_SETTINGS } from "@/lib/field-force/field-sale-location";
 import {
   createFieldSaleSchema,
   getFieldSalesQuerySchema,
@@ -101,10 +104,37 @@ export async function POST(req: Request) {
     const parsed = createFieldSaleSchema.safeParse(body);
     if (!parsed.success) return badRequest(parsed.error.flatten());
 
-    const fieldSale = await createFieldSale({
-      ...parsed.data,
+    const store = await getStoreGeofence(staff.storeId);
+    if (!store) {
+      return NextResponse.json({ message: "Store not found" }, { status: 404 });
+    }
+
+    const locationResult = await resolveLocationEvidenceForSubmit({
+      recordType: "FIELD_SALE",
+      locationCapture: parsed.data.locationCapture,
+      locationExceptionId: parsed.data.locationExceptionId,
+      settings: FIELD_SALE_LOCATION_SETTINGS,
+      store,
       storeId: staff.storeId,
       staffId: staff.staffId,
+      req,
+    });
+    if (!locationResult.ok) {
+      return NextResponse.json(
+        { message: locationResult.message, code: locationResult.code },
+        { status: locationResult.status ?? 422 },
+      );
+    }
+
+    const { locationCapture: _locationCapture, locationExceptionId: _locationExceptionId, ...fieldSaleInput } =
+      parsed.data;
+
+    const fieldSale = await createFieldSale({
+      ...fieldSaleInput,
+      storeId: staff.storeId,
+      staffId: staff.staffId,
+      locationEvidence: locationResult.evidence,
+      locationExceptionId: locationResult.locationExceptionId,
     });
 
     revalidateTag(`store:${staff.storeId}`, { expire: 0 });

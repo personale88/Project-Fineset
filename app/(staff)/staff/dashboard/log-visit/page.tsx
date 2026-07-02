@@ -3,8 +3,11 @@ import { ArrowLeft } from "lucide-react";
 import { content } from "@/content/en";
 import { STAFF_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { VisitForm } from "@/components/forms/VisitForm";
+import { getPlatformSettings } from "@/lib/services/platform-settings";
 
-export default function StaffLogVisitPage() {
+export default async function StaffLogVisitPage() {
+  const platformSettings = await getPlatformSettings({ fresh: true });
+
   return (
     <div className="space-y-4 lg:space-y-6">
       <div className="space-y-3">
@@ -27,6 +30,7 @@ export default function StaffLogVisitPage() {
         copy={content.visitForm}
         common={content.common}
         errors={content.errors}
+        fieldForceSettings={platformSettings.fieldForce}
       />
     </div>
   );

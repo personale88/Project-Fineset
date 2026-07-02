@@ -2,8 +2,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import bundleAnalyzer from "@next/bundle-analyzer";
 import { withSerwist } from "@serwist/turbopack";
+import { buildSecurityHeaders } from "./lib/security/headers.ts";
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
+const securityHeaders = buildSecurityHeaders();
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -20,6 +22,10 @@ const nextConfig = {
   },
   async headers() {
     return [
+      {
+        source: "/:path*",
+        headers: securityHeaders,
+      },
       {
         source: "/icons/:path*",
         headers: [

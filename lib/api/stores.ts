@@ -21,6 +21,9 @@ export interface StoreDetail {
   purgeAt: string | null;
   dataExpiryAt: string | null;
   renewalDueAt: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  geofenceRadiusMeters: number | null;
   createdAt: string;
   updatedAt: string;
   _count: {

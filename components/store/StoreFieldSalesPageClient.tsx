@@ -47,6 +47,7 @@ export function StoreFieldSalesPageClient({
             }
             backHref={portalListBackHref(portalRole, activeStoreId)}
             backLabel={backLabel}
+            canIssueGpsException={portalRole === "STORE_MANAGER"}
           />
         );
       }}

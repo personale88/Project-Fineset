@@ -7,6 +7,20 @@ import {
   schemeEnrollmentOutcomeSchema,
   schemeProductSchema,
 } from "./scheme.schema";
+import {
+  locationCapturePayloadSchema,
+  locationExceptionIdSchema,
+} from "./location-capture.schema";
+
+export const fieldSaleLocationCaptureSchema = locationCapturePayloadSchema;
+
+const locationCaptureStatusFilterSchema = z.enum([
+  "DETECTED",
+  "PERMISSION_DENIED",
+  "UNAVAILABLE",
+  "POOR_ACCURACY",
+  "EXEMPT",
+]);
 
 const customerTypeSchema = z.enum(["NEW", "REPEAT", "VIP"]);
 const intentTierSchema = z.enum(["HOT", "WARM", "COLD", "BROWSING"]);
@@ -45,6 +59,8 @@ export const createFieldSaleSchema = z
     followUpNeeded: z.boolean().default(false),
     followUpDate: z.coerce.date().optional(),
     staffNotes: z.string().max(500).optional(),
+    locationCapture: fieldSaleLocationCaptureSchema.optional(),
+    locationExceptionId: locationExceptionIdSchema,
   })
   .superRefine((data, ctx) => {
     refineSchemeFields(data, ctx);
@@ -90,6 +106,8 @@ export const getFieldSalesQuerySchema = z.object({
   personalScope: personalScopeQuerySchema,
   enrollmentOutcome: schemeEnrollmentOutcomeSchema.optional(),
   activityType: fieldActivityTypeSchema.optional(),
+  locationStatus: locationCaptureStatusFilterSchema.optional(),
+  outsideApprovedArea: z.coerce.boolean().optional(),
 });
 
 export type GetFieldSalesQuery = z.infer<typeof getFieldSalesQuerySchema>;

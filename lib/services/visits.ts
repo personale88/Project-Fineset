@@ -23,11 +23,16 @@ import {
   startOfCalendarDay,
 } from "@/lib/utils/calendar-date";
 import { normalizeStoredFollowUpDate } from "@/lib/utils/follow-up-datetime";
+import type { FieldSaleLocationEvidence } from "@/lib/field-force/location-capture";
+import { markLocationCaptureExceptionUsed } from "@/lib/services/location-capture-exceptions";
+import { logFieldForceLocationAudit } from "@/lib/field-force/audit-alerts";
 
-interface CreateVisitParams extends CreateVisitInput {
+interface CreateVisitParams extends Omit<CreateVisitInput, "locationExceptionId"> {
   storeId: string;
   staffId: string;
   skipPortalSync?: boolean;
+  locationEvidence?: FieldSaleLocationEvidence | null;
+  locationExceptionId?: string | null;
 }
 
 export async function createVisit(params: CreateVisitParams): Promise<Visit> {
@@ -52,6 +57,9 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
     purchaseStatus,
     enrollmentOutcome,
     visitDate: visitDateInput,
+    locationCapture: _locationCapture,
+    locationExceptionId,
+    locationEvidence,
     ...visitData
   } = normalizedParams;
 
@@ -160,6 +168,20 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
         schemeEnrolled: schemeFlags.schemeEnrolled,
         ghsPolicy: schemeFlags.ghsPolicy,
         ...denorm,
+        ...(locationEvidence
+          ? {
+              submissionLatitude: locationEvidence.submissionLatitude,
+              submissionLongitude: locationEvidence.submissionLongitude,
+              locationAccuracyMeters: locationEvidence.locationAccuracyMeters,
+              locationCapturedAt: locationEvidence.locationCapturedAt,
+              locationStatus: locationEvidence.locationStatus,
+              locationAddress: locationEvidence.locationAddress,
+              submissionIp: locationEvidence.submissionIp,
+              submissionUserAgent: locationEvidence.submissionUserAgent,
+              distanceFromStoreMeters: locationEvidence.distanceFromStoreMeters,
+              outsideApprovedArea: locationEvidence.outsideApprovedArea,
+            }
+          : {}),
       },
     });
 
@@ -175,8 +197,20 @@ export async function createVisit(params: CreateVisitParams): Promise<Visit> {
       });
     }
 
+    if (locationExceptionId) {
+      await markLocationCaptureExceptionUsed(locationExceptionId, tx);
+    }
+
     return decryptVisitPii(visit);
-  }).then((visit) => {
+  }).then(async (visit) => {
+    if (locationEvidence) {
+      await logFieldForceLocationAudit(locationEvidence, {
+        storeId,
+        staffId,
+        recordType: "VISIT",
+        recordId: visit.id,
+      });
+    }
     if (!params.skipPortalSync) {
       notifyPortalDataChangeNow(storeId, ["visits", "customers", "followUps"]);
     }

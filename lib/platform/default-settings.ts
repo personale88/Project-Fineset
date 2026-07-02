@@ -34,4 +34,11 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
     defaultDataExpiryMonths: 12,
     defaultRenewalMonths: 12,
   },
+  fieldForce: {
+    requireGpsForFieldSales: true,
+    requireGpsForVisits: true,
+    maxAccuracyMeters: 50,
+    allowSubmitWithoutGps: false,
+    maxLocationAgeSeconds: 120,
+  },
 };

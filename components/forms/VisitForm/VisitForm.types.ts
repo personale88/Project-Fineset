@@ -1,6 +1,7 @@
 import type { Content } from "@/content/en";
 import type { CreateVisitInput } from "@/lib/validations/visit.schema";
 import type { PortalFormSuccessPaths } from "@/lib/utils/portal-form-paths";
+import type { PlatformSettingsFieldForce } from "@/lib/platform/types";
 import { formatCalendarDate, parseCalendarDate } from "@/lib/utils/calendar-date";
 
 export { formatTimeForInput, parseTimeInput } from "@/lib/utils/time-input";
@@ -14,6 +15,7 @@ export interface VisitFormProps {
   common: CommonCopy;
   errors: ErrorsCopy;
   successPaths?: PortalFormSuccessPaths;
+  fieldForceSettings?: PlatformSettingsFieldForce;
 }
 
 export type VisitFormValues = CreateVisitInput & {

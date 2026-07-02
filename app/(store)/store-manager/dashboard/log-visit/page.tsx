@@ -6,8 +6,11 @@ import { ManagerActorSetupGate } from "@/components/store/ManagerActorSetupGate"
 import { STORE_MANAGER_DASHBOARD_PATH } from "@/lib/auth/routes";
 import { buildPortalFormSuccessPaths } from "@/lib/utils/portal-form-paths";
 import { storeManagerMyWorkHubHref } from "@/lib/utils/store-dashboard-url";
+import { getPlatformSettings } from "@/lib/services/platform-settings";
 
-export default function StoreManagerLogVisitPage() {
+export default async function StoreManagerLogVisitPage() {
+  const platformSettings = await getPlatformSettings({ fresh: true });
+
   return (
     <ManagerActorSetupGate requireLink>
       <div className="space-y-4 lg:space-y-6">
@@ -31,6 +34,7 @@ export default function StoreManagerLogVisitPage() {
           copy={content.visitForm}
           common={content.common}
           errors={content.errors}
+          fieldForceSettings={platformSettings.fieldForce}
           successPaths={buildPortalFormSuccessPaths(STORE_MANAGER_DASHBOARD_PATH, {
             managerPersonalRoutes: true,
           })}

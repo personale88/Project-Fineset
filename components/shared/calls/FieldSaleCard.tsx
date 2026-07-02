@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { AssignStaffButton } from "@/components/shared/AssignStaffDialog";
+import { FieldSaleLocationSummary } from "@/components/field-force/FieldSaleLocationSummary";
 import { formatCurrency, formatDate } from "@/lib/utils/formatters";
 import { formatLabel } from "./call-badge-utils";
 import type { FieldSaleListItem } from "@/types";
@@ -71,6 +72,8 @@ export function FieldSaleCard({
           </Badge>
         )}
       </div>
+
+      <FieldSaleLocationSummary item={item} />
 
       {item.schemesPitched.length > 0 && (
         <p className="mt-2 text-sm text-text-secondary">

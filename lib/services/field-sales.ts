@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db/prisma";
 import type { CreateFieldSaleInput } from "@/lib/validations/field-sale.schema";
-import { Prisma, type FieldSale } from "@prisma/client";
+import { Prisma, type FieldSale, type LocationCaptureStatus } from "@prisma/client";
 import { resolveSchemeEnrollmentFlags } from "@/lib/services/scheme-enrollment";
 import { normalizeSchemesPitched } from "@/lib/validations/scheme.schema";
 import { notifyPortalDataChangeNow } from "@/lib/sync/notify-change";
@@ -10,13 +10,18 @@ import {
   prepareCustomerPii,
 } from "@/lib/services/pii";
 import { fieldSaleDenormFields } from "@/lib/services/call-record-denorm";
+import type { FieldSaleLocationEvidence } from "@/lib/field-force/location-capture";
+import { markLocationCaptureExceptionUsed } from "@/lib/services/location-capture-exceptions";
+import { logFieldForceLocationAudit } from "@/lib/field-force/audit-alerts";
 import { resolveCalendarDayFromInstant } from "@/lib/utils/calendar-date";
 import { normalizeStoredFollowUpDate } from "@/lib/utils/follow-up-datetime";
 import { calculateDurationMins, formatDate } from "@/lib/utils/formatters";
 
-interface CreateFieldSaleParams extends CreateFieldSaleInput {
+interface CreateFieldSaleParams extends Omit<CreateFieldSaleInput, "locationExceptionId"> {
   storeId: string;
   staffId: string;
+  locationEvidence?: FieldSaleLocationEvidence | null;
+  locationExceptionId?: string | null;
 }
 
 export async function createFieldSale(
@@ -39,6 +44,9 @@ export async function createFieldSale(
     followUpNeeded,
     followUpDate,
     enrollmentOutcome: _enrollmentOutcome,
+    locationCapture: _locationCapture,
+    locationExceptionId,
+    locationEvidence,
     ...fieldData
   } = normalizedParams;
 
@@ -125,6 +133,20 @@ export async function createFieldSale(
         followUpNeeded,
         followUpDate: resolvedFollowUpDate,
         ...denorm,
+        ...(locationEvidence
+          ? {
+              submissionLatitude: locationEvidence.submissionLatitude,
+              submissionLongitude: locationEvidence.submissionLongitude,
+              locationAccuracyMeters: locationEvidence.locationAccuracyMeters,
+              locationCapturedAt: locationEvidence.locationCapturedAt,
+              locationStatus: locationEvidence.locationStatus,
+              locationAddress: locationEvidence.locationAddress,
+              submissionIp: locationEvidence.submissionIp,
+              submissionUserAgent: locationEvidence.submissionUserAgent,
+              distanceFromStoreMeters: locationEvidence.distanceFromStoreMeters,
+              outsideApprovedArea: locationEvidence.outsideApprovedArea,
+            }
+          : {}),
       },
     });
 
@@ -140,8 +162,20 @@ export async function createFieldSale(
       });
     }
 
+    if (locationExceptionId) {
+      await markLocationCaptureExceptionUsed(locationExceptionId, tx);
+    }
+
     return decryptFieldSalePii(fieldSale);
-  }).then((fieldSale) => {
+  }).then(async (fieldSale) => {
+    if (locationEvidence) {
+      await logFieldForceLocationAudit(locationEvidence, {
+        storeId,
+        staffId,
+        recordType: "FIELD_SALE",
+        recordId: fieldSale.id,
+      });
+    }
     notifyPortalDataChangeNow(storeId, ["fieldSales", "customers", "followUps"]);
     return fieldSale;
   });
@@ -164,6 +198,8 @@ interface ListFieldSalesParams {
   search?: string;
   enrollmentOutcome?: CreateFieldSaleInput["enrollmentOutcome"];
   activityType?: CreateFieldSaleInput["activityType"];
+  locationStatus?: string;
+  outsideApprovedArea?: boolean;
 }
 
 function monthRange(year: number, month: number) {
@@ -175,7 +211,13 @@ function monthRange(year: number, month: number) {
 
 type FieldSaleFilterParams = Pick<
   ListFieldSalesParams,
-  "storeId" | "staffId" | "search" | "enrollmentOutcome" | "activityType"
+  | "storeId"
+  | "staffId"
+  | "search"
+  | "enrollmentOutcome"
+  | "activityType"
+  | "locationStatus"
+  | "outsideApprovedArea"
 >;
 
 function applyFieldSaleFilters(
@@ -186,6 +228,12 @@ function applyFieldSaleFilters(
   if (params.staffId) where.staffId = params.staffId;
   if (params.enrollmentOutcome) where.enrollmentOutcome = params.enrollmentOutcome;
   if (params.activityType) where.activityType = params.activityType;
+  if (params.locationStatus) {
+    where.locationStatus = params.locationStatus as LocationCaptureStatus;
+  }
+  if (params.outsideApprovedArea === true) {
+    where.outsideApprovedArea = true;
+  }
 
   const searchWhere = params.search?.trim()
     ? buildFieldSaleSearchWhere(params.search)
@@ -304,6 +352,14 @@ export async function listFieldSales(params: ListFieldSalesParams) {
         followUpNeeded: record.followUpNeeded,
         followUpDate: record.followUpDate?.toISOString() ?? null,
         staffNotes: record.staffNotes,
+        submissionLatitude: record.submissionLatitude,
+        submissionLongitude: record.submissionLongitude,
+        locationAccuracyMeters: record.locationAccuracyMeters,
+        locationCapturedAt: record.locationCapturedAt?.toISOString() ?? null,
+        locationStatus: record.locationStatus,
+        locationAddress: record.locationAddress,
+        distanceFromStoreMeters: record.distanceFromStoreMeters,
+        outsideApprovedArea: record.outsideApprovedArea,
       };
     }),
     total,

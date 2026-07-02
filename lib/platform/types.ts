@@ -37,12 +37,21 @@ export interface PlatformSettingsOnboarding {
   defaultRenewalMonths: number;
 }
 
+export interface PlatformSettingsFieldForce {
+  requireGpsForFieldSales: boolean;
+  requireGpsForVisits: boolean;
+  maxAccuracyMeters: number;
+  allowSubmitWithoutGps: boolean;
+  maxLocationAgeSeconds: number;
+}
+
 export interface PlatformSettings {
   general: PlatformSettingsGeneral;
   billing: PlatformSettingsBilling;
   security: PlatformSettingsSecurity;
   analytics: PlatformSettingsAnalytics;
   onboarding: PlatformSettingsOnboarding;
+  fieldForce: PlatformSettingsFieldForce;
 }
 
 export interface PlatformIntegrationStatus {

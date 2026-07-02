@@ -8,6 +8,10 @@ import {
   schemeEnrollmentOutcomeSchema,
   schemeProductSchema,
 } from "./scheme.schema";
+import {
+  locationCapturePayloadSchema,
+  locationExceptionIdSchema,
+} from "./location-capture.schema";
 
 const customerTypeSchema = z.enum(["NEW", "REPEAT", "VIP"]);
 const visitTypeSchema = z.enum(["WALK_IN", "APPOINTMENT"]);
@@ -115,6 +119,8 @@ export const createVisitSchema = z
     followUpNeeded: z.boolean().default(false),
     followUpDate: z.coerce.date().optional(),
     staffNotes: z.string().max(500).optional(),
+    locationCapture: locationCapturePayloadSchema.optional(),
+    locationExceptionId: locationExceptionIdSchema,
   })
   .superRefine((data, ctx) => {
     if (!data.purchaseStatus) {

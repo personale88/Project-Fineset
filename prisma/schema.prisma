@@ -25,6 +25,9 @@ model Store {
   city           String
   state          String
   pincode             String?
+  latitude            Float?
+  longitude           Float?
+  geofenceRadiusMeters Int?
   businessOwnerName   String?
   businessOwnerEmail  String?
   isActive            Boolean       @default(true)
@@ -43,6 +46,7 @@ model Store {
   fieldSales FieldSale[]
   importHistory ImportHistory[]
   correctionRequests CorrectionRequest[]
+  locationCaptureExceptions LocationCaptureException[]
 
   @@index([dataExpiryAt])
   @@index([renewalDueAt])
@@ -78,6 +82,7 @@ model Staff {
   assignedFollowUps FollowUp[]
   phoneRevealLogs   PhoneRevealLog[]
   correctionRequests CorrectionRequest[]
+  locationCaptureExceptions LocationCaptureException[]
 
   @@index([storeId, isActive])
 }
@@ -260,6 +265,16 @@ model Visit {
   anniversaryMonth  Int?
   importBatchId     String?
   importedAt        DateTime?
+  submissionLatitude     Float?
+  submissionLongitude    Float?
+  locationAccuracyMeters Float?
+  locationCapturedAt     DateTime?
+  locationStatus         LocationCaptureStatus?
+  locationAddress        String?
+  submissionIp           String?
+  submissionUserAgent    String?
+  distanceFromStoreMeters Float?
+  outsideApprovedArea    Boolean?
   createdAt         DateTime                 @default(now())
   updatedAt         DateTime                 @updatedAt
 
@@ -272,6 +287,8 @@ model Visit {
   correctionRequests CorrectionRequest[]
 
   @@index([storeId, visitDate(sort: Desc)])
+  @@index([storeId, outsideApprovedArea])
+  @@index([storeId, locationStatus])
   @@index([staffId, storeId, visitDate(sort: Desc)])
   @@index([staffId, storeId, visitDate(sort: Desc), lastCallAnswered])
   @@index([staffId, storeId, visitDate(sort: Desc), callValueTier, birthMonth, anniversaryMonth])
@@ -438,6 +455,14 @@ enum FieldDeclineReason {
   COMPETITOR_SCHEME
 }
 
+enum LocationCaptureStatus {
+  DETECTED
+  PERMISSION_DENIED
+  UNAVAILABLE
+  POOR_ACCURACY
+  EXEMPT
+}
+
 model FieldSale {
   id                  String                  @id @default(cuid())
   activityDate        DateTime                @default(now())
@@ -473,6 +498,16 @@ model FieldSale {
   callValueTier       CallValueTier?
   birthMonth          Int?
   anniversaryMonth    Int?
+  submissionLatitude     Float?
+  submissionLongitude    Float?
+  locationAccuracyMeters Float?
+  locationCapturedAt     DateTime?
+  locationStatus         LocationCaptureStatus?
+  locationAddress        String?
+  submissionIp           String?
+  submissionUserAgent    String?
+  distanceFromStoreMeters Float?
+  outsideApprovedArea    Boolean?
   createdAt           DateTime                @default(now())
   updatedAt           DateTime                @updatedAt
 
@@ -488,6 +523,31 @@ model FieldSale {
   @@index([staffId, storeId, activityDate(sort: Desc), lastCallAnswered])
   @@index([staffId, storeId, activityDate(sort: Desc), callValueTier, birthMonth, anniversaryMonth])
   @@index([storeId, activityDate(sort: Desc)])
+  @@index([storeId, outsideApprovedArea])
+  @@index([storeId, locationStatus])
+}
+
+enum LocationCaptureRecordType {
+  FIELD_SALE
+  VISIT
+}
+
+model LocationCaptureException {
+  id              String                    @id @default(cuid())
+  storeId         String
+  staffId         String
+  recordType      LocationCaptureRecordType
+  issuedByAuthId  String?
+  issuedByEmail   String?
+  reason          String?
+  expiresAt       DateTime
+  usedAt          DateTime?
+  createdAt       DateTime                  @default(now())
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Restrict)
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Restrict)
+
+  @@index([storeId, staffId, recordType, expiresAt])
 }
 
 model ImportHistory {

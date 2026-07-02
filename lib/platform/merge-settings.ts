@@ -31,5 +31,6 @@ export function mergePlatformSettings(
     security: mergeSection(base.security, partial.security),
     analytics: mergeSection(base.analytics, partial.analytics),
     onboarding: mergeSection(base.onboarding, partial.onboarding),
+    fieldForce: mergeSection(base.fieldForce, partial.fieldForce),
   };
 }

@@ -11,6 +11,15 @@ import { getStores } from "@/lib/api/stores";
 import { LIVE_QUERY_OPTIONS, STAFF_FILTER_QUERY_OPTIONS } from "@/lib/sync/constants";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { IssueGpsExceptionDialog } from "@/components/field-force/IssueGpsExceptionDialog";
+import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { QueryLoadState } from "@/components/shared/QueryLoadState";
 import {
@@ -39,6 +48,7 @@ interface PortalFieldSalesLogProps {
   initialFieldSalesParams?: GetFieldSalesListParams;
   backHref?: string;
   backLabel?: string;
+  canIssueGpsException?: boolean;
 }
 
 export function PortalFieldSalesLog({
@@ -53,6 +63,7 @@ export function PortalFieldSalesLog({
   initialFieldSalesParams,
   backHref,
   backLabel,
+  canIssueGpsException = false,
 }: PortalFieldSalesLogProps) {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
@@ -65,6 +76,12 @@ export function PortalFieldSalesLog({
   const debouncedSearch = useDebouncedValue(searchInput, 300);
   const [storeFilter, setStoreFilter] = useState(initialStoreId ?? "all");
   const [staffFilter, setStaffFilter] = useState(initialFieldSalesParams?.staffId ?? "all");
+  const [locationStatusFilter, setLocationStatusFilter] = useState(
+    initialFieldSalesParams?.locationStatus ?? "all",
+  );
+  const [outsideAreaOnly, setOutsideAreaOnly] = useState(
+    initialFieldSalesParams?.outsideApprovedArea === true,
+  );
   const enrollmentOutcomeFilter = initialFieldSalesParams?.enrollmentOutcome;
   const activityTypeFilter = initialFieldSalesParams?.activityType;
 
@@ -83,6 +100,8 @@ export function PortalFieldSalesLog({
       staffId: staffFilter !== "all" ? staffFilter : undefined,
       enrollmentOutcome: enrollmentOutcomeFilter,
       activityType: activityTypeFilter,
+      locationStatus: locationStatusFilter !== "all" ? locationStatusFilter : undefined,
+      outsideApprovedArea: outsideAreaOnly ? true : undefined,
     }),
     [
       year,
@@ -94,6 +113,8 @@ export function PortalFieldSalesLog({
       staffFilter,
       enrollmentOutcomeFilter,
       activityTypeFilter,
+      locationStatusFilter,
+      outsideAreaOnly,
     ],
   );
 
@@ -170,7 +191,14 @@ export function PortalFieldSalesLog({
           <h1 className="font-display text-2xl font-bold text-text-primary">{copy.title}</h1>
           <p className="mt-1 text-sm text-text-muted">{copy.subtitle}</p>
         </div>
-        <StoreStaffFilters
+        <div className="flex flex-col items-stretch gap-3 sm:items-end">
+          {canIssueGpsException && staffOptions.length > 0 ? (
+            <IssueGpsExceptionDialog
+              copy={copy.issueGpsException}
+              staffOptions={staffOptions}
+            />
+          ) : null}
+          <StoreStaffFilters
           showStoreFilter={showStoreFilter}
           storeFilter={storeFilter}
           staffFilter={staffFilter}
@@ -191,6 +219,45 @@ export function PortalFieldSalesLog({
             setPage(1);
           }}
         />
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-1">
+          <Label htmlFor="field-sales-location-status">{copy.locationStatusLabel}</Label>
+          <Select
+            value={locationStatusFilter}
+            onValueChange={(value) => {
+              setLocationStatusFilter(value);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger id="field-sales-location-status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{copy.locationStatusAll}</SelectItem>
+              <SelectItem value="DETECTED">Detected</SelectItem>
+              <SelectItem value="PERMISSION_DENIED">Permission denied</SelectItem>
+              <SelectItem value="UNAVAILABLE">Unavailable</SelectItem>
+              <SelectItem value="POOR_ACCURACY">Poor accuracy</SelectItem>
+              <SelectItem value="EXEMPT">Exempt</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-end gap-3 rounded-input border border-border px-3 py-2">
+          <Switch
+            id="field-sales-outside-area"
+            checked={outsideAreaOnly}
+            onCheckedChange={(checked) => {
+              setOutsideAreaOnly(checked);
+              setPage(1);
+            }}
+          />
+          <Label htmlFor="field-sales-outside-area" className="text-sm">
+            {copy.outsideAreaOnly}
+          </Label>
+        </div>
       </div>
 
       <div className="space-y-1">

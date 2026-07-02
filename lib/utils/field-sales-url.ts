@@ -39,5 +39,7 @@ export function parseFieldSalesSearchParams(
     search: base.search,
     enrollmentOutcome: base.enrollmentOutcome,
     activityType,
+    locationStatus: base.locationStatus,
+    outsideApprovedArea: base.outsideApprovedArea,
   };
 }

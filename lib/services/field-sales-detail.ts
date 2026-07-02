@@ -42,6 +42,14 @@ export async function getFieldSaleById(
     followUpNeeded: fieldSale.followUpNeeded,
     followUpDate: fieldSale.followUpDate?.toISOString() ?? null,
     staffNotes: fieldSale.staffNotes,
+    submissionLatitude: fieldSale.submissionLatitude,
+    submissionLongitude: fieldSale.submissionLongitude,
+    locationAccuracyMeters: fieldSale.locationAccuracyMeters,
+    locationCapturedAt: fieldSale.locationCapturedAt?.toISOString() ?? null,
+    locationStatus: fieldSale.locationStatus,
+    locationAddress: fieldSale.locationAddress,
+    distanceFromStoreMeters: fieldSale.distanceFromStoreMeters,
+    outsideApprovedArea: fieldSale.outsideApprovedArea,
     createdAt: fieldSale.createdAt.toISOString(),
   };
 }

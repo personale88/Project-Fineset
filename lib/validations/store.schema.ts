@@ -114,6 +114,9 @@ export const editStoreSchema = z.object({
     .transform((v) => (v === "" ? undefined : v)),
   dataExpiryAt: z.string().optional().transform((value) => value?.trim() ?? ""),
   renewalDueAt: z.string().optional().transform((value) => value?.trim() ?? ""),
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
+  geofenceRadiusMeters: z.string().optional(),
 });
 
 export type EditStoreInput = z.infer<typeof editStoreSchema>;
@@ -143,6 +146,9 @@ export const updateStoreSchema = z.object({
   businessOwnerEmail: z.string().email().max(255).nullable().optional(),
   dataExpiryAt: nullableCalendarDateField,
   renewalDueAt: nullableCalendarDateField,
+  latitude: z.number().min(-90).max(90).nullable().optional(),
+  longitude: z.number().min(-180).max(180).nullable().optional(),
+  geofenceRadiusMeters: z.number().int().min(50).max(100_000).nullable().optional(),
 });
 
 export const getStoresQuerySchema = paginationQuerySchema.extend({

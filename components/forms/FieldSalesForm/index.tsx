@@ -13,6 +13,12 @@ import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { ProgressIndicator } from "@/components/forms/VisitForm/FormSection";
 import { VisitFormSuccess } from "@/components/forms/VisitForm/VisitFormSuccess";
+import { LocationVerificationPanel } from "@/components/field-force/LocationVerificationPanel";
+import {
+  isLocationCaptureSubmittable,
+  useGeolocationCapture,
+} from "@/hooks/useGeolocationCapture";
+import { FIELD_SALE_LOCATION_SETTINGS } from "@/lib/field-force/field-sale-location";
 import { FieldSalesFormSections } from "./FieldSalesFormSections";
 import {
   buildClientFieldSaleFormValues,
@@ -33,6 +39,14 @@ export function FieldSalesForm({ copy, common, errors, successPaths }: FieldSale
   const [lastSubmittedFollowUp, setLastSubmittedFollowUp] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const locationCapture = useGeolocationCapture({
+    maxAccuracyMeters: FIELD_SALE_LOCATION_SETTINGS.maxAccuracyMeters,
+  });
+
+  useEffect(() => {
+    void locationCapture.captureLocation();
+  }, [locationCapture.captureLocation]);
+
   const form = useForm<FieldSalesFormValues>({
     resolver: zodResolver(createFieldSaleSchema),
     defaultValues: getDefaultFieldSaleValues(),
@@ -52,6 +66,11 @@ export function FieldSalesForm({ copy, common, errors, successPaths }: FieldSale
 
   const activeSection = sections[stepIndex]?.id;
   const isLastStep = stepIndex >= sections.length - 1;
+  const canSubmitWithLocation = isLocationCaptureSubmittable(
+    locationCapture,
+    FIELD_SALE_LOCATION_SETTINGS.requireGpsForFieldSales,
+    FIELD_SALE_LOCATION_SETTINGS.allowSubmitWithoutGps,
+  );
 
   useEffect(() => {
     if (stepIndex >= sections.length) {
@@ -69,7 +88,8 @@ export function FieldSalesForm({ copy, common, errors, successPaths }: FieldSale
     setSubmitError(null);
     setIsSuccess(false);
     setLastSubmittedFollowUp(false);
-  }, [reset]);
+    void locationCapture.captureLocation();
+  }, [locationCapture.captureLocation, reset]);
 
   async function validateCurrentStep(): Promise<boolean> {
     if (!activeSection) return true;
@@ -92,9 +112,24 @@ export function FieldSalesForm({ copy, common, errors, successPaths }: FieldSale
   async function onSubmit(_values: FieldSalesFormValues) {
     setSubmitError(null);
     const values = getValues();
+    const freshLocation = await locationCapture.captureLocation();
+
+    if (
+      !isLocationCaptureSubmittable(
+        freshLocation,
+        FIELD_SALE_LOCATION_SETTINGS.requireGpsForFieldSales,
+        FIELD_SALE_LOCATION_SETTINGS.allowSubmitWithoutGps,
+      )
+    ) {
+      setSubmitError(copy.location.submitBlocked);
+      return;
+    }
 
     try {
-      await createFieldSaleMutation.mutateAsync(buildFollowUpSubmitPayload(values));
+      await createFieldSaleMutation.mutateAsync({
+        ...buildFollowUpSubmitPayload(values),
+        locationCapture: freshLocation.capture ?? undefined,
+      });
       clearFieldSaleDraft();
       setLastSubmittedFollowUp(Boolean(values.followUpNeeded));
       toast({ title: copy.actions.successTitle, description: copy.actions.successMessage });
@@ -171,6 +206,15 @@ export function FieldSalesForm({ copy, common, errors, successPaths }: FieldSale
           total={sections.length}
         />
 
+        <LocationVerificationPanel
+          copy={copy.location}
+          result={locationCapture}
+          onRetry={() => {
+            void locationCapture.captureLocation();
+          }}
+          isDetecting={locationCapture.state === "detecting"}
+        />
+
         <div className="lg:hidden">
           <FieldSalesFormSections
             copy={copy}
@@ -209,7 +253,7 @@ export function FieldSalesForm({ copy, common, errors, successPaths }: FieldSale
               <Button
                 type="button"
                 className="flex-1"
-                disabled={createFieldSaleMutation.isPending}
+                disabled={createFieldSaleMutation.isPending || (isLastStep && !canSubmitWithLocation)}
                 onClick={() => void handleMobilePrimaryAction()}
               >
                 {createFieldSaleMutation.isPending
@@ -224,7 +268,7 @@ export function FieldSalesForm({ copy, common, errors, successPaths }: FieldSale
               type="button"
               onClick={() => void handleSubmit(onSubmit)()}
               className="hidden w-full lg:inline-flex lg:w-auto lg:min-w-[200px]"
-              disabled={createFieldSaleMutation.isPending}
+              disabled={createFieldSaleMutation.isPending || !canSubmitWithLocation}
             >
               {createFieldSaleMutation.isPending
                 ? copy.actions.saving

@@ -10,46 +10,85 @@ import { checkWriteRateLimit, getRequestIdentifier } from "@/lib/rate-limit";
 import { resolveStorePortalStoreId } from "@/lib/auth/resolve-manager-store-id";
 import { resolvePersonalStaffId, isUnlinkedManagerPersonalScope } from "@/lib/auth/resolve-personal-scope";
 import { createVisit, listVisits } from "@/lib/services/visits";
-import { withAuthQuery, withAuthValidation } from "@/lib/api/route-handler";
+import { withAuthQuery, handleRouteError } from "@/lib/api/route-handler";
 import { isPortalDataReadBlockedForSession, isPortalDataWriteBlockedForSession, billingRestrictedMutationResponse } from "@/lib/auth/billing-access-guard";
 import { createPerfTimer, logPerf } from "@/lib/perf/timing";
+import { getPlatformSettings } from "@/lib/services/platform-settings";
+import { getStoreGeofence } from "@/lib/field-force/get-store-geofence";
+import { resolveLocationEvidenceForSubmit } from "@/lib/field-force/resolve-location-evidence";
+import { getServerSession, requireRole, badRequest } from "@/lib/auth/session";
 import {
   createVisitSchema,
   getVisitsQuerySchema,
 } from "@/lib/validations/visit.schema";
 
-export const POST = await withAuthValidation(
-  PORTAL_ACTOR_ROLES,
-  createVisitSchema,
-  async (session, data) => {
+export async function POST(req: Request) {
+  try {
+    const session = await getServerSession();
+    if (!requireRole(session, PORTAL_ACTOR_ROLES)) return unauthorized();
+
     const staff = await requirePortalActorContext(session);
     if (!staff) return unauthorized();
+
+    const body: unknown = await req.json();
+    const parsed = createVisitSchema.safeParse(body);
+    if (!parsed.success) return badRequest(parsed.error.flatten());
 
     const identifier = await getRequestIdentifier();
     const writeLimit = await checkWriteRateLimit(identifier);
     if (!writeLimit.success) {
-      return NextResponse.json(
-        { message: "Too many requests" },
-        { status: 429 },
-      );
+      return NextResponse.json({ message: "Too many requests" }, { status: 429 });
     }
 
     if (await isPortalDataWriteBlockedForSession(session, staff.storeId)) {
       return billingRestrictedMutationResponse();
     }
 
-    const visit = await createVisit({
-      ...data,
+    const platformSettings = await getPlatformSettings({ fresh: true });
+    const store = await getStoreGeofence(staff.storeId);
+    if (!store) {
+      return NextResponse.json({ message: "Store not found" }, { status: 404 });
+    }
+
+    const locationResult = await resolveLocationEvidenceForSubmit({
+      recordType: "VISIT",
+      locationCapture: parsed.data.locationCapture,
+      locationExceptionId: parsed.data.locationExceptionId,
+      settings: platformSettings.fieldForce,
+      store,
       storeId: staff.storeId,
       staffId: staff.staffId,
+      req,
+    });
+    if (!locationResult.ok) {
+      return NextResponse.json(
+        { message: locationResult.message, code: locationResult.code },
+        { status: locationResult.status ?? 422 },
+      );
+    }
+
+    const {
+      locationCapture: _locationCapture,
+      locationExceptionId: _locationExceptionId,
+      ...visitInput
+    } = parsed.data;
+
+    const visit = await createVisit({
+      ...visitInput,
+      storeId: staff.storeId,
+      staffId: staff.staffId,
+      locationEvidence: locationResult.evidence,
+      locationExceptionId: locationResult.locationExceptionId,
     });
 
     revalidateTag(`store:${staff.storeId}`, { expire: 0 });
     revalidateTag("analytics", { expire: 0 });
 
     return NextResponse.json(visit, { status: 201 });
-  },
-);
+  } catch (error) {
+    return handleRouteError(error);
+  }
+}
 
 export const GET = withAuthQuery(
   ["STAFF", "STORE_MANAGER", "BUSINESS_OWNER", "MASTER_ADMIN"] as const,

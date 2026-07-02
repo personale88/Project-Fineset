@@ -56,6 +56,20 @@ interface StoreEditDialogProps {
   onUpdated?: () => void;
 }
 
+function parseOptionalNumber(value: string | undefined): number | null {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseOptionalInt(value: string | undefined): number | null {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return null;
+  const parsed = Number.parseInt(trimmed, 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function mapEditToUpdate(values: EditStoreInput, isActive: boolean): UpdateStoreInput {
   return {
     name: values.name,
@@ -68,6 +82,9 @@ function mapEditToUpdate(values: EditStoreInput, isActive: boolean): UpdateStore
     businessOwnerEmail: values.businessOwnerEmail ?? null,
     dataExpiryAt: (values.dataExpiryAt?.trim() ? values.dataExpiryAt : null) as UpdateStoreInput["dataExpiryAt"],
     renewalDueAt: (values.renewalDueAt?.trim() ? values.renewalDueAt : null) as UpdateStoreInput["renewalDueAt"],
+    latitude: parseOptionalNumber(values.latitude),
+    longitude: parseOptionalNumber(values.longitude),
+    geofenceRadiusMeters: parseOptionalInt(values.geofenceRadiusMeters),
     isActive,
   };
 }
@@ -102,6 +119,9 @@ export function StoreEditDialog({
       businessOwnerEmail: "",
       dataExpiryAt: "",
       renewalDueAt: "",
+      latitude: "",
+      longitude: "",
+      geofenceRadiusMeters: "",
     },
   });
 
@@ -134,6 +154,10 @@ export function StoreEditDialog({
       businessOwnerEmail: store.businessOwnerEmail ?? "",
       dataExpiryAt: toDateInputValue(store.dataExpiryAt),
       renewalDueAt: toDateInputValue(store.renewalDueAt),
+      latitude: store.latitude != null ? String(store.latitude) : "",
+      longitude: store.longitude != null ? String(store.longitude) : "",
+      geofenceRadiusMeters:
+        store.geofenceRadiusMeters != null ? String(store.geofenceRadiusMeters) : "",
     });
   }, [formSyncKey, store, open, form]);
 
@@ -302,6 +326,55 @@ export function StoreEditDialog({
                   </FormItem>
                 )}
               />
+
+              <div className="space-y-3 rounded-input border border-border p-3">
+                <div>
+                  <p className="text-sm font-medium text-text-primary">{copy.geofenceSectionTitle}</p>
+                  <p className="text-xs text-text-muted">{copy.geofenceSectionHint}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="latitude"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{copy.latitudeLabel}</FormLabel>
+                        <FormControl>
+                          <Input {...field} inputMode="decimal" placeholder="12.971600" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="longitude"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{copy.longitudeLabel}</FormLabel>
+                        <FormControl>
+                          <Input {...field} inputMode="decimal" placeholder="77.594600" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="geofenceRadiusMeters"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{copy.geofenceRadiusLabel}</FormLabel>
+                      <FormControl>
+                        <Input {...field} inputMode="numeric" placeholder="500" />
+                      </FormControl>
+                      <FormDescription>{copy.geofenceRadiusHint}</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <FormField
                 control={form.control}

@@ -104,6 +104,40 @@ test.describe("Staff field sales log (mobile)", () => {
     });
   });
 
+  test("field sales page shows location verification panel with mocked geolocation", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      const position = {
+        coords: {
+          latitude: 12.9716,
+          longitude: 77.5946,
+          accuracy: 12,
+        },
+        timestamp: Date.now(),
+      };
+      Object.defineProperty(navigator, "geolocation", {
+        configurable: true,
+        value: {
+          getCurrentPosition: (
+            success: PositionCallback,
+            _error?: PositionErrorCallback,
+          ) => {
+            success(position as GeolocationPosition);
+          },
+        },
+      });
+    });
+
+    await page.goto("/staff/dashboard/field-sales");
+    await expect(page.getByText(/location verification/i)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/location detected successfully/i)).toBeVisible({
+      timeout: 15_000,
+    });
+  });
+
   test("field sales wizard advances through activity step with draft", async ({ page }) => {
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));
